@@ -1,0 +1,83 @@
+# InputContainerToggleButton
+
+## Описание
+Правило для реализации функциональности toggle button в компонентах с классом `InputContainerToggleButton`.
+
+## Требования
+
+### 1. Состояние для toggle кнопок
+Добавить в useState состояние для отслеживания toggle кнопок:
+```javascript
+const [toggleStates, setToggleStates] = useState({
+  toggleName1: false,
+  toggleName2: false
+});
+```
+
+### 2. Обработчик кликов
+Создать универсальный обработчик для переключения состояния:
+```javascript
+const handleToggleClick = (toggleName) => {
+  setToggleStates(prev => ({
+    ...prev,
+    [toggleName]: !prev[toggleName]
+  }));
+};
+```
+
+### 3. Структура JSX для toggle button
+```jsx
+<div 
+  data-layer="InputContainerToggleButton" 
+  data-state={toggleStates.toggleName ? "pressed" : "not_pressed"} 
+  className="Inputcontainertogglebutton" 
+  style={{
+    width: 393, 
+    height: 85, 
+    paddingLeft: 20, 
+    background: 'white', 
+    borderBottom: '1px #F8E8E8 solid', 
+    justifyContent: 'flex-start', 
+    alignItems: 'center', 
+    display: 'inline-flex', 
+    cursor: 'pointer'
+  }} 
+  onClick={() => handleToggleClick('toggleName')}
+>
+  <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', height: 19, paddingTop: 20, paddingBottom: 20, paddingRight: 16, justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+    <div data-layer="LabelDiv" className="Labeldiv" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
+      Заголовок
+    </div>
+  </div>
+  <div data-layer="Switch container" className="SwitchContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+    <div data-svg-wrapper data-layer="tui-switches" className="TuiSwitches" style={{left: 26, top: 35, position: 'absolute'}}>
+      <svg width="32" height="16" viewBox="0 0 32 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="32" height="16" rx="8" fill={toggleStates.toggleName ? "black" : "#E0E0E0"}/>
+        <circle cx={toggleStates.toggleName ? "24" : "8"} cy="8" r="6" fill="white"/>
+      </svg>
+    </div>
+  </div>
+</div>
+```
+
+## Состояния toggle button
+
+### Выключенное состояние (not_pressed)
+- `data-state="not_pressed"`
+- Фон прямоугольника: `#E0E0E0` (серый)
+- Позиция круга: `cx="8"` (слева)
+
+### Включенное состояние (pressed)
+- `data-state="pressed"`
+- Фон прямоугольника: `black` (черный)
+- Позиция круга: `cx="24"` (справа)
+
+## Обязательные атрибуты
+- `cursor: 'pointer'` - для кликабельности
+- `onClick={() => handleToggleClick('toggleName')}` - обработчик клика
+- Динамические значения для `data-state`, `fill` и `cx` в зависимости от состояния
+
+## Примеры использования
+- Переключатель "Для своего ребенка"
+- Переключатель "Применить адрес родителя"
+- Любые другие toggle кнопки в формах

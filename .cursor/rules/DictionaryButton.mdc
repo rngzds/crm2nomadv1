@@ -1,0 +1,122 @@
+# DictionaryButton Rule
+
+## Описание
+Правило для создания кнопок справочников с двумя состояниями: неактивное (только заголовок) и активное (заголовок + выбранное значение).
+
+## Структура состояний
+
+### Состояние "not_pressed" (значение не выбрано)
+```jsx
+<div data-layer="InputContainerDictionaryButton" data-state="not_pressed" className="Inputcontainerdictionarybutton" style={{width: 393, height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
+  <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, paddingRight: 16, justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+    <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Заголовок</div>
+  </div>
+  <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={onClickHandler}>
+    <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7 4L15 11.5L7 19" stroke="black" stroke-width="2"/>
+      </svg>
+    </div>
+  </div>
+</div>
+```
+
+### Состояние "pressed" (значение выбрано)
+```jsx
+<div data-layer="InputContainerDictionaryButton" data-state="pressed" className="Inputcontainerdictionarybutton" style={{width: 393, height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
+  <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+    <div data-layer="Label" className="Label" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Заголовок</div>
+    <div data-layer="Input text" className="InputText" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Текст</div>
+  </div>
+  <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={onClickHandler}>
+    <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7 4L15 11.5L7 19" stroke="black" stroke-width="2"/>
+      </svg>
+    </div>
+  </div>
+</div>
+```
+
+## Функция рендеринга
+
+```jsx
+// Функция для рендеринга кнопок справочника
+const renderDictionaryButton = (fieldName, label, onClickHandler, hasValue) => {
+  if (hasValue) {
+    return (
+      <div data-layer="InputContainerDictionaryButton" data-state="pressed" className="Inputcontainerdictionarybutton" style={{width: 393, height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
+        <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+          <div data-layer="Label" className="Label" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
+          <div data-layer="Input text" className="InputText" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{dictionaryValues[fieldName]}</div>
+        </div>
+        <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={onClickHandler}>
+          <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 4L15 11.5L7 19" stroke="black" stroke-width="2"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    );
+  } else {
+    return (
+      <div data-layer="InputContainerDictionaryButton" data-state="not_pressed" className="Inputcontainerdictionarybutton" style={{width: 393, height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
+        <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, paddingRight: 16, justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+          <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
+        </div>
+        <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={onClickHandler}>
+          <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 4L15 11.5L7 19" stroke="black" stroke-width="2"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    );
+  }
+};
+```
+
+## Использование
+
+```jsx
+// Состояние для выбранных значений из справочников
+const [dictionaryValues, setDictionaryValues] = useState({
+  gender: '',
+  issuedBy: '',
+  citizenship: '',
+  country: '',
+  city: ''
+});
+
+// Обработчик для сохранения выбранных значений
+const handleDictionaryValueSelect = (fieldName, value) => {
+  setDictionaryValues(prev => ({
+    ...prev,
+    [fieldName]: value
+  }));
+  setCurrentView('main');
+};
+
+// Рендеринг кнопок
+{renderDictionaryButton('gender', 'Пол', handleOpenGender, !!dictionaryValues.gender)}
+{renderDictionaryButton('issuedBy', 'Кем выдано', handleOpenIssuedBy, !!dictionaryValues.issuedBy)}
+{renderDictionaryButton('citizenship', 'Гражданство', handleOpenCitizenship, !!dictionaryValues.citizenship)}
+{renderDictionaryButton('country', 'Страна', handleOpenCountry, !!dictionaryValues.country)}
+{renderDictionaryButton('city', 'Город', handleOpenCity, !!dictionaryValues.city)}
+```
+
+## Ключевые особенности
+
+1. **Два состояния**: `not_pressed` и `pressed`
+2. **Условный рендеринг**: основан на наличии значения (`hasValue`)
+3. **Стилизация**: разные цвета для заголовка и текста в разных состояниях
+4. **Интерактивность**: кнопка всегда кликабельна для изменения значения
+5. **Структура**: TextFieldContainer для pressed, TextContainer для not_pressed
+
+## Цвета
+
+- **not_pressed заголовок**: `color: 'black'`, `fontSize: 16`
+- **pressed заголовок**: `color: '#6B6D80'`, `fontSize: 14`
+- **pressed текст**: `color: '#071222'`, `fontSize: 16`

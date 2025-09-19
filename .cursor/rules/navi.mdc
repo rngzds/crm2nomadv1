@@ -1,0 +1,90 @@
+# Navigation Pattern: Dictionary Navigation
+
+## Description
+A React navigation pattern for managing transitions between main screens and dictionary/reference screens using conditional rendering and local state management.
+
+## Pattern Structure
+
+### 1. State Management
+```javascript
+const [currentView, setCurrentView] = useState('main');
+```
+- Use local state to track current screen
+- Default to 'main' for the primary screen
+
+### 2. Navigation Handlers
+```javascript
+// Individual handlers for each dictionary screen
+const handleOpenDictionary = () => setCurrentView('dictionaryName');
+const handleBackToMain = () => setCurrentView('main');
+```
+
+### 3. Conditional Rendering
+```javascript
+if (currentView === 'dictionaryName') {
+  return <DictionaryComponent onBack={handleBackToMain} />;
+}
+// ... repeat for each dictionary
+```
+
+### 4. UI Integration
+```javascript
+// Bind handlers to UI elements
+<div onClick={handleOpenDictionary}>
+  {/* Dictionary trigger button */}
+</div>
+```
+
+## Implementation Rules
+
+### DO:
+- ✅ Use descriptive handler names: `handleOpen[DictionaryName]`
+- ✅ Pass `onBack` prop to all dictionary components
+- ✅ Use consistent naming convention for view states
+- ✅ Keep navigation logic centralized in parent component
+- ✅ Use simple string-based state for view management
+
+### DON'T:
+- ❌ Mix navigation logic across multiple components
+- ❌ Use complex state objects when simple strings suffice
+- ❌ Forget to pass `onBack` prop to child components
+- ❌ Use different naming patterns for similar handlers
+
+## Use Cases
+- Simple applications with limited screen count
+- Dictionary/reference screen navigation
+- Modal-like screen transitions
+- Forms with multiple selection screens
+
+## When to Avoid
+- Complex nested navigation
+- Deep navigation hierarchies
+- Applications requiring browser history management
+- Multi-step wizards with complex state
+
+## Example Implementation
+```javascript
+const ParentComponent = ({ onBack }) => {
+  const [currentView, setCurrentView] = useState('main');
+
+  const handleBackToMain = () => setCurrentView('main');
+  const handleOpenDictionary = () => setCurrentView('dictionary');
+
+  if (currentView === 'dictionary') {
+    return <DictionaryComponent onBack={handleBackToMain} />;
+  }
+
+  return (
+    <div>
+      <button onClick={handleOpenDictionary}>
+        Open Dictionary
+      </button>
+    </div>
+  );
+};
+```
+
+## Related Patterns
+- Modal Pattern
+- State Lifting Pattern
+- Conditional Rendering Pattern

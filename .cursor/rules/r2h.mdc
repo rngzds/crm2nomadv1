@@ -1,0 +1,52 @@
+# React Component Structure Rule
+
+When creating or converting files to React components, follow this structure:
+
+## Required Elements
+
+1. **Import React**
+   ```javascript
+   import React from 'react';
+   ```
+
+2. **Create Component Function**
+   ```javascript
+   const ComponentName = () => {
+   ```
+
+3. **Add Return with JSX**
+   ```javascript
+   return (
+     // JSX content here
+   );
+   ```
+
+4. **Add Export Default**
+   ```javascript
+   export default ComponentName;
+   ```
+
+## Complete Template
+
+```javascript
+import React from 'react';
+
+const ComponentName = () => {
+  return (
+    <div>
+      {/* Component content */}
+    </div>
+  );
+};
+
+export default ComponentName;
+```
+
+## Usage
+
+Apply this rule when:
+- Converting HTML/JSX snippets to React components
+- Creating new React components
+- Fixing incomplete component structures
+
+This ensures all React components follow the standard structure and can be properly imported and used throughout the application.

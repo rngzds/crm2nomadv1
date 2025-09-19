@@ -1,0 +1,122 @@
+# InputVue Rule
+
+## Описание
+Правило для создания интерактивных полей ввода с анимацией названия поля.
+
+## Применение
+Используется для элементов с `data-layer="InputContainerWithoutButton"`
+
+## Функциональность
+
+### Состояния поля:
+1. **Обычное состояние** - отображается только название поля
+2. **Активное состояние** - название поднимается вверх, появляется поле ввода
+
+### Требования к реализации:
+
+#### 1. Состояние компонента
+```javascript
+// Состояние для полей ввода
+const [fieldValues, setFieldValues] = useState({
+  fieldName: '',
+  // ... другие поля
+});
+
+// Состояние для отслеживания активного поля
+const [activeField, setActiveField] = useState(null);
+```
+
+#### 2. Обработчики событий
+```javascript
+// Активация поля при клике
+const handleFieldClick = (fieldName) => {
+  setActiveField(fieldName);
+};
+
+// Обновление значения поля
+const handleFieldChange = (fieldName, value) => {
+  setFieldValues(prev => ({
+    ...prev,
+    [fieldName]: value
+  }));
+};
+
+// Возврат к обычному состоянию при потере фокуса
+const handleFieldBlur = (fieldName) => {
+  if (!fieldValues[fieldName]) {
+    setActiveField(null);
+  }
+};
+```
+
+#### 3. Функция рендеринга поля
+```javascript
+const renderInputField = (fieldName, label, isActive, hasValue) => {
+  if (isActive || hasValue) {
+    // Активное состояние - с полем ввода
+    return (
+      <div data-layer="InputContainerWithoutButton" data-state="pressed" className="Inputcontainerwithoutbutton" style={{...}}>
+        <div data-layer="Text field container" className="TextFieldContainer" style={{...}}>
+          <div data-layer="LabelDefault" className="Labeldefault" style={{...}}>{label}</div>
+          <div data-layer="%Input text" className="InputText" style={{...}}>
+            <input
+              type="text"
+              value={fieldValues[fieldName]}
+              onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+              onBlur={() => handleFieldBlur(fieldName)}
+              autoFocus={isActive}
+              style={{
+                width: '100%',
+                border: 'none',
+                outline: 'none',
+                background: 'transparent',
+                fontSize: 16,
+                fontFamily: 'Inter',
+                fontWeight: '500',
+                color: 'black',
+                paddingLeft: 0,
+                marginLeft: 0
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  } else {
+    // Обычное состояние - только название
+    return (
+      <div data-layer="InputContainerWithoutButton" data-state="not_pressed" className="Inputcontainerwithoutbutton" style={{...}} onClick={() => handleFieldClick(fieldName)}>
+        <div data-layer="Text container" className="TextContainer" style={{...}}>
+          <div data-layer="Label" className="Label" style={{...}}>{label}</div>
+        </div>
+      </div>
+    );
+  }
+};
+```
+
+#### 4. Использование
+```javascript
+// Замена статичного поля на динамическое
+{renderInputField('fieldName', 'Название поля', activeField === 'fieldName', !!fieldValues.fieldName)}
+```
+
+## Стили
+
+### Обычное состояние:
+- `data-state="not_pressed"`
+- `cursor: 'pointer'` для кликабельности
+- Только название поля
+
+### Активное состояние:
+- `data-state="pressed"`
+- Название поднимается вверх с серым цветом `#6B6D80`
+- Размер шрифта названия: `14px`
+- Поле ввода с прозрачным фоном
+- Введенное значение имеет такой же отступ слева как название поля
+
+## Логика переключения
+- При клике на поле → активируется режим ввода
+- При потере фокуса и пустом значении → возврат к обычному состоянию
+- При наличии значения → поле остается в активном состоянии
+- Значения сохраняются в состоянии компонента
