@@ -1,0 +1,97 @@
+# SendValueDictionary
+
+## Описание
+Правило для корректной передачи значений из компонентов справочников (dictionary) в родительские компоненты.
+
+## Принципы
+
+### 1. Согласованность пропов
+- Все компоненты справочников должны использовать проп `onSelect` для передачи выбранного значения
+- НЕ используйте `onSave` или другие названия пропов
+
+### 2. Передача читаемых значений
+- Компоненты справочников должны передавать читаемые значения, а не внутренние ключи
+- Создавайте маппинг между внутренними значениями и отображаемыми именами
+
+### 3. Структура компонента справочника
+```javascript
+const DictionaryComponent = ({ onBack, onSelect }) => {
+  const [selectedValue, setSelectedValue] = useState(null);
+  
+  // Маппинг значений на читаемые имена
+  const getDisplayName = (value) => {
+    const nameMap = {
+      'internal_key': 'Отображаемое имя',
+      // ... другие значения
+    };
+    return nameMap[value] || value;
+  };
+
+  // В обработчике кнопки сохранения
+  onClick={() => onSelect && onSelect(getDisplayName(selectedValue))}
+};
+```
+
+### 4. Структура родительского компонента
+```javascript
+// Состояние для выбранных значений из справочников
+const [dictionaryValues, setDictionaryValues] = useState({
+  fieldName: '',
+  // ... другие поля
+});
+
+// Обработчик для сохранения выбранных значений
+const handleDictionaryValueSelect = (fieldName, value) => {
+  setDictionaryValues(prev => ({
+    ...prev,
+    [fieldName]: value
+  }));
+  setCurrentView('main');
+};
+
+// Вызов компонента справочника
+<DictionaryComponent 
+  onBack={handleBackToMain} 
+  onSelect={(value) => handleDictionaryValueSelect('fieldName', value)} 
+/>
+```
+
+### 5. Отображение выбранного значения
+```javascript
+// В функции рендеринга кнопки справочника
+const renderDictionaryButton = (fieldName, label, onClickHandler, hasValue) => {
+  if (hasValue) {
+    return (
+      <div className="InputContainerDictionaryButton">
+        <div className="TextFieldContainer">
+          <div className="Label">{label}</div>
+          <div className="InputText">{dictionaryValues[fieldName]}</div>
+        </div>
+        {/* ... остальная разметка */}
+      </div>
+    );
+  }
+  // ... состояние без значения
+};
+```
+
+## Примеры применения
+
+### SelectChild компонент
+- Передает полное имя ребенка: "Бекетова Кульсара Дастанкызы"
+- Использует маппинг: `'kul_sara' => 'Бекетова Кульсара Дастанкызы'`
+
+### Gender компонент
+- Передает читаемое название пола: "Мужской" / "Женский"
+- Использует маппинг: `'male' => 'Мужской'`
+
+### Country компонент
+- Передает название страны: "Казахстан"
+- Использует маппинг: `'KZ' => 'Казахстан'`
+
+## Проверочный список
+- [ ] Компонент справочника использует проп `onSelect`
+- [ ] Создан маппинг внутренних значений на читаемые имена
+- [ ] Обработчик кнопки передает читаемое значение через `onSelect`
+- [ ] Родительский компонент сохраняет значение в `dictionaryValues`
+- [ ] Выбранное значение корректно отображается в `InputContainerDictionaryButton`

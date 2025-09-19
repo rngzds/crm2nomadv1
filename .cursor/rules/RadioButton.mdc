@@ -1,0 +1,115 @@
+# RadioButton Component Rule
+
+When creating or modifying radio button components, follow this structure and behavior:
+
+## Required Elements
+
+1. **State Management**
+   ```javascript
+   import React, { useState } from 'react';
+   
+   const [selectedValue, setSelectedValue] = useState(null);
+   ```
+
+2. **Component Props**
+   ```javascript
+   const RadioButtonComponent = ({ onBack, onSave }) => {
+   ```
+
+3. **Click Handlers**
+   ```javascript
+   onClick={() => setSelectedValue('option1')}
+   onClick={() => setSelectedValue('option2')}
+   ```
+
+4. **Visual State Rendering**
+   ```javascript
+   {selectedValue === 'option1' ? (
+     // Selected state (filled circle)
+     <svg>
+       <circle cx="7" cy="7" r="6.5" stroke="black" fill="black"/>
+     </svg>
+   ) : (
+     // Unselected state (empty circle)
+     <svg>
+       <circle cx="7" cy="7" r="6.5" stroke="black"/>
+     </svg>
+   )}
+   ```
+
+5. **Save Handler**
+   ```javascript
+   onClick={() => onSave && onSave(selectedValue)}
+   ```
+
+## Complete Template
+
+```javascript
+import React, { useState } from 'react';
+
+const RadioButtonComponent = ({ onBack, onSave }) => {
+  const [selectedValue, setSelectedValue] = useState(null);
+
+  return (
+    <div>
+      {/* Radio Option 1 */}
+      <div onClick={() => setSelectedValue('option1')} style={{cursor: 'pointer'}}>
+        <div>Option 1</div>
+        <div>
+          {selectedValue === 'option1' ? (
+            <svg width="14" height="14" viewBox="0 0 14 14">
+              <circle cx="7" cy="7" r="6.5" stroke="black" fill="black"/>
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 14 14">
+              <circle cx="7" cy="7" r="6.5" stroke="black"/>
+            </svg>
+          )}
+        </div>
+      </div>
+
+      {/* Radio Option 2 */}
+      <div onClick={() => setSelectedValue('option2')} style={{cursor: 'pointer'}}>
+        <div>Option 2</div>
+        <div>
+          {selectedValue === 'option2' ? (
+            <svg width="14" height="14" viewBox="0 0 14 14">
+              <circle cx="7" cy="7" r="6.5" stroke="black" fill="black"/>
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 14 14">
+              <circle cx="7" cy="7" r="6.5" stroke="black"/>
+            </svg>
+          )}
+        </div>
+      </div>
+
+      {/* Save Button */}
+      <div onClick={() => onSave && onSave(selectedValue)} style={{cursor: 'pointer'}}>
+        Сохранить
+      </div>
+    </div>
+  );
+};
+
+export default RadioButtonComponent;
+```
+
+## Key Requirements
+
+1. **State Management**: Always use `useState` to track selected value
+2. **Click Handlers**: Each radio option must have `onClick` handler
+3. **Visual Feedback**: Show selected state with filled circle, unselected with empty circle
+4. **Save Functionality**: Pass selected value to parent component via `onSave` callback
+5. **Cursor Pointer**: Add `cursor: 'pointer'` to clickable elements
+6. **No Color Changes**: Keep button colors unchanged unless specifically requested
+
+## Usage
+
+Apply this rule when:
+- Creating radio button components
+- Adding selection functionality to existing components
+- Implementing save/confirm actions with radio selections
+- Converting static radio buttons to interactive ones
+
+This ensures consistent radio button behavior across the application with proper state management and user interaction.
