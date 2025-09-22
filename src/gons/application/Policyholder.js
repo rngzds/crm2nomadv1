@@ -16,6 +16,8 @@ const Policyholder = ({ onBack }) => {
     lastName: '',
     firstName: '',
     middleName: '',
+    birthDate: '',
+    issueDate: '',
     documentNumber: '',
     street: '',
     house: '',
@@ -222,53 +224,14 @@ const Policyholder = ({ onBack }) => {
         <div data-layer="Label" className="Label" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Нажмите на обновить, чтобы получить персональные данные клиента</div>
       </div>
       {renderInputField('iin', 'ИИН', activeField === 'iin', !!fieldValues.iin)}
-      <div data-layer="InputContainerGBDButton" data-state="not_pressed" className="Inputcontainergbdbutton" style={{width: 393, height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
-        <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, paddingRight: 16, justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-          <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Номер телефона</div>
-        </div>
-        <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          <div data-layer="Bank" className="Bank" style={{width: 22, height: 22, left: 31, top: 32, position: 'absolute'}}>
-            <div data-svg-wrapper data-layer="icon" className="Icon" style={{left: 1.50, top: 1.50, position: 'absolute'}}>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5.70333 3.03249L1.45459 5.68199L1.5262 6.66063L1.59781 7.66315H10.0714H18.545L18.6166 6.66063L18.6883 5.68199L14.6066 3.15184C12.3629 1.74355 10.4056 0.550082 10.2385 0.502343C10.0953 0.430735 8.04253 1.57646 5.70333 3.03249ZM11.1217 3.60536C12.2674 4.77496 11.2649 6.63677 9.68951 6.25486C7.92318 5.80134 8.25735 3.24732 10.0714 3.24732C10.4533 3.24732 10.9069 3.4144 11.1217 3.60536Z" fill="black"/>
-              <path d="M3.14941 11.3621V14.2264H4.58157H6.01374V11.3621V8.4978H4.58157H3.14941V11.3621Z" fill="black"/>
-              <path d="M8.63916 11.3621V14.2264H10.0713H11.5035V11.3621V8.4978H10.0713H8.63916V11.3621Z" fill="black"/>
-              <path d="M14.1294 11.3621V14.2264H15.5616H16.9937V11.3621V8.4978H15.5616H14.1294V11.3621Z" fill="black"/>
-              <path d="M1.88442 15.3489C1.78894 15.4205 1.71734 15.8024 1.71734 16.1604C1.71734 16.6617 1.59799 16.8288 1.19221 16.9004C0.714824 16.972 0.643216 17.1391 0.571608 18.2371L0.5 19.4783L10 19.4305L19.5 19.3589V18.1655C19.5 17.1152 19.4284 16.972 18.9749 16.9004C18.593 16.8526 18.4259 16.6378 18.3781 16.065L18.3065 15.3011L10.1671 15.2295C5.70352 15.2057 1.9799 15.2534 1.88442 15.3489Z" fill="black"/>
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
+      {renderInputField('phone', 'Номер телефона', activeField === 'phone', !!fieldValues.phone)}
       {renderInputField('smsCode', 'Смс код', activeField === 'smsCode', !!fieldValues.smsCode)}
       {renderInputField('lastName', 'Фамилия', activeField === 'lastName', !!fieldValues.lastName)}
       {renderInputField('firstName', 'Имя', activeField === 'firstName', !!fieldValues.firstName)}
       {renderInputField('middleName', 'Отчество', activeField === 'middleName', !!fieldValues.middleName)}
       {renderDictionaryButton('gender', 'Пол', handleOpenGender, !!dictionaryValues.gender)}
-      <div data-layer="InputContainerCalendarButton" data-state="not_pressed" className="Inputcontainercalendarbutton" style={{width: 393, height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
-        <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, paddingRight: 16, justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-          <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Дата рождения</div>
-        </div>
-        <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          <div data-svg-wrapper data-layer="Calendar" className="Calendar" style={{left: 31, top: 32, position: 'absolute'}}>
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M7.3335 0.916687C7.83976 0.916687 8.25016 1.32709 8.25016 1.83335V2.75002H13.7502V1.83335C13.7502 1.32709 14.1606 0.916687 14.6668 0.916687C15.1731 0.916687 15.5835 1.32709 15.5835 1.83335V2.75002H17.4168C18.1462 2.75002 18.8456 3.03975 19.3614 3.55548C19.8771 4.0712 20.1668 4.77067 20.1668 5.50002V18.3334C20.1668 19.0627 19.8771 19.7622 19.3614 20.2779C18.8456 20.7936 18.1462 21.0834 17.4168 21.0834H4.5835C3.85415 21.0834 3.15468 20.7936 2.63895 20.2779C2.12323 19.7622 1.8335 19.0627 1.8335 18.3334V5.50002C1.8335 4.77067 2.12323 4.0712 2.63895 3.55548C3.15468 3.03975 3.85415 2.75002 4.5835 2.75002H6.41683V1.83335C6.41683 1.32709 6.82724 0.916687 7.3335 0.916687ZM6.41683 4.58335H4.5835C4.34038 4.58335 4.10722 4.67993 3.93531 4.85184C3.76341 5.02375 3.66683 5.2569 3.66683 5.50002V8.25002H18.3335V5.50002C18.3335 5.25691 18.2369 5.02375 18.065 4.85184C17.8931 4.67993 17.6599 4.58335 17.4168 4.58335H15.5835V5.50002C15.5835 6.00628 15.1731 6.41669 14.6668 6.41669C14.1606 6.41669 13.7502 6.00628 13.7502 5.50002V4.58335H8.25016V5.50002C8.25016 6.00628 7.83976 6.41669 7.3335 6.41669C6.82724 6.41669 6.41683 6.00628 6.41683 5.50002V4.58335ZM18.3335 10.0834H3.66683V18.3334C3.66683 18.5765 3.76341 18.8096 3.93531 18.9815C4.10722 19.1534 4.34038 19.25 4.5835 19.25H17.4168C17.6599 19.25 17.8931 19.1534 18.065 18.9815C18.2369 18.8096 18.3335 18.5765 18.3335 18.3334V10.0834Z" fill="black"/>
-            </svg>
-          </div>
-        </div>
-      </div>
-      <div data-layer="InputContainerCalendarButton" data-state="not_pressed" className="Inputcontainercalendarbutton" style={{width: 393, height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
-        <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, paddingRight: 16, justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-          <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Дата выдачи</div>
-        </div>
-        <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          <div data-svg-wrapper data-layer="Calendar" className="Calendar" style={{left: 31, top: 32, position: 'absolute'}}>
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M7.3335 0.916687C7.83976 0.916687 8.25016 1.32709 8.25016 1.83335V2.75002H13.7502V1.83335C13.7502 1.32709 14.1606 0.916687 14.6668 0.916687C15.1731 0.916687 15.5835 1.32709 15.5835 1.83335V2.75002H17.4168C18.1462 2.75002 18.8456 3.03975 19.3614 3.55548C19.8771 4.0712 20.1668 4.77067 20.1668 5.50002V18.3334C20.1668 19.0627 19.8771 19.7622 19.3614 20.2779C18.8456 20.7936 18.1462 21.0834 17.4168 21.0834H4.5835C3.85415 21.0834 3.15468 20.7936 2.63895 20.2779C2.12323 19.7622 1.8335 19.0627 1.8335 18.3334V5.50002C1.8335 4.77067 2.12323 4.0712 2.63895 3.55548C3.15468 3.03975 3.85415 2.75002 4.5835 2.75002H6.41683V1.83335C6.41683 1.32709 6.82724 0.916687 7.3335 0.916687ZM6.41683 4.58335H4.5835C4.34038 4.58335 4.10722 4.67993 3.93531 4.85184C3.76341 5.02375 3.66683 5.2569 3.66683 5.50002V8.25002H18.3335V5.50002C18.3335 5.25691 18.2369 5.02375 18.065 4.85184C17.8931 4.67993 17.6599 4.58335 17.4168 4.58335H15.5835V5.50002C15.5835 6.00628 15.1731 6.41669 14.6668 6.41669C14.1606 6.41669 13.7502 6.00628 13.7502 5.50002V4.58335H8.25016V5.50002C8.25016 6.00628 7.83976 6.41669 7.3335 6.41669C6.82724 6.41669 6.41683 6.00628 6.41683 5.50002V4.58335ZM18.3335 10.0834H3.66683V18.3334C3.66683 18.5765 3.76341 18.8096 3.93531 18.9815C4.10722 19.1534 4.34038 19.25 4.5835 19.25H17.4168C17.6599 19.25 17.8931 19.1534 18.065 18.9815C18.2369 18.8096 18.3335 18.5765 18.3335 18.3334V10.0834Z" fill="black"/>
-            </svg>
-          </div>
-        </div>
-      </div>
+      {renderInputField('birthDate', 'Дата рождения', activeField === 'birthDate', !!fieldValues.birthDate)}
+      {renderInputField('issueDate', 'Дата выдачи', activeField === 'issueDate', !!fieldValues.issueDate)}
       {renderDictionaryButton('issuedBy', 'Кем выдано', handleOpenIssuedBy, !!dictionaryValues.issuedBy)}
       {renderInputField('documentNumber', 'Номер документа', activeField === 'documentNumber', !!fieldValues.documentNumber)}
       {renderDictionaryButton('citizenship', 'Гражданство', handleOpenCitizenship, !!dictionaryValues.citizenship)}
