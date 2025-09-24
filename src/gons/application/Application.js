@@ -35,14 +35,14 @@ const Application = () => {
   const styles = {
     application: {
       width: 393,
-      height: 852,
-      paddingBottom: 16,
+      height: '100vh',
+      minHeight: '100vh',
       background: 'white',
       overflow: 'hidden',
       flexDirection: 'column',
-      justifyContent: 'space-between',
       alignItems: 'center',
-      display: 'inline-flex'
+      display: 'flex',
+      position: 'relative'
     },
     sections: {
       alignSelf: 'stretch',
@@ -60,7 +60,12 @@ const Application = () => {
       borderBottom: '1px #F8E8E8 solid',
       justifyContent: 'space-between',
       alignItems: 'center',
-      display: 'inline-flex'
+      display: 'flex',
+      position: 'fixed',
+      top: 0,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 1000
     },
     backButton: {
       width: 85,
@@ -171,15 +176,42 @@ const Application = () => {
       top: 32,
       position: 'absolute'
     },
-    buttonContainer: {
+    scrollableContent: {
+      width: 393,
+      flex: 1,
+      overflowY: 'auto',
+      paddingTop: 85,
+      paddingBottom: 100,
+      display: 'flex',
+      flexDirection: 'column'
+    },
+    contentList: {
       alignSelf: 'stretch',
+      flexDirection: 'column',
+      justifyContent: 'flex-start',
+      alignItems: 'flex-start',
+      gap: 1,
+      display: 'flex'
+    },
+    buttonContainer: {
+      width: 393,
+      height: 100,
       paddingLeft: 16,
       paddingRight: 16,
+      paddingTop: 16,
+      paddingBottom: 16,
+      background: 'white',
+      borderTop: '1px #F8E8E8 solid',
       flexDirection: 'column',
       justifyContent: 'center',
       alignItems: 'center',
       gap: 10,
-      display: 'flex'
+      display: 'flex',
+      position: 'fixed',
+      bottom: 0,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 1000
     },
     submitButton: {
       width: 361,
@@ -232,22 +264,24 @@ const Application = () => {
 
   return (
     <div style={styles.application}>
-      <div style={styles.sections}>
-        <div style={styles.header}>
-          <button style={styles.backButton} onClick={handleBackClick}>
-            <div style={styles.chevronLeft}>
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M15 18L7 10.5L15 3" stroke="black" strokeWidth="2"/>
-              </svg>
-            </div>
-          </button>
-          <div style={styles.title}>
-            <div style={styles.screenTitle}>ГОНС</div>
+      {/* Fixed Header */}
+      <div style={styles.header}>
+        <button style={styles.backButton} onClick={handleBackClick}>
+          <div style={styles.chevronLeft}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M15 18L7 10.5L15 3" stroke="black" strokeWidth="2"/>
+            </svg>
           </div>
-          <div style={styles.progressContainer} />
+        </button>
+        <div style={styles.title}>
+          <div style={styles.screenTitle}>ГОНС</div>
         </div>
-        
-        <div style={styles.list}>
+        <div style={styles.progressContainer} />
+      </div>
+
+      {/* Scrollable Content */}
+      <div style={styles.scrollableContent}>
+        <div style={styles.contentList}>
           {sections.map((section) => (
             <div 
               key={section.id}
@@ -268,7 +302,8 @@ const Application = () => {
           ))}
         </div>
       </div>
-      
+
+      {/* Fixed Footer/Button */}
       <div style={styles.buttonContainer}>
         <button style={styles.submitButton} onClick={handleSubmitClick}>
           <div style={styles.buttonText}>Отправить на согласование</div>

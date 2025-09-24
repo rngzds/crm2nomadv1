@@ -1,0 +1,312 @@
+# ScrollRule - Правило для корректной прокрутки экранов
+
+Когда создаете экраны с фиксированными элементами (header, кнопки) и прокручиваемым контентом, следуйте этому паттерну:
+
+## Структура компонента
+
+### 1. Основной контейнер
+```javascript
+<div 
+  data-layer="Main Container" 
+  className="MainContainer" 
+  style={{
+    width: 393, 
+    height: '100vh', 
+    minHeight: '100vh', 
+    background: 'white', 
+    overflow: 'hidden', 
+    flexDirection: 'column', 
+    alignItems: 'center', 
+    display: 'inline-flex', 
+    position: 'relative'
+  }}
+>
+```
+
+### 2. Фиксированный Header
+```javascript
+{/* Header - фиксированный вверху */}
+<div 
+  data-layer="Header" 
+  className="Header" 
+  style={{
+    width: 393, 
+    height: 85, 
+    background: 'white', 
+    overflow: 'hidden', 
+    borderBottom: '1px #F8E8E8 solid', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    display: 'inline-flex', 
+    position: 'fixed', 
+    top: 0, 
+    left: '50%', 
+    transform: 'translateX(-50%)', 
+    zIndex: 1000
+  }}
+>
+  {/* Содержимое header */}
+</div>
+```
+
+### 3. Прокручиваемый контент
+```javascript
+{/* Основной контент - прокручиваемый */}
+<div 
+  data-layer="Scrollable Content" 
+  className="ScrollableContent" 
+  style={{
+    width: 393, 
+    flex: 1, 
+    overflowY: 'auto', 
+    paddingTop: 85,  // Отступ под фиксированный header
+    paddingBottom: 100,  // Отступ под фиксированную кнопку
+    display: 'flex', 
+    flexDirection: 'column'
+  }}
+>
+  <div 
+    data-layer="List" 
+    className="List" 
+    style={{
+      alignSelf: 'stretch', 
+      flexDirection: 'column', 
+      justifyContent: 'flex-start', 
+      alignItems: 'flex-start', 
+      gap: 1, 
+      display: 'flex'
+    }}
+  >
+    {/* Список элементов */}
+  </div>
+</div>
+```
+
+### 4. Фиксированная кнопка
+```javascript
+{/* Кнопка - фиксированная внизу */}
+<div 
+  data-layer="Button Container" 
+  className="ButtonContainer" 
+  style={{
+    width: 393, 
+    height: 100, 
+    paddingLeft: 16, 
+    paddingRight: 16, 
+    paddingTop: 16, 
+    paddingBottom: 16, 
+    background: 'white', 
+    borderTop: '1px #F8E8E8 solid', 
+    flexDirection: 'column', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    gap: 10, 
+    display: 'flex', 
+    position: 'fixed', 
+    bottom: 0, 
+    left: '50%', 
+    transform: 'translateX(-50%)', 
+    zIndex: 1000
+  }}
+>
+  {/* Кнопка */}
+</div>
+```
+
+## Полный шаблон компонента
+
+```javascript
+import React, { useState } from 'react';
+
+const ScrollableScreen = ({ onBack }) => {
+  // Состояние компонента
+  const [fieldValues, setFieldValues] = useState({
+    field1: '',
+    field2: '',
+    // другие поля
+  });
+
+  // Обработчики
+  const handleFieldChange = (fieldName, value) => {
+    setFieldValues(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  // Функции рендеринга
+  const renderInputField = (fieldName, label, isActive, hasValue) => {
+    // Логика рендеринга поля
+  };
+
+  return (
+    <div 
+      data-layer="Main Container" 
+      className="MainContainer" 
+      style={{
+        width: 393, 
+        height: '100vh', 
+        minHeight: '100vh', 
+        background: 'white', 
+        overflow: 'hidden', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        display: 'inline-flex', 
+        position: 'relative'
+      }}
+    >
+      {/* Header - фиксированный вверху */}
+      <div 
+        data-layer="Header" 
+        className="Header" 
+        style={{
+          width: 393, 
+          height: 85, 
+          background: 'white', 
+          overflow: 'hidden', 
+          borderBottom: '1px #F8E8E8 solid', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          display: 'inline-flex', 
+          position: 'fixed', 
+          top: 0, 
+          left: '50%', 
+          transform: 'translateX(-50%)', 
+          zIndex: 1000
+        }}
+      >
+        {/* Содержимое header */}
+      </div>
+
+      {/* Основной контент - прокручиваемый */}
+      <div 
+        data-layer="Scrollable Content" 
+        className="ScrollableContent" 
+        style={{
+          width: 393, 
+          flex: 1, 
+          overflowY: 'auto', 
+          paddingTop: 85, 
+          paddingBottom: 100, 
+          display: 'flex', 
+          flexDirection: 'column'
+        }}
+      >
+        <div 
+          data-layer="List" 
+          className="List" 
+          style={{
+            alignSelf: 'stretch', 
+            flexDirection: 'column', 
+            justifyContent: 'flex-start', 
+            alignItems: 'flex-start', 
+            gap: 1, 
+            display: 'flex'
+          }}
+        >
+          {/* Список элементов */}
+          {renderInputField('field1', 'Поле 1', false, !!fieldValues.field1)}
+          {renderInputField('field2', 'Поле 2', false, !!fieldValues.field2)}
+          {/* Другие элементы */}
+        </div>
+      </div>
+
+      {/* Кнопка - фиксированная внизу */}
+      <div 
+        data-layer="Button Container" 
+        className="ButtonContainer" 
+        style={{
+          width: 393, 
+          height: 100, 
+          paddingLeft: 16, 
+          paddingRight: 16, 
+          paddingTop: 16, 
+          paddingBottom: 16, 
+          background: 'white', 
+          borderTop: '1px #F8E8E8 solid', 
+          flexDirection: 'column', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          gap: 10, 
+          display: 'flex', 
+          position: 'fixed', 
+          bottom: 0, 
+          left: '50%', 
+          transform: 'translateX(-50%)', 
+          zIndex: 1000
+        }}
+      >
+        <div 
+          data-layer="Button" 
+          className="Button" 
+          style={{
+            width: 361, 
+            height: 68, 
+            background: '#E0E0E0', 
+            overflow: 'hidden', 
+            borderRadius: 8, 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            display: 'inline-flex', 
+            cursor: 'pointer'
+          }}
+        >
+          <div 
+            data-layer="Button Text" 
+            className="ButtonText" 
+            style={{
+              flex: '1 1 0', 
+              textAlign: 'center', 
+              color: 'black', 
+              fontSize: 16, 
+              fontFamily: 'Inter', 
+              fontWeight: '500', 
+              wordWrap: 'break-word'
+            }}
+          >
+            Текст кнопки
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ScrollableScreen;
+```
+
+## Ключевые принципы
+
+### 1. Структура контейнеров
+- **Основной контейнер**: `height: '100vh'`, `overflow: 'hidden'`, `position: 'relative'`
+- **Header**: `position: 'fixed'`, `top: 0`, `zIndex: 1000`
+- **Контент**: `flex: 1`, `overflowY: 'auto'`, отступы для фиксированных элементов
+- **Кнопка**: `position: 'fixed'`, `bottom: 0`, `zIndex: 1000`
+
+### 2. Отступы и позиционирование
+- **paddingTop**: Высота header (85px)
+- **paddingBottom**: Высота кнопки (100px)
+- **zIndex**: 1000 для фиксированных элементов
+- **transform**: `translateX(-50%)` для центрирования
+
+### 3. Прокрутка
+- **overflowY: 'auto'** для контента
+- **overflow: 'hidden'** для основного контейнера
+- **flex: 1** для контента, чтобы он занимал доступное пространство
+
+## Применение
+
+Используйте это правило для:
+- Форм с длинными списками полей
+- Экранов с фиксированными элементами навигации
+- Компонентов с прокручиваемым контентом
+- Мобильных интерфейсов с фиксированными кнопками
+
+## Результат
+
+Следуя этому правилу, вы получите:
+- ✅ Корректную прокрутку контента
+- ✅ Фиксированные header и кнопки
+- ✅ Правильные отступы
+- ✅ Адаптивную высоту контента
+- ✅ Консистентное поведение на всех устройствах

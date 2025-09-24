@@ -1,0 +1,202 @@
+# HeaderRule - Fixed Header Positioning Rule
+
+When implementing a fixed header at the top of the screen, follow this pattern to ensure proper positioning and centering.
+
+## Required Elements
+
+1. **Fixed Position with Centering**
+   ```javascript
+   <div 
+     data-layer="Header" 
+     className="Header" 
+     style={{
+       width: 393, 
+       height: 85, 
+       background: 'white', 
+       overflow: 'hidden', 
+       borderBottom: '1px #F8E8E8 solid', 
+       justifyContent: 'space-between', 
+       alignItems: 'center', 
+       display: 'inline-flex', 
+       position: 'fixed', 
+       top: 0, 
+       left: '50%', 
+       transform: 'translateX(-50%)', 
+       zIndex: 1000
+     }}
+   >
+   ```
+
+2. **Content Margin Adjustment**
+   ```javascript
+   <div 
+     data-layer="List" 
+     className="List" 
+     style={{
+       alignSelf: 'stretch', 
+       flexDirection: 'column', 
+       justifyContent: 'flex-start', 
+       alignItems: 'flex-start', 
+       gap: 1, 
+       display: 'flex', 
+       marginTop: 85  // Height of the fixed header
+     }}
+   >
+   ```
+
+## Complete Pattern Template
+
+```javascript
+import React, { useState } from 'react';
+
+const ComponentName = ({ onBack }) => {
+  // Component state and handlers...
+
+  return (
+    <div>
+      {/* Fixed Header */}
+      <div 
+        data-layer="Header" 
+        data-show-indicator="false" 
+        data-type="Main" 
+        className="Header" 
+        style={{
+          width: 393, 
+          height: 85, 
+          background: 'white', 
+          overflow: 'hidden', 
+          borderBottom: '1px #F8E8E8 solid', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          display: 'inline-flex', 
+          position: 'fixed', 
+          top: 0, 
+          left: '50%', 
+          transform: 'translateX(-50%)', 
+          zIndex: 1000
+        }}
+      >
+        {/* Back Button */}
+        <div 
+          data-layer="Back button" 
+          className="BackButton" 
+          style={{
+            width: 85, 
+            height: 85, 
+            position: 'relative', 
+            background: '#FBF9F9', 
+            overflow: 'hidden', 
+            cursor: 'pointer'
+          }} 
+          onClick={onBack}
+        >
+          {/* Back arrow SVG */}
+        </div>
+        
+        {/* Title */}
+        <div 
+          data-layer="Title" 
+          className="Title" 
+          style={{
+            flex: '1 1 0', 
+            height: 85, 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            gap: 10, 
+            display: 'flex'
+          }}
+        >
+          <div 
+            data-layer="Screen Title" 
+            className="ScreenTitle" 
+            style={{
+              flex: '1 1 0', 
+              textAlign: 'center', 
+              color: 'black', 
+              fontSize: 16, 
+              fontFamily: 'Inter', 
+              fontWeight: '500', 
+              wordWrap: 'break-word'
+            }}
+          >
+            Page Title
+          </div>
+        </div>
+        
+        {/* Progress Container */}
+        <div 
+          data-layer="Progress container" 
+          className="ProgressContainer" 
+          style={{
+            width: 85, 
+            height: 85, 
+            flexDirection: 'column', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            gap: 10, 
+            display: 'inline-flex'
+          }} 
+        />
+      </div>
+
+      {/* Main Content with Top Margin */}
+      <div 
+        data-layer="List" 
+        className="List" 
+        style={{
+          alignSelf: 'stretch', 
+          flexDirection: 'column', 
+          justifyContent: 'flex-start', 
+          alignItems: 'flex-start', 
+          gap: 1, 
+          display: 'flex', 
+          marginTop: 85  // Height of the fixed header
+        }}
+      >
+        {/* Page content */}
+      </div>
+    </div>
+  );
+};
+
+export default ComponentName;
+```
+
+## Key Styling Properties
+
+### Header Positioning
+- `position: 'fixed'` - Fixes header to viewport
+- `top: 0` - Positions at top of screen
+- `left: '50%'` - Centers horizontally
+- `transform: 'translateX(-50%)'` - Perfect horizontal centering
+- `zIndex: 1000` - Ensures header appears above content
+
+### Content Spacing
+- `marginTop: 85` - Adds space equal to header height
+- Prevents content from being hidden behind fixed header
+
+## Usage Guidelines
+
+Apply this rule when:
+- Creating fixed headers that stay visible during scroll
+- Building mobile-first interfaces with persistent navigation
+- Implementing page headers with back buttons and titles
+- Ensuring proper content spacing with fixed elements
+
+## Key Principles
+
+1. **Perfect Centering**: Use `left: 50%` + `transform: translateX(-50%)` for true center alignment
+2. **Proper Layering**: Set `zIndex: 1000` to ensure header visibility
+3. **Content Spacing**: Always add `marginTop` equal to header height
+4. **Consistent Dimensions**: Maintain standard header height of 85px
+5. **Responsive Design**: Header width should match content container width
+
+## Common Mistakes to Avoid
+
+- ❌ Using `left: 0` without centering transform
+- ❌ Forgetting to add `marginTop` to content
+- ❌ Setting `zIndex` too low (content overlaps header)
+- ❌ Using `position: absolute` instead of `fixed`
+- ❌ Not accounting for header height in content spacing
+
+This pattern ensures consistent, properly positioned fixed headers across all components in the application.

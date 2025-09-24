@@ -1,0 +1,242 @@
+# HeightRule - Full Screen Height Container Rule
+
+When implementing full-screen height containers in React components, follow this pattern:
+
+## Required Elements
+
+1. **Set Container Height to Viewport**
+   ```javascript
+   style={{
+     height: '100vh',
+     minHeight: '100vh',
+     // other styles...
+   }}
+   ```
+
+2. **Use Flexbox Layout**
+   ```javascript
+   style={{
+     height: '100vh',
+     minHeight: '100vh',
+     display: 'flex',
+     flexDirection: 'column',
+     alignItems: 'center',
+     // other styles...
+   }}
+   ```
+
+3. **Fixed Header Implementation**
+   ```javascript
+   <div 
+     data-layer="Header" 
+     className="Header" 
+     style={{
+       width: 393,
+       height: 85,
+       background: 'white',
+       position: 'fixed',
+       top: 0,
+       left: '50%',
+       transform: 'translateX(-50%)',
+       zIndex: 1000,
+       // other styles...
+     }}
+   >
+     {/* Header content */}
+   </div>
+   ```
+
+4. **Scrollable Content Area**
+   ```javascript
+   <div 
+     data-layer="Scrollable Content" 
+     className="ScrollableContent" 
+     style={{
+       width: 393,
+       flex: 1,
+       overflowY: 'auto',
+       paddingTop: 85, // Header height
+       paddingBottom: 100, // Button height
+       display: 'flex',
+       flexDirection: 'column'
+     }}
+   >
+     {/* Scrollable content */}
+   </div>
+   ```
+
+5. **Fixed Footer/Button**
+   ```javascript
+   <div 
+     data-layer="Button Container" 
+     className="ButtonContainer" 
+     style={{
+       width: 393,
+       height: 100,
+       background: 'white',
+       borderTop: '1px #F8E8E8 solid',
+       position: 'fixed',
+       bottom: 0,
+       left: '50%',
+       transform: 'translateX(-50%)',
+       zIndex: 1000,
+       // other styles...
+     }}
+   >
+     {/* Button content */}
+   </div>
+   ```
+
+## Complete Pattern Template
+
+```javascript
+import React, { useState } from 'react';
+
+const ComponentName = ({ onBack }) => {
+  // Component state and handlers...
+
+  return (
+    <div 
+      data-layer="Main Container" 
+      className="MainContainer" 
+      style={{
+        width: 393,
+        height: '100vh',
+        minHeight: '100vh',
+        background: 'white',
+        overflow: 'hidden',
+        flexDirection: 'column',
+        alignItems: 'center',
+        display: 'flex',
+        position: 'relative'
+      }}
+    >
+      {/* Fixed Header */}
+      <div 
+        data-layer="Header" 
+        className="Header" 
+        style={{
+          width: 393,
+          height: 85,
+          background: 'white',
+          overflow: 'hidden',
+          borderBottom: '1px #F8E8E8 solid',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          display: 'flex',
+          position: 'fixed',
+          top: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1000
+        }}
+      >
+        {/* Header content */}
+      </div>
+
+      {/* Scrollable Content */}
+      <div 
+        data-layer="Scrollable Content" 
+        className="ScrollableContent" 
+        style={{
+          width: 393,
+          flex: 1,
+          overflowY: 'auto',
+          paddingTop: 85, // Header height
+          paddingBottom: 100, // Button height
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        <div 
+          data-layer="Content List" 
+          className="ContentList" 
+          style={{
+            alignSelf: 'stretch',
+            flexDirection: 'column',
+            justifyContent: 'flex-start',
+            alignItems: 'flex-start',
+            gap: 1,
+            display: 'flex'
+          }}
+        >
+          {/* Content items */}
+        </div>
+      </div>
+
+      {/* Fixed Footer/Button */}
+      <div 
+        data-layer="Button Container" 
+        className="ButtonContainer" 
+        style={{
+          width: 393,
+          height: 100,
+          paddingLeft: 16,
+          paddingRight: 16,
+          paddingTop: 16,
+          paddingBottom: 16,
+          background: 'white',
+          borderTop: '1px #F8E8E8 solid',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: 10,
+          display: 'flex',
+          position: 'fixed',
+          bottom: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1000
+        }}
+      >
+        {/* Button content */}
+      </div>
+    </div>
+  );
+};
+
+export default ComponentName;
+```
+
+## Usage Guidelines
+
+Apply this rule when:
+- Creating full-screen height containers
+- Implementing fixed headers and footers
+- Building scrollable content areas
+- Designing mobile-first layouts
+- Creating forms with fixed navigation elements
+
+## Key Principles
+
+1. **Viewport Height**: Use `height: '100vh'` and `minHeight: '100vh'` for full screen coverage
+2. **Flexbox Layout**: Use `display: 'flex'` and `flexDirection: 'column'` for proper layout
+3. **Fixed Positioning**: Use `position: 'fixed'` for headers and footers
+4. **Scrollable Content**: Use `overflowY: 'auto'` and `flex: 1` for content area
+5. **Proper Spacing**: Add padding to account for fixed header/footer heights
+6. **Z-Index Management**: Use appropriate z-index values for layering
+
+## Layout Structure
+
+```
+┌─────────────────────────────────┐
+│ Fixed Header (position: fixed)   │ ← Always visible
+├─────────────────────────────────┤
+│                                 │
+│ Scrollable Content Area          │ ← Scrollable
+│ (flex: 1, overflowY: auto)      │
+│                                 │
+├─────────────────────────────────┤
+│ Fixed Footer/Button              │ ← Always visible
+│ (position: fixed)                │
+└─────────────────────────────────┘
+```
+
+## Responsive Considerations
+
+- Use `100vh` for consistent viewport height across devices
+- Ensure fixed elements don't overlap on smaller screens
+- Test scrolling behavior on different screen sizes
+- Consider safe areas on mobile devices
+
+This pattern ensures consistent full-screen layouts with proper scrolling behavior and fixed navigation elements.

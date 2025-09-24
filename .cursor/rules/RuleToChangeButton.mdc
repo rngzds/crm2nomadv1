@@ -1,0 +1,165 @@
+# RuleToChangeButton - Dynamic Button Behavior Rule
+
+When implementing dynamic button behavior with conditional field visibility, follow this pattern:
+
+## Required Elements
+
+1. **Add State Management**
+   ```javascript
+   const [showAllFields, setShowAllFields] = useState(false);
+   ```
+
+2. **Create Handler Functions**
+   ```javascript
+   // Handler for initial action (e.g., "Request Data")
+   const handleRequestData = () => {
+     setShowAllFields(true);
+   };
+
+   // Handler for final action (e.g., "Save")
+   const handleSave = () => {
+     // Add save logic here
+     console.log('Saving data:', { fieldValues, dictionaryValues });
+   };
+   ```
+
+3. **Conditional Field Rendering**
+   ```javascript
+   // Always show basic fields
+   {renderInputField('basicField1', 'Label 1', activeField === 'basicField1', !!fieldValues.basicField1)}
+   {renderInputField('basicField2', 'Label 2', activeField === 'basicField2', !!fieldValues.basicField2)}
+   
+   // Conditionally show additional fields
+   {showAllFields && (
+     <>
+       {renderInputField('additionalField1', 'Additional Label 1', activeField === 'additionalField1', !!fieldValues.additionalField1)}
+       {renderInputField('additionalField2', 'Additional Label 2', activeField === 'additionalField2', !!fieldValues.additionalField2)}
+       {/* More additional fields */}
+     </>
+   )}
+   ```
+
+4. **Dynamic Button Implementation**
+   ```javascript
+   <div 
+     data-layer="Button" 
+     className="Button" 
+     style={{
+       width: 361, 
+       height: 68, 
+       background: '#E0E0E0', 
+       overflow: 'hidden', 
+       borderRadius: 8, 
+       justifyContent: 'space-between', 
+       alignItems: 'center', 
+       display: 'inline-flex', 
+       cursor: 'pointer'
+     }} 
+     onClick={showAllFields ? handleSave : handleRequestData}
+   >
+     <div 
+       data-layer="Button Text" 
+       className="ButtonText" 
+       style={{
+         flex: '1 1 0', 
+         textAlign: 'center', 
+         color: 'black', 
+         fontSize: 16, 
+         fontFamily: 'Inter', 
+         fontWeight: '500', 
+         wordWrap: 'break-word'
+       }}
+     >
+       {showAllFields ? 'Сохранить' : 'Запросить данные'}
+     </div>
+   </div>
+   ```
+
+## Complete Pattern Template
+
+```javascript
+import React, { useState } from 'react';
+
+const ComponentName = ({ onBack }) => {
+  // Basic state
+  const [fieldValues, setFieldValues] = useState({
+    basicField1: '',
+    basicField2: '',
+    additionalField1: '',
+    additionalField2: ''
+  });
+  
+  // Control visibility state
+  const [showAllFields, setShowAllFields] = useState(false);
+  const [activeField, setActiveField] = useState(null);
+
+  // Handler functions
+  const handleRequestData = () => {
+    setShowAllFields(true);
+  };
+
+  const handleSave = () => {
+    // Save logic here
+    console.log('Saving data:', fieldValues);
+  };
+
+  const handleFieldChange = (fieldName, value) => {
+    setFieldValues(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  const handleFieldClick = (fieldName) => {
+    setActiveField(fieldName);
+  };
+
+  // Render functions
+  const renderInputField = (fieldName, label, isActive, hasValue) => {
+    // Field rendering logic
+  };
+
+  return (
+    <div>
+      {/* Header */}
+      
+      {/* Basic fields - always visible */}
+      {renderInputField('basicField1', 'Basic Field 1', activeField === 'basicField1', !!fieldValues.basicField1)}
+      {renderInputField('basicField2', 'Basic Field 2', activeField === 'basicField2', !!fieldValues.basicField2)}
+      
+      {/* Additional fields - conditionally visible */}
+      {showAllFields && (
+        <>
+          {renderInputField('additionalField1', 'Additional Field 1', activeField === 'additionalField1', !!fieldValues.additionalField1)}
+          {renderInputField('additionalField2', 'Additional Field 2', activeField === 'additionalField2', !!fieldValues.additionalField2)}
+        </>
+      )}
+      
+      {/* Dynamic Button */}
+      <div onClick={showAllFields ? handleSave : handleRequestData}>
+        {showAllFields ? 'Сохранить' : 'Запросить данные'}
+      </div>
+    </div>
+  );
+};
+
+export default ComponentName;
+```
+
+## Usage Guidelines
+
+Apply this rule when:
+- Creating forms with progressive disclosure (show basic fields first, then additional fields)
+- Implementing two-step processes (request → save)
+- Building components with conditional field visibility
+- Adding dynamic button behavior based on form state
+
+## Key Principles
+
+1. **State Management**: Use `showAllFields` boolean to control visibility
+2. **Handler Separation**: Create separate handlers for each button action
+3. **Conditional Rendering**: Wrap additional fields in `{showAllFields && (...)}`
+4. **Dynamic Button**: Use ternary operator for button text and onClick handler
+5. **User Experience**: Always show essential fields first, reveal additional fields on demand
+
+This pattern ensures consistent behavior across components that require progressive field disclosure and dynamic button functionality.

@@ -1,0 +1,267 @@
+# FooterButtonRule - Fixed Footer Button Layout Rule
+
+When implementing a fixed footer button that remains visible at the bottom of the screen, follow this pattern:
+
+## Required Elements
+
+1. **Main Container Structure**
+   ```javascript
+   <div style={{
+     width: 393, 
+     height: '100vh', 
+     minHeight: '100vh', 
+     background: 'white', 
+     overflow: 'hidden', 
+     flexDirection: 'column', 
+     alignItems: 'center', 
+     display: 'inline-flex', 
+     position: 'relative'
+   }}>
+   ```
+
+2. **Fixed Header (if needed)**
+   ```javascript
+   <div style={{
+     width: 393, 
+     height: 85, 
+     background: 'white', 
+     overflow: 'hidden', 
+     borderBottom: '1px #F8E8E8 solid', 
+     justifyContent: 'space-between', 
+     alignItems: 'center', 
+     display: 'inline-flex', 
+     position: 'fixed', 
+     top: 0, 
+     left: '50%', 
+     transform: 'translateX(-50%)', 
+     zIndex: 1000
+   }}>
+   ```
+
+3. **Scrollable Content Container**
+   ```javascript
+   <div style={{
+     width: 393, 
+     flex: 1, 
+     overflowY: 'auto', 
+     paddingTop: 85,  // Account for fixed header
+     paddingBottom: 100,  // Account for fixed footer
+     display: 'flex', 
+     flexDirection: 'column'
+   }}>
+   ```
+
+4. **Fixed Footer Button Container**
+   ```javascript
+   <div style={{
+     width: 393, 
+     height: 100, 
+     paddingLeft: 16, 
+     paddingRight: 16, 
+     paddingTop: 16, 
+     paddingBottom: 16, 
+     background: 'white', 
+     borderTop: '1px #F8E8E8 solid', 
+     flexDirection: 'column', 
+     justifyContent: 'center', 
+     alignItems: 'center', 
+     gap: 10, 
+     display: 'flex', 
+     position: 'fixed', 
+     bottom: 0, 
+     left: '50%', 
+     transform: 'translateX(-50%)', 
+     zIndex: 1000
+   }}>
+   ```
+
+5. **Button Implementation**
+   ```javascript
+   <div 
+     data-layer="Button" 
+     className="Button" 
+     style={{
+       width: 361, 
+       height: 68, 
+       background: '#E0E0E0', 
+       overflow: 'hidden', 
+       borderRadius: 8, 
+       justifyContent: 'space-between', 
+       alignItems: 'center', 
+       display: 'inline-flex', 
+       cursor: 'pointer'
+     }} 
+     onClick={handleButtonClick}
+   >
+     <div 
+       data-layer="Button Text" 
+       className="ButtonText" 
+       style={{
+         flex: '1 1 0', 
+         textAlign: 'center', 
+         color: 'black', 
+         fontSize: 16, 
+         fontFamily: 'Inter', 
+         fontWeight: '500', 
+         wordWrap: 'break-word'
+       }}
+     >
+       Button Text
+     </div>
+   </div>
+   ```
+
+## Complete Pattern Template
+
+```javascript
+import React, { useState } from 'react';
+
+const ComponentWithFixedFooter = ({ onBack }) => {
+  // Component state and handlers
+  const [fieldValues, setFieldValues] = useState({});
+  const [showAllFields, setShowAllFields] = useState(false);
+
+  const handleButtonClick = () => {
+    // Button action logic
+  };
+
+  const handleFieldChange = (fieldName, value) => {
+    setFieldValues(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  return (
+    <div style={{
+      width: 393, 
+      height: '100vh', 
+      minHeight: '100vh', 
+      background: 'white', 
+      overflow: 'hidden', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      display: 'inline-flex', 
+      position: 'relative'
+    }}>
+      {/* Fixed Header */}
+      <div style={{
+        width: 393, 
+        height: 85, 
+        background: 'white', 
+        overflow: 'hidden', 
+        borderBottom: '1px #F8E8E8 solid', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        display: 'inline-flex', 
+        position: 'fixed', 
+        top: 0, 
+        left: '50%', 
+        transform: 'translateX(-50%)', 
+        zIndex: 1000
+      }}>
+        {/* Header content */}
+      </div>
+
+      {/* Scrollable Content */}
+      <div style={{
+        width: 393, 
+        flex: 1, 
+        overflowY: 'auto', 
+        paddingTop: 85, 
+        paddingBottom: 100, 
+        display: 'flex', 
+        flexDirection: 'column'
+      }}>
+        {/* Main content - forms, lists, etc. */}
+        <div style={{
+          alignSelf: 'stretch', 
+          flexDirection: 'column', 
+          justifyContent: 'flex-start', 
+          alignItems: 'flex-start', 
+          gap: 1, 
+          display: 'flex'
+        }}>
+          {/* Content items */}
+        </div>
+      </div>
+
+      {/* Fixed Footer Button */}
+      <div style={{
+        width: 393, 
+        height: 100, 
+        paddingLeft: 16, 
+        paddingRight: 16, 
+        paddingTop: 16, 
+        paddingBottom: 16, 
+        background: 'white', 
+        borderTop: '1px #F8E8E8 solid', 
+        flexDirection: 'column', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        gap: 10, 
+        display: 'flex', 
+        position: 'fixed', 
+        bottom: 0, 
+        left: '50%', 
+        transform: 'translateX(-50%)', 
+        zIndex: 1000
+      }}>
+        <div 
+          style={{
+            width: 361, 
+            height: 68, 
+            background: '#E0E0E0', 
+            overflow: 'hidden', 
+            borderRadius: 8, 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            display: 'inline-flex', 
+            cursor: 'pointer'
+          }} 
+          onClick={handleButtonClick}
+        >
+          <div style={{
+            flex: '1 1 0', 
+            textAlign: 'center', 
+            color: 'black', 
+            fontSize: 16, 
+            fontFamily: 'Inter', 
+            fontWeight: '500', 
+            wordWrap: 'break-word'
+          }}>
+            Button Text
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ComponentWithFixedFooter;
+```
+
+## Key Layout Principles
+
+1. **Fixed Positioning**: Use `position: fixed` for header and footer elements
+2. **Z-Index Management**: Set `zIndex: 1000` for fixed elements to ensure proper layering
+3. **Centering**: Use `left: '50%'` and `transform: 'translateX(-50%)'` for horizontal centering
+4. **Scrollable Content**: Use `overflowY: 'auto'` and `flex: 1` for the main content area
+5. **Padding Compensation**: Add padding to content area to account for fixed header/footer heights
+6. **Consistent Dimensions**: Maintain consistent widths (393px) across all elements
+
+## Usage Guidelines
+
+Apply this rule when:
+- Creating forms with long content that needs scrolling
+- Implementing mobile-first layouts with fixed action buttons
+- Building components that require persistent navigation elements
+- Adding footer buttons that should always be accessible
+
+## Visual Hierarchy
+
+- **Header**: Fixed at top (85px height)
+- **Content**: Scrollable middle area with padding compensation
+- **Footer**: Fixed at bottom (100px height with 16px padding)
+
+This pattern ensures consistent user experience with always-visible action buttons while maintaining scrollable content areas.
