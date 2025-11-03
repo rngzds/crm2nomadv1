@@ -1,0 +1,151 @@
+# CalendarButton Rule
+
+## Описание
+Правило для создания интерактивных полей с календарной кнопкой (CalendarButton) с возможностью ввода даты при нажатии.
+
+## Применение
+Используется для элементов с `className="CalendarButton"` в полях ввода дат.
+
+## Функциональность
+
+### Состояния поля:
+1. **Обычное состояние (not_pressed)** - отображается только название поля и кнопка календаря
+2. **Активное состояние (pressed)** - название поднимается вверх, появляется поле ввода для даты
+
+### Требования к реализации:
+
+#### 1. Состояние компонента
+```javascript
+// Состояние для полей с календарем
+const [dateValues, setDateValues] = useState({
+  birthDate: '',
+  issueDate: '',
+  expiryDate: ''
+  // ... другие поля дат
+});
+
+// Состояние для отслеживания активного поля
+const [activeField, setActiveField] = useState(null);
+```
+
+#### 2. Обработчики событий
+```javascript
+// Активация поля при клике
+const handleFieldClick = (fieldName) => {
+  setActiveField(fieldName);
+};
+```
+
+#### 3. Функция рендеринга поля с календарем
+```javascript
+const renderCalendarField = (fieldName, label) => {
+  const isActive = activeField === fieldName;
+  const hasValue = !!dateValues[fieldName];
+
+  if (isActive || hasValue) {
+    // Активное состояние - с полем ввода
+    return (
+      <div data-layer={`Input '${label}'`} data-state="pressed" className="Input" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
+        <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+          <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
+          <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
+            <input
+              type="text"
+              value={dateValues[fieldName] || ''}
+              onChange={(e) => {
+                setDateValues(prev => ({
+                  ...prev,
+                  [fieldName]: e.target.value
+                }));
+              }}
+              onBlur={() => {
+                if (!dateValues[fieldName]) {
+                  setActiveField(null);
+                }
+              }}
+              autoFocus={isActive}
+              style={{
+                width: '100%',
+                border: 'none',
+                outline: 'none',
+                background: 'transparent',
+                fontSize: 16,
+                fontFamily: 'Inter',
+                fontWeight: '500',
+                color: '#071222',
+                paddingLeft: 0,
+                marginLeft: 0
+              }}
+            />
+          </div>
+        </div>
+        <div data-layer="Calendar button" className="CalendarButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={() => handleFieldClick(fieldName)}>
+          <div data-svg-wrapper data-layer="Calendar" className="Calendar" style={{left: 31, top: 32, position: 'absolute'}}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fillRule="evenodd" clipRule="evenodd" d="M7.3335 0.916626C7.83976 0.916626 8.25016 1.32703 8.25016 1.83329V2.74996H13.7502V1.83329C13.7502 1.32703 14.1606 0.916626 14.6668 0.916626C15.1731 0.916626 15.5835 1.32703 15.5835 1.83329V2.74996H17.4168C18.1462 2.74996 18.8456 3.03969 19.3614 3.55542C19.8771 4.07114 20.1668 4.77061 20.1668 5.49996V18.3333C20.1668 19.0626 19.8771 19.7621 19.3614 20.2778C18.8456 20.7936 18.1462 21.0833 17.4168 21.0833H4.5835C3.85415 21.0833 3.15468 20.7936 2.63895 20.2778C2.12323 19.7621 1.8335 19.0626 1.8335 18.3333V5.49996C1.8335 4.77061 2.12323 4.07114 2.63895 3.55542C3.15468 3.03969 3.85415 2.74996 4.5835 2.74996H6.41683V1.83329C6.41683 1.32703 6.82724 0.916626 7.3335 0.916626ZM6.41683 4.58329H4.5835C4.34038 4.58329 4.10722 4.67987 3.93531 4.85178C3.76341 5.02369 3.66683 5.25684 3.66683 5.49996V8.24996H18.3335V5.49996C18.3335 5.25684 18.2369 5.02369 18.065 4.85178C17.8931 4.67987 17.6599 4.58329 17.4168 4.58329H15.5835V5.49996C15.5835 6.00622 15.1731 6.41663 14.6668 6.41663C14.1606 6.41663 13.7502 6.00622 13.7502 5.49996V4.58329H8.25016V5.49996C8.25016 6.00622 7.83976 6.41663 7.3335 6.41663C6.82724 6.41663 6.41683 6.00622 6.41683 5.49996V4.58329ZM18.3335 10.0833H3.66683V18.3333C3.66683 18.5764 3.76341 18.8096 3.93531 18.9815C4.10722 19.1534 4.34038 19.25 4.5835 19.25H17.4168C17.6599 19.25 17.8931 19.1534 18.065 18.9815C18.2369 18.8096 18.3335 18.5764 18.3335 18.3333V10.0833Z" fill="black"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    );
+  } else {
+    // Обычное состояние - только название
+    return (
+      <div data-layer={`Input '${label}'`} data-state="not_pressed" className="Input" onClick={() => handleFieldClick(fieldName)} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex', cursor: 'pointer'}}>
+        <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+          <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
+        </div>
+        <div data-layer="Calendar button" className="CalendarButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={(e) => { e.stopPropagation(); handleFieldClick(fieldName); }}>
+          <div data-svg-wrapper data-layer="Calendar" className="Calendar" style={{left: 31, top: 32, position: 'absolute'}}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fillRule="evenodd" clipRule="evenodd" d="M7.3335 0.916626C7.83976 0.916626 8.25016 1.32703 8.25016 1.83329V2.74996H13.7502V1.83329C13.7502 1.32703 14.1606 0.916626 14.6668 0.916626C15.1731 0.916626 15.5835 1.32703 15.5835 1.83329V2.74996H17.4168C18.1462 2.74996 18.8456 3.03969 19.3614 3.55542C19.8771 4.07114 20.1668 4.77061 20.1668 5.49996V18.3333C20.1668 19.0626 19.8771 19.7621 19.3614 20.2778C18.8456 20.7936 18.1462 21.0833 17.4168 21.0833H4.5835C3.85415 21.0833 3.15468 20.7936 2.63895 20.2778C2.12323 19.7621 1.8335 19.0626 1.8335 18.3333V5.49996C1.8335 4.77061 2.12323 4.07114 2.63895 3.55542C3.15468 3.03969 3.85415 2.74996 4.5835 2.74996H6.41683V1.83329C6.41683 1.32703 6.82724 0.916626 7.3335 0.916626ZM6.41683 4.58329H4.5835C4.34038 4.58329 4.10722 4.67987 3.93531 4.85178C3.76341 5.02369 3.66683 5.25684 3.66683 5.49996V8.24996H18.3335V5.49996C18.3335 5.25684 18.2369 5.02369 18.065 4.85178C17.8931 4.67987 17.6599 4.58329 17.4168 4.58329H15.5835V5.49996C15.5835 6.00622 15.1731 6.41663 14.6668 6.41663C14.1606 6.41663 13.7502 6.00622 13.7502 5.49996V4.58329H8.25016V5.49996C8.25016 6.00622 7.83976 6.41663 7.3335 6.41663C6.82724 6.41663 6.41683 6.00622 6.41683 5.49996V4.58329ZM18.3335 10.0833H3.66683V18.3333C3.66683 18.5764 3.76341 18.8096 3.93531 18.9815C4.10722 19.1534 4.34038 19.25 4.5835 19.25H17.4168C17.6599 19.25 17.8931 19.1534 18.065 18.9815C18.2369 18.8096 18.3335 18.5764 18.3335 18.3333V10.0833Z" fill="black"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    );
+  }
+};
+```
+
+#### 4. Использование
+```javascript
+// Замена статичного поля на динамическое
+{renderCalendarField('birthDate', 'Дата рождения')}
+{renderCalendarField('issueDate', 'Выдан от')}
+{renderCalendarField('expiryDate', 'Действует до')}
+```
+
+## Стили
+
+### Обычное состояние (not_pressed):
+- `data-state="not_pressed"`
+- `cursor: 'pointer'` для кликабельности
+- Только название поля (черный цвет, fontSize: 16)
+- Кнопка календаря с фоном `#FBF9F9`
+
+### Активное состояние (pressed):
+- `data-state="pressed"`
+- Название поднимается вверх с серым цветом `#6B6D80`
+- Размер шрифта названия: `14px`
+- Поле ввода с прозрачным фоном
+- Введенное значение имеет цвет `#071222`, fontSize: 16
+- **ВАЖНО: Без placeholder** - поле ввода не должно иметь атрибут `placeholder`
+
+## Логика переключения
+- При клике на поле или кнопку календаря → активируется режим ввода
+- При потере фокуса и пустом значении → возврат к обычному состоянию
+- При наличии значения → поле остается в активном состоянии
+- Значения сохраняются в состоянии `dateValues`
+
+## Особенности
+- Кнопка календаря всегда кликабельна и активирует поле ввода
+- В неактивном состоянии кнопка календаря использует `e.stopPropagation()` для предотвращения двойного срабатывания
+- Поле ввода не имеет placeholder
+- SVG календаря использует `fillRule` и `clipRule` (camelCase для React)
+
+## Примеры использования
+- Поле "Дата рождения"
+- Поле "Выдан от"
+- Поле "Действует до"
+- Любые другие поля с календарной кнопкой
