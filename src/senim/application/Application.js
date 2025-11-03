@@ -1,42 +1,4 @@
-import React, { useState } from 'react';
-import Policyholder from './Policyholder';
-import Insured from './Insured';
-import Beneficiary from './Beneficiary';
-import Terms from './Terms';
-import Questionary from './Questionary';
-
-const Application = () => {
-  const [currentView, setCurrentView] = useState('main');
-
-  const handleBackToMain = () => setCurrentView('main');
-  const handleOpenPolicyholder = () => setCurrentView('policyholder');
-  const handleOpenInsured = () => setCurrentView('insured');
-  const handleOpenBeneficiary = () => setCurrentView('beneficiary');
-  const handleOpenTerms = () => setCurrentView('terms');
-  const handleOpenQuestionary = () => setCurrentView('questionary');
-
-  if (currentView === 'policyholder') {
-    return <Policyholder onBack={handleBackToMain} />;
-  }
-
-  if (currentView === 'insured') {
-    return <Insured onBack={handleBackToMain} />;
-  }
-
-  if (currentView === 'beneficiary') {
-    return <Beneficiary onBack={handleBackToMain} />;
-  }
-
-  if (currentView === 'terms') {
-    return <Terms onBack={handleBackToMain} />;
-  }
-
-  if (currentView === 'questionary') {
-    return <Questionary onBack={handleBackToMain} />;
-  }
-
-  return (
-    <div data-layer="Statements details" className="StatementsDetails" style={{width: 1512, height: 1436, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+<div data-layer="Statements details" className="StatementsDetails" style={{width: 1512, height: 1436, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
   <div data-layer="Menu" data-property-1="Menu one" className="Menu" style={{width: 85, alignSelf: 'stretch', background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
     <div data-layer="Back button" className="BackButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
       <div data-svg-wrapper data-layer="Chewron left" className="ChewronLeft" style={{left: 32, top: 32, position: 'absolute'}}>
@@ -77,7 +39,7 @@ const Application = () => {
           <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
             <div data-layer="LabelDiv" className="Labeldiv" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страхователь</div>
           </div>
-          <div data-layer="Open button" className="OpenButton" onClick={handleOpenPolicyholder} style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}}>
+          <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
             <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M7 4L15 11.5L7 19" stroke="black" stroke-width="2"/>
@@ -108,7 +70,7 @@ const Application = () => {
           <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
             <div data-layer="LabelDiv" className="Labeldiv" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Застрахованный</div>
           </div>
-          <div data-layer="Open button" className="OpenButton" onClick={handleOpenInsured} style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}}>
+          <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
             <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M7 4L15 11.5L7 19" stroke="black" stroke-width="2"/>
@@ -139,7 +101,7 @@ const Application = () => {
           <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
             <div data-layer="LabelDiv" className="Labeldiv" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Выгодоприобретатель</div>
           </div>
-          <div data-layer="Open button" className="OpenButton" onClick={handleOpenBeneficiary} style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}}>
+          <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
             <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M7 4L15 11.5L7 19" stroke="black" stroke-width="2"/>
@@ -163,7 +125,7 @@ const Application = () => {
           <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
             <div data-layer="LabelDiv" className="Labeldiv" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Условия</div>
           </div>
-          <div data-layer="Open button" className="OpenButton" onClick={handleOpenTerms} style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}}>
+          <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
             <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M7 4L15 11.5L7 19" stroke="black" stroke-width="2"/>
@@ -194,7 +156,7 @@ const Application = () => {
           <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
             <div data-layer="LabelDiv" className="Labeldiv" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Анкета</div>
           </div>
-          <div data-layer="Open button" className="OpenButton" onClick={handleOpenQuestionary} style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}}>
+          <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
             <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M7 4L15 11.5L7 19" stroke="black" stroke-width="2"/>
@@ -222,8 +184,4 @@ const Application = () => {
       </div>
     </div>
   </div>
-  </div>
-  );
-};
-
-export default Application;
+</div>
