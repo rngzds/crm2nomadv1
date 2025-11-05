@@ -9,7 +9,7 @@ import DocType from '../dictionary/DocType';
 import IssuedBy from '../dictionary/IssuedBy';
 import ClientType from '../dictionary/ClientType';
 
-const Policyholder = ({ onBack }) => {
+const Policyholder = ({ onBack, onSave }) => {
   const [currentView, setCurrentView] = useState('main');
 
   // Состояние для выбранных значений из справочников
@@ -168,6 +168,75 @@ const Policyholder = ({ onBack }) => {
     
     // Переход в состояние data_loaded
     setAutoModeState('data_loaded');
+  };
+
+  // Определение текста кнопки в заголовке
+  const getHeaderButtonText = () => {
+    // Если ручной ввод включен - кнопка всегда "Сохранить"
+    if (toggleStates.manualInput) {
+      return 'Сохранить';
+    }
+    
+    // Если ручной ввод выключен - кнопка зависит от состояния автоматического режима
+    if (autoModeState === 'initial' || autoModeState === 'request_sent') {
+      return 'Отправить запрос';
+    }
+    
+    if (autoModeState === 'response_received') {
+      return 'Обновить';
+    }
+    
+    if (autoModeState === 'data_loaded') {
+      return 'Сохранить';
+    }
+    
+    return 'Сохранить';
+  };
+
+  // Определение действия кнопки в заголовке
+  const handleHeaderButtonClick = () => {
+    // Если ручной ввод включен - сохраняем данные
+    if (toggleStates.manualInput) {
+      if (onSave) {
+        onSave({
+          ...fieldValues,
+          ...dateValues,
+          ...dictionaryValues,
+          ...toggleStates
+        });
+      }
+      if (onBack) {
+        onBack();
+      }
+      return;
+    }
+    
+    // Если ручной ввод выключен - действия зависят от состояния автоматического режима
+    if (autoModeState === 'initial' || autoModeState === 'request_sent') {
+      handleSendRequest();
+      return;
+    }
+    
+    if (autoModeState === 'response_received') {
+      handleUpdate();
+      return;
+    }
+    
+    if (autoModeState === 'data_loaded') {
+      // Сохранение данных
+      if (onSave) {
+        onSave({
+          ...fieldValues,
+          ...dateValues,
+          ...dictionaryValues,
+          ...toggleStates
+        });
+      }
+      if (onBack) {
+        onBack();
+      }
+      return;
+    }
   };
 
   // Функция для рендеринга кнопок справочника
@@ -402,8 +471,8 @@ const Policyholder = ({ onBack }) => {
               </div>
             </div>
           </div>
-          <div data-layer="Save button" data-state="pressed" className="SaveButton" style={{width: 390, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex'}}>
-            <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Сохранить</div>
+          <div data-layer="Save button" data-state="pressed" className="SaveButton" onClick={handleHeaderButtonClick} style={{width: 390, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: 'pointer'}}>
+            <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{getHeaderButtonText()}</div>
           </div>
         </div>
       </div>
