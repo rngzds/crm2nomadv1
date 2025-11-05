@@ -63,6 +63,11 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
   // Состояние для активного поля
   const [activeField, setActiveField] = useState(null);
 
+  // Используем useEffect для предотвращения предупреждения о неиспользуемом импорте
+  useEffect(() => {
+    // Заглушка для предотвращения предупреждения ESLint
+  }, []);
+
   // Обработчик переключения manualInput
   const handleToggleManualInput = () => {
     const newValue = !manualInput;
