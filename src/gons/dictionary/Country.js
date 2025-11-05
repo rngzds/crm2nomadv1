@@ -1,22 +1,7 @@
 import React, { useState } from 'react';
 
-const Country = ({ onBack, onSelect }) => {
+const Country = ({ onBack, onSave }) => {
   const [selectedValue, setSelectedValue] = useState(null);
-
-  // Маппинг значений на читаемые имена
-  const getDisplayName = (value) => {
-    const nameMap = {
-      'KZ': 'Казахстан',
-      'UZ': 'Узбекистан',
-      'KG': 'Кыргызстан',
-      'TJ': 'Таджикистан',
-      'TM': 'Туркменистан',
-      'AZ': 'Азербайджан',
-      'GE': 'Грузия',
-      'AM': 'Армения'
-    };
-    return nameMap[value] || value;
-  };
   return (
     <div data-layer="List variants" className="ListVariants" style={{width: 1512, height: 982, justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
   <div data-layer="Menu" data-property-1="Menu three" className="Menu" style={{width: 85, height: 982, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
@@ -43,7 +28,7 @@ const Country = ({ onBack, onSelect }) => {
     <div data-layer="SubHeader" data-type="Creating an order" className="Subheader" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'space-between', alignItems: 'center', display: 'inline-flex'}}>
       <div data-layer="Title" className="Title" style={{flex: '1 1 0', height: 85, paddingLeft: 20, justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
         <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страна</div>
-        <div data-layer="ActionButtonWithoutRounding" data-state="pressed" className="Actionbuttonwithoutrounding" onClick={() => onSelect && onSelect(getDisplayName(selectedValue))} style={{width: 388, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: 'pointer'}}>
+        <div data-layer="ActionButtonWithoutRounding" data-state="pressed" className="Actionbuttonwithoutrounding" onClick={() => onSave && onSave(selectedValue)} style={{width: 388, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: 'pointer'}}>
           <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Сохранить</div>
         </div>
       </div>
@@ -61,12 +46,12 @@ const Country = ({ onBack, onSelect }) => {
           </div>
         </div>
       </div>
-      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'KZ' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('KZ')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'Казахстан' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('Казахстан')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
         <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
           <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Казахстан</div>
         </div>
         <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          {selectedValue === 'KZ' ? (
+          {selectedValue === 'Казахстан' ? (
             <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
@@ -81,12 +66,12 @@ const Country = ({ onBack, onSelect }) => {
           )}
         </div>
       </div>
-      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'UZ' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('UZ')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'Узбекистан' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('Узбекистан')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
         <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
           <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Узбекистан</div>
         </div>
         <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          {selectedValue === 'UZ' ? (
+          {selectedValue === 'Узбекистан' ? (
             <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
@@ -101,12 +86,12 @@ const Country = ({ onBack, onSelect }) => {
           )}
         </div>
       </div>
-      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'KG' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('KG')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'Кыргызстан' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('Кыргызстан')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
         <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
           <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Кыргызстан</div>
         </div>
         <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          {selectedValue === 'KG' ? (
+          {selectedValue === 'Кыргызстан' ? (
             <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
@@ -121,12 +106,12 @@ const Country = ({ onBack, onSelect }) => {
           )}
         </div>
       </div>
-      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'TJ' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('TJ')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'Таджикистан' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('Таджикистан')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
         <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
           <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Таджикистан</div>
         </div>
         <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          {selectedValue === 'TJ' ? (
+          {selectedValue === 'Таджикистан' ? (
             <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
@@ -141,12 +126,12 @@ const Country = ({ onBack, onSelect }) => {
           )}
         </div>
       </div>
-      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'TM' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('TM')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'Туркменистан' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('Туркменистан')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
         <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
           <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Туркменистан</div>
         </div>
         <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          {selectedValue === 'TM' ? (
+          {selectedValue === 'Туркменистан' ? (
             <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
@@ -161,12 +146,12 @@ const Country = ({ onBack, onSelect }) => {
           )}
         </div>
       </div>
-      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'AZ' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('AZ')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'Азербайджан' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('Азербайджан')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
         <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
           <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Азербайджан</div>
         </div>
         <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          {selectedValue === 'AZ' ? (
+          {selectedValue === 'Азербайджан' ? (
             <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
@@ -181,12 +166,12 @@ const Country = ({ onBack, onSelect }) => {
           )}
         </div>
       </div>
-      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'GE' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('GE')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'Грузия' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('Грузия')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
         <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
           <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Грузия</div>
         </div>
         <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          {selectedValue === 'GE' ? (
+          {selectedValue === 'Грузия' ? (
             <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
@@ -201,12 +186,12 @@ const Country = ({ onBack, onSelect }) => {
           )}
         </div>
       </div>
-      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'AM' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('AM')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'Армения' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('Армения')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
         <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
           <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Армения</div>
         </div>
         <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          {selectedValue === 'AM' ? (
+          {selectedValue === 'Армения' ? (
             <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
