@@ -170,6 +170,9 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
     if (newFamilyTies === 'own' && !manualInput) {
       handleSendRequestForOwnChild();
     }
+    
+    // Возвращаемся на главный экран
+    setCurrentView('main');
   };
 
   // Отправка запроса для "Для своего ребёнка"
@@ -882,8 +885,8 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
           {shouldShowField('issueDate') && renderCalendarField('issueDate', 'Выдан от', dateValues.issueDate)}
           {shouldShowField('expiryDate') && renderCalendarField('expiryDate', 'Действует до', dateValues.expiryDate)}
           
-          {/* Toggle: Признак ПДЛ - показываем только когда все поля уже отображаются */}
-          {shouldShowAllFields() && renderToggleButton('Признак ПДЛ', toggleStates.pdl, handleTogglePDL)}
+          {/* Toggle: Признак ПДЛ - показываем только когда все поля уже отображаются, но НЕ при ручном вводе */}
+          {shouldShowAllFields() && !manualInput && renderToggleButton('Признак ПДЛ', toggleStates.pdl, handleTogglePDL)}
         </div>
       </div>
     </div>

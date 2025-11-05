@@ -21,7 +21,7 @@ const FamilyTies = ({ onBack, onSelect }) => {
     <div data-layer="Menu button" className="MenuButton" onClick={onBack} style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', cursor: 'pointer'}}>
       <div data-svg-wrapper data-layer="Chewron left" className="ChewronLeft" style={{left: 31, top: 32, position: 'absolute'}}>
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M15 18L7 10.5L15 3" stroke="black" stroke-width="2"/>
+        <path d="M15 18L7 10.5L15 3" stroke="black" strokeWidth="2"/>
         </svg>
       </div>
     </div>
