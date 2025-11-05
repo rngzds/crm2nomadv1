@@ -55,6 +55,9 @@ const Policyholder = ({ onBack }) => {
     pdl: false
   });
 
+  // Состояние для автоматического режима
+  const [autoModeState, setAutoModeState] = useState('initial'); // 'initial' | 'request_sent' | 'response_received' | 'data_loaded'
+
   // Обработчик для сохранения выбранных значений из справочников
   const handleDictionaryValueSelect = (fieldName, value) => {
     setDictionaryValues(prev => ({
@@ -101,6 +104,70 @@ const Policyholder = ({ onBack }) => {
       ...prev,
       [toggleName]: !prev[toggleName]
     }));
+    // При включении ручного ввода сбрасываем состояние автоматического режима
+    if (toggleName === 'manualInput' && !toggleStates.manualInput) {
+      setAutoModeState('initial');
+    }
+  };
+
+  // Обработчик для отправки запроса
+  const handleSendRequest = () => {
+    // TODO: Отправить запрос на сервер
+    // Пример: await sendRequestToServer(fieldValues.iin, fieldValues.phone);
+    
+    // Переход в состояние request_sent
+    setAutoModeState('request_sent');
+    
+    // Симуляция получения ответа от сервера через 2 секунды
+    setTimeout(() => {
+      setAutoModeState('response_received');
+    }, 2000);
+  };
+
+  // Обработчик для обновления данных
+  const handleUpdate = () => {
+    // Симуляция загрузки данных с сервера
+    setFieldValues(prev => ({
+      ...prev,
+      iin: prev.iin || '940 218 300 972', // Сохраняем уже введенное или устанавливаем дефолтное
+      phone: prev.phone || '+7 707 759 10 10', // Сохраняем уже введенное или устанавливаем дефолтное
+      lastName: 'Иванов',
+      firstName: 'Иван',
+      middleName: 'Иванович',
+      street: 'Абая',
+      microdistrict: '-',
+      houseNumber: '№17',
+      apartmentNumber: '№17',
+      documentNumber: '01002003'
+    }));
+    
+    setDateValues(prev => ({
+      ...prev,
+      birthDate: '12.02.2000',
+      issueDate: '01.01.2016',
+      expiryDate: '01.01.2016'
+    }));
+    
+    setDictionaryValues(prev => ({
+      ...prev,
+      gender: 'Мужской',
+      sectorCode: 'Не выбран',
+      country: 'Казахстан',
+      region: 'Алматинская область',
+      settlementType: 'Город',
+      city: 'Алматы',
+      docType: 'Уд. личности',
+      issuedBy: 'МВД РК',
+      clientType: ''
+    }));
+    
+    setToggleStates(prev => ({
+      ...prev,
+      pdl: false
+    }));
+    
+    // Переход в состояние data_loaded
+    setAutoModeState('data_loaded');
   };
 
   // Функция для рендеринга кнопок справочника
@@ -115,7 +182,7 @@ const Policyholder = ({ onBack }) => {
           <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={onClickHandler}>
             <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7 4L15 11.5L7 19" stroke="black" stroke-width="2"/>
+              <path d="M7 4L15 11.5L7 19" stroke="black" strokeWidth="2"/>
               </svg>
             </div>
           </div>
@@ -130,7 +197,7 @@ const Policyholder = ({ onBack }) => {
           <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={onClickHandler}>
             <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7 4L15 11.5L7 19" stroke="black" stroke-width="2"/>
+              <path d="M7 4L15 11.5L7 19" stroke="black" strokeWidth="2"/>
               </svg>
             </div>
           </div>
@@ -298,7 +365,7 @@ const Policyholder = ({ onBack }) => {
     <div data-layer="Back button" className="BackButton" onClick={onBack} style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', cursor: 'pointer'}}>
       <div data-svg-wrapper data-layer="Chewron left" className="ChewronLeft" style={{left: 32, top: 32, position: 'absolute'}}>
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M15 18L7 10.5L15 3" stroke="black" stroke-width="2"/>
+        <path d="M15 18L7 10.5L15 3" stroke="black" strokeWidth="2"/>
         </svg>
       </div>
     </div>
@@ -307,8 +374,8 @@ const Policyholder = ({ onBack }) => {
         <div data-svg-wrapper data-layer="Frame 1321316875" className="Frame1321316875" style={{left: 3, top: 1, position: 'absolute'}}>
           <svg width="16" height="20" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M10 0L16.001 6V18.001C16.0009 19.1008 15.1008 20.0008 14.001 20.001H1.99023C0.890252 20.001 0.000107007 19.1009 0 18.001L0.00976562 2C0.00980161 0.900011 0.900014 4.85053e-05 2 0H10ZM2.00293 2V18.001H14.0039V7H9.00293V2H2.00293Z" fill="black"/>
-          <line x1="4.00049" y1="11.2505" x2="12.0008" y2="11.2505" stroke="black" stroke-width="1.5"/>
-          <line x1="4.00049" y1="15.2508" x2="10.0008" y2="15.2508" stroke="black" stroke-width="1.5"/>
+          <line x1="4.00049" y1="11.2505" x2="12.0008" y2="11.2505" stroke="black" strokeWidth="1.5"/>
+          <line x1="4.00049" y1="15.2508" x2="10.0008" y2="15.2508" stroke="black" strokeWidth="1.5"/>
           </svg>
         </div>
       </div>
@@ -323,14 +390,14 @@ const Policyholder = ({ onBack }) => {
             <div data-layer="Next Button" className="NextButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderRight: '1px #F8E8E8 solid'}}>
               <div data-svg-wrapper data-layer="Chewron down" className="ChewronDown" style={{left: 31, top: 32, position: 'absolute'}}>
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M18.5 7.5L11 15.5L3.5 7.5" stroke="black" stroke-width="2"/>
+                <path d="M18.5 7.5L11 15.5L3.5 7.5" stroke="black" strokeWidth="2"/>
                 </svg>
               </div>
             </div>
             <div data-layer="Previous Button" className="PreviousButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
               <div data-svg-wrapper data-layer="Chewron up" className="ChewronUp" style={{left: 31, top: 32, position: 'absolute'}}>
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3.5 15.5L11 7.5L18.5 15.5" stroke="black" stroke-width="2"/>
+                <path d="M3.5 15.5L11 7.5L18.5 15.5" stroke="black" strokeWidth="2"/>
                 </svg>
               </div>
             </div>
@@ -341,6 +408,30 @@ const Policyholder = ({ onBack }) => {
         </div>
       </div>
     </div>
+    {/* Alert для уведомлений */}
+    {!toggleStates.manualInput && (autoModeState === 'request_sent' || autoModeState === 'response_received') && (
+      <div data-layer="Alert" className="Alert" style={{alignSelf: 'stretch', height: 85, paddingRight: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 8, display: 'inline-flex'}}>
+        <div data-layer="Info container" className="InfoContainer" style={{width: 85, height: 85, position: 'relative', background: 'white', overflow: 'hidden'}}>
+          <div data-svg-wrapper data-layer="Info" className="Info" style={{left: 31, top: 32, position: 'absolute'}}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g clipPath="url(#clip0_491_9703)">
+            <path fillRule="evenodd" clipRule="evenodd" d="M0.916748 10.9998C0.916748 5.43083 5.43107 0.916504 11.0001 0.916504C16.5691 0.916504 21.0834 5.43083 21.0834 10.9998C21.0834 16.5688 16.5691 21.0832 11.0001 21.0832C5.43107 21.0832 0.916748 16.5688 0.916748 10.9998ZM11.0001 2.74984C6.44359 2.74984 2.75008 6.44335 2.75008 10.9998C2.75008 15.5563 6.44359 19.2498 11.0001 19.2498C15.5566 19.2498 19.2501 15.5563 19.2501 10.9998C19.2501 6.44335 15.5566 2.74984 11.0001 2.74984ZM10.0742 7.33317C10.0742 6.82691 10.4847 6.4165 10.9909 6.4165H11.0001C11.5063 6.4165 11.9167 6.82691 11.9167 7.33317C11.9167 7.83943 11.5063 8.24984 11.0001 8.24984H10.9909C10.4847 8.24984 10.0742 7.83943 10.0742 7.33317ZM11.0001 10.0832C11.5063 10.0832 11.9167 10.4936 11.9167 10.9998V14.6665C11.9167 15.1728 11.5063 15.5832 11.0001 15.5832C10.4938 15.5832 10.0834 15.1728 10.0834 14.6665V10.9998C10.0834 10.4936 10.4938 10.0832 11.0001 10.0832Z" fill="black"/>
+            </g>
+            <defs>
+            <clipPath id="clip0_491_9703">
+            <rect width="22" height="22" fill="white"/>
+            </clipPath>
+            </defs>
+            </svg>
+          </div>
+        </div>
+        <div data-layer="Label" className="Label" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
+          {autoModeState === 'request_sent' 
+            ? 'На номер будет отправлено СМС для получения согласия, клиенту необходимо ответить 511'
+            : 'Нажмите на обновить, чтобы получить данные детей клиента'}
+        </div>
+      </div>
+    )}
     <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
       <div data-layer="ManualToggleButton" data-state={toggleStates.manualInput ? "pressed" : "not_pressed"} className="Manualtogglebutton" onClick={() => handleToggleClick('manualInput')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
         <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
@@ -355,41 +446,91 @@ const Policyholder = ({ onBack }) => {
           </div>
         </div>
       </div>
-      {renderInputField('iin', 'ИИН')}
-      {renderInputField('phone', 'Номер телефона')}
-      {renderInputField('lastName', 'Фамилия')}
-      {renderInputField('firstName', 'Имя')}
-      {renderInputField('middleName', 'Отчество')}
-      {renderCalendarField('birthDate', 'Дата рождения')}
-      {renderDictionaryButton('gender', 'Пол', handleOpenGender, !!dictionaryValues.gender)}
-      {renderDictionaryButton('sectorCode', 'Код сектора экономики', handleOpenSectorCode, !!dictionaryValues.sectorCode)}
-      {renderDictionaryButton('country', 'Страна', handleOpenCountry, !!dictionaryValues.country)}
-      {renderDictionaryButton('region', 'Область', handleOpenRegion, !!dictionaryValues.region)}
-      {renderDictionaryButton('settlementType', 'Вид населенного пункта', handleOpenSettlementType, !!dictionaryValues.settlementType)}
-      {renderDictionaryButton('city', 'Город', handleOpenCity, !!dictionaryValues.city)}
-      {renderInputField('street', 'Улица')}
-      {renderInputField('microdistrict', 'Микрорайон')}
-      {renderInputField('houseNumber', '№ дома')}
-      {renderInputField('apartmentNumber', '№ квартиры')}
-      {renderDictionaryButton('docType', 'Тип документа', handleOpenDocType, !!dictionaryValues.docType)}
-      {renderInputField('documentNumber', 'Номер документа')}
-      {renderDictionaryButton('issuedBy', 'Кем выдано', handleOpenIssuedBy, !!dictionaryValues.issuedBy)}
-      {renderCalendarField('issueDate', 'Выдан от')}
-      {renderCalendarField('expiryDate', 'Действует до')}
-      <div data-layer="ПризнакПДЛ ToggleButton" data-state={toggleStates.pdl ? "pressed" : "not_pressed"} className="Togglebutton" onClick={() => handleToggleClick('pdl')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
-        <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-          <div data-layer="LabelDiv" className="Labeldiv" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Признак ПДЛ</div>
-        </div>
-        <div data-layer="Switch container" className="SwitchContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          <div data-svg-wrapper data-layer="tui-switches" className="TuiSwitches" style={{left: 26, top: 35, position: 'absolute'}}>
-            <svg width="32" height="16" viewBox="0 0 32 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="32" height="16" rx="8" fill={toggleStates.pdl ? "black" : "#E0E0E0"}/>
-            <circle cx={toggleStates.pdl ? "24" : "8"} cy="8" r="6" fill="white"/>
-            </svg>
+      {/* Условный рендеринг полей в зависимости от режима */}
+      {toggleStates.manualInput ? (
+        // Ручной ввод включен - показываем все поля
+        <>
+          {renderInputField('iin', 'ИИН')}
+          {renderInputField('phone', 'Номер телефона')}
+          {renderInputField('lastName', 'Фамилия')}
+          {renderInputField('firstName', 'Имя')}
+          {renderInputField('middleName', 'Отчество')}
+          {renderCalendarField('birthDate', 'Дата рождения')}
+          {renderDictionaryButton('gender', 'Пол', handleOpenGender, !!dictionaryValues.gender)}
+          {renderDictionaryButton('sectorCode', 'Код сектора экономики', handleOpenSectorCode, !!dictionaryValues.sectorCode)}
+          {renderDictionaryButton('country', 'Страна', handleOpenCountry, !!dictionaryValues.country)}
+          {renderDictionaryButton('region', 'Область', handleOpenRegion, !!dictionaryValues.region)}
+          {renderDictionaryButton('settlementType', 'Вид населенного пункта', handleOpenSettlementType, !!dictionaryValues.settlementType)}
+          {renderDictionaryButton('city', 'Город', handleOpenCity, !!dictionaryValues.city)}
+          {renderInputField('street', 'Улица')}
+          {renderInputField('microdistrict', 'Микрорайон')}
+          {renderInputField('houseNumber', '№ дома')}
+          {renderInputField('apartmentNumber', '№ квартиры')}
+          {renderDictionaryButton('docType', 'Тип документа', handleOpenDocType, !!dictionaryValues.docType)}
+          {renderInputField('documentNumber', 'Номер документа')}
+          {renderDictionaryButton('issuedBy', 'Кем выдано', handleOpenIssuedBy, !!dictionaryValues.issuedBy)}
+          {renderCalendarField('issueDate', 'Выдан от')}
+          {renderCalendarField('expiryDate', 'Действует до')}
+          <div data-layer="ПризнакПДЛ ToggleButton" data-state={toggleStates.pdl ? "pressed" : "not_pressed"} className="Togglebutton" onClick={() => handleToggleClick('pdl')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+            <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+              <div data-layer="LabelDiv" className="Labeldiv" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Признак ПДЛ</div>
+            </div>
+            <div data-layer="Switch container" className="SwitchContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+              <div data-svg-wrapper data-layer="tui-switches" className="TuiSwitches" style={{left: 26, top: 35, position: 'absolute'}}>
+                <svg width="32" height="16" viewBox="0 0 32 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="32" height="16" rx="8" fill={toggleStates.pdl ? "black" : "#E0E0E0"}/>
+                <circle cx={toggleStates.pdl ? "24" : "8"} cy="8" r="6" fill="white"/>
+                </svg>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      {renderDictionaryButton('clientType', 'Тип клиента', handleOpenClientType, !!dictionaryValues.clientType)}
+          {renderDictionaryButton('clientType', 'Тип клиента', handleOpenClientType, !!dictionaryValues.clientType)}
+        </>
+      ) : (
+        // Ручной ввод выключен - показываем поля в зависимости от состояния
+        <>
+          {renderInputField('iin', 'ИИН')}
+          {renderInputField('phone', 'Номер телефона')}
+          {/* В состоянии data_loaded показываем все остальные поля */}
+          {autoModeState === 'data_loaded' && (
+            <>
+              {renderInputField('lastName', 'Фамилия')}
+              {renderInputField('firstName', 'Имя')}
+              {renderInputField('middleName', 'Отчество')}
+              {renderCalendarField('birthDate', 'Дата рождения')}
+              {renderDictionaryButton('gender', 'Пол', handleOpenGender, !!dictionaryValues.gender)}
+              {renderDictionaryButton('sectorCode', 'Код сектора экономики', handleOpenSectorCode, !!dictionaryValues.sectorCode)}
+              {renderDictionaryButton('country', 'Страна', handleOpenCountry, !!dictionaryValues.country)}
+              {renderDictionaryButton('region', 'Область', handleOpenRegion, !!dictionaryValues.region)}
+              {renderDictionaryButton('settlementType', 'Вид населенного пункта', handleOpenSettlementType, !!dictionaryValues.settlementType)}
+              {renderDictionaryButton('city', 'Город', handleOpenCity, !!dictionaryValues.city)}
+              {renderInputField('street', 'Улица')}
+              {renderInputField('microdistrict', 'Микрорайон')}
+              {renderInputField('houseNumber', '№ дома')}
+              {renderInputField('apartmentNumber', '№ квартиры')}
+              {renderDictionaryButton('docType', 'Тип документа', handleOpenDocType, !!dictionaryValues.docType)}
+              {renderInputField('documentNumber', 'Номер документа')}
+              {renderDictionaryButton('issuedBy', 'Кем выдано', handleOpenIssuedBy, !!dictionaryValues.issuedBy)}
+              {renderCalendarField('issueDate', 'Выдан от')}
+              {renderCalendarField('expiryDate', 'Действует до')}
+              <div data-layer="ПризнакПДЛ ToggleButton" data-state={toggleStates.pdl ? "pressed" : "not_pressed"} className="Togglebutton" onClick={() => handleToggleClick('pdl')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+                <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+                  <div data-layer="LabelDiv" className="Labeldiv" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Признак ПДЛ</div>
+                </div>
+                <div data-layer="Switch container" className="SwitchContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+                  <div data-svg-wrapper data-layer="tui-switches" className="TuiSwitches" style={{left: 26, top: 35, position: 'absolute'}}>
+                    <svg width="32" height="16" viewBox="0 0 32 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="32" height="16" rx="8" fill={toggleStates.pdl ? "black" : "#E0E0E0"}/>
+                    <circle cx={toggleStates.pdl ? "24" : "8"} cy="8" r="6" fill="white"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              {renderDictionaryButton('clientType', 'Тип клиента', handleOpenClientType, !!dictionaryValues.clientType)}
+            </>
+          )}
+        </>
+      )}
     </div>
   </div>
 </div>
