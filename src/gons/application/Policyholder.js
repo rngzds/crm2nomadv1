@@ -9,7 +9,7 @@ import DocType from '../dictionary/DocType';
 import IssuedBy from '../dictionary/IssuedBy';
 import ClientType from '../dictionary/ClientType';
 
-const Policyholder = ({ onBack, onSave }) => {
+const Policyholder = ({ onBack }) => {
   const [currentView, setCurrentView] = useState('main');
 
   // Состояние для выбранных значений из справочников
@@ -402,42 +402,9 @@ const Policyholder = ({ onBack, onSave }) => {
               </div>
             </div>
           </div>
-          {(() => {
-            // Определяем текст кнопки и обработчик в зависимости от режима
-            let buttonText = 'Сохранить';
-            let buttonClassName = 'SaveButton';
-            let onClickHandler = () => {
-              if (onSave) {
-                onSave({
-                  fieldValues,
-                  dateValues,
-                  dictionaryValues,
-                  toggleStates
-                });
-              }
-              if (onBack) {
-                onBack();
-              }
-            };
-            
-            if (!toggleStates.manualInput) {
-              if (autoModeState === 'initial' || autoModeState === 'request_sent') {
-                buttonText = 'Отправить запрос';
-                buttonClassName = 'SendRequestButton';
-                onClickHandler = handleSendRequest;
-              } else if (autoModeState === 'response_received') {
-                buttonText = 'Обновить';
-                buttonClassName = 'UpdateButton';
-                onClickHandler = handleUpdate;
-              }
-            }
-            
-            return (
-              <div data-layer={buttonClassName} data-state="pressed" className={buttonClassName} onClick={onClickHandler} style={{width: 390, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: 'pointer'}}>
-                <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{buttonText}</div>
-              </div>
-            );
-          })()}
+          <div data-layer="Save button" data-state="pressed" className="SaveButton" style={{width: 390, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex'}}>
+            <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Сохранить</div>
+          </div>
         </div>
       </div>
     </div>
