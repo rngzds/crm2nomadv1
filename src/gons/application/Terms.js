@@ -11,7 +11,6 @@ const Terms = ({ onBack, onSave }) => {
   const [toggleStates, setToggleStates] = useState({
     flightAndAccommodation: false
   });
-  const [isCalculated, setIsCalculated] = useState(false);
   
   // Состояние для полей с календарем
   const [dateValues, setDateValues] = useState({
@@ -44,10 +43,6 @@ const Terms = ({ onBack, onSave }) => {
   // Активация поля при клике
   const handleFieldClick = (fieldName) => {
     setActiveField(fieldName);
-  };
-
-  const handleCalculate = () => {
-    setIsCalculated(true);
   };
 
   const handleSave = () => {
@@ -272,37 +267,29 @@ const Terms = ({ onBack, onSave }) => {
                 </div>
               </div>
             </div>
-            {isCalculated ? (
-              <div data-layer="Button" data-state="pressed" className="Button" onClick={handleSave} style={{width: 390, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: 'pointer'}}>
-                <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Сохранить</div>
-              </div>
-            ) : (
-              <div data-layer="Button" data-state="pressed" className="Button" onClick={handleCalculate} style={{width: 390, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: 'pointer'}}>
-                <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Рассчитать</div>
-              </div>
-            )}
+            <div data-layer="Button" data-state="pressed" className="Button" onClick={handleSave} style={{width: 390, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: 'pointer'}}>
+              <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Сохранить</div>
+            </div>
           </div>
         </div>
       </div>
-      {isCalculated && (
-        <div data-layer="Alert" className="Alert" style={{width: 1427, height: 85, paddingRight: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 8, display: 'inline-flex'}}>
-          <div data-layer="Info container" className="InfoContainer" style={{width: 85, height: 85, position: 'relative', background: 'white', overflow: 'hidden'}}>
-            <div data-svg-wrapper data-layer="Info" className="Info" style={{left: 31, top: 32, position: 'absolute'}}>
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <g clipPath="url(#clip0_373_900)">
-              <path fillRule="evenodd" clipRule="evenodd" d="M0.916656 11.0003C0.916656 5.43131 5.43098 0.916992 11 0.916992C16.569 0.916992 21.0833 5.43131 21.0833 11.0003C21.0833 16.5693 16.569 21.0837 11 21.0837C5.43098 21.0837 0.916656 16.5693 0.916656 11.0003ZM11 2.75033C6.4435 2.75033 2.74999 6.44384 2.74999 11.0003C2.74999 15.5568 6.4435 19.2503 11 19.2503C15.5565 19.2503 19.25 15.5568 19.25 11.0003C19.25 6.44384 15.5565 2.75033 11 2.75033ZM10.0742 7.33366C10.0742 6.8274 10.4846 6.41699 10.9908 6.41699H11C11.5063 6.41699 11.9167 6.8274 11.9167 7.33366C11.9167 7.83992 11.5063 8.25033 11 8.25033H10.9908C10.4846 8.25033 10.0742 7.83992 10.0742 7.33366ZM11 10.0837C11.5063 10.0837 11.9167 10.4941 11.9167 11.0003V14.667C11.9167 15.1733 11.5063 15.5837 11 15.5837C10.4937 15.5837 10.0833 15.1733 10.0833 14.667V11.0003C10.0833 10.4941 10.4937 10.0837 11 10.0837Z" fill="black"/>
-              </g>
-              <defs>
-              <clipPath id="clip0_373_900">
-              <rect width="22" height="22" fill="white"/>
-              </clipPath>
-              </defs>
-              </svg>
-            </div>
+      <div data-layer="Alert" className="Alert" style={{width: 1427, height: 85, paddingRight: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 8, display: 'inline-flex'}}>
+        <div data-layer="Info container" className="InfoContainer" style={{width: 85, height: 85, position: 'relative', background: 'white', overflow: 'hidden'}}>
+          <div data-svg-wrapper data-layer="Info" className="Info" style={{left: 31, top: 32, position: 'absolute'}}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g clipPath="url(#clip0_373_900)">
+            <path fillRule="evenodd" clipRule="evenodd" d="M0.916656 11.0003C0.916656 5.43131 5.43098 0.916992 11 0.916992C16.569 0.916992 21.0833 5.43131 21.0833 11.0003C21.0833 16.5693 16.569 21.0837 11 21.0837C5.43098 21.0837 0.916656 16.5693 0.916656 11.0003ZM11 2.75033C6.4435 2.75033 2.74999 6.44384 2.74999 11.0003C2.74999 15.5568 6.4435 19.2503 11 19.2503C15.5565 19.2503 19.25 15.5568 19.25 11.0003C19.25 6.44384 15.5565 2.75033 11 2.75033ZM10.0742 7.33366C10.0742 6.8274 10.4846 6.41699 10.9908 6.41699H11C11.5063 6.41699 11.9167 6.8274 11.9167 7.33366C11.9167 7.83992 11.5063 8.25033 11 8.25033H10.9908C10.4846 8.25033 10.0742 7.83992 10.0742 7.33366ZM11 10.0837C11.5063 10.0837 11.9167 10.4941 11.9167 11.0003V14.667C11.9167 15.1733 11.5063 15.5837 11 15.5837C10.4937 15.5837 10.0833 15.1733 10.0833 14.667V11.0003C10.0833 10.4941 10.4937 10.0837 11 10.0837Z" fill="black"/>
+            </g>
+            <defs>
+            <clipPath id="clip0_373_900">
+            <rect width="22" height="22" fill="white"/>
+            </clipPath>
+            </defs>
+            </svg>
           </div>
-          <div data-layer="Label" className="Label" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Расчет страховой премии будет произведен после заполнения Анкеты</div>
         </div>
-      )}
+        <div data-layer="Label" className="Label" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Расчет страховой премии будет произведен после заполнения Анкеты</div>
+      </div>
       {renderDictionaryButton('insuranceProduct', 'Программа страхования', handleOpenInsuranceProduct, !!dictionaryValues.insuranceProduct)}
       <div data-layer="Input Field" data-state={toggleStates.flightAndAccommodation ? "pressed" : "not_pressed"} className="InputField" onClick={() => handleToggleClick('flightAndAccommodation')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
         <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
@@ -317,33 +304,37 @@ const Terms = ({ onBack, onSave }) => {
           </div>
         </div>
       </div>
-      {getInsuranceAmount() ? (
-        <div data-layer="Input Field" data-state="pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
-          <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-            <div data-layer="LabelDefault" className="Labeldefault" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страховая сумма</div>
-            <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{getInsuranceAmount()}</div>
-          </div>
-        </div>
-      ) : (
-        <div data-layer="Input Field" data-state="not_pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
-          <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, opacity: 0.50, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-            <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страховая сумма</div>
-          </div>
-        </div>
-      )}
-      {getTransplantationAmount() ? (
-        <div data-layer="Input Field" data-state="pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
-          <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-            <div data-layer="LabelDefault" className="Labeldefault" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страховая сумма по трансплантации</div>
-            <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{getTransplantationAmount()}</div>
-          </div>
-        </div>
-      ) : (
-        <div data-layer="Input Field" data-state="not_pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
-          <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, opacity: 0.50, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-            <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страховая сумма по трансплантации</div>
-          </div>
-        </div>
+      {dictionaryValues.insuranceProduct && (
+        <>
+          {getInsuranceAmount() ? (
+            <div data-layer="Input Field" data-state="pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
+              <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                <div data-layer="LabelDefault" className="Labeldefault" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страховая сумма</div>
+                <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{getInsuranceAmount()}</div>
+              </div>
+            </div>
+          ) : (
+            <div data-layer="Input Field" data-state="not_pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
+              <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, opacity: 0.50, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+                <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страховая сумма</div>
+              </div>
+            </div>
+          )}
+          {getTransplantationAmount() ? (
+            <div data-layer="Input Field" data-state="pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
+              <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                <div data-layer="LabelDefault" className="Labeldefault" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страховая сумма по трансплантации</div>
+                <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{getTransplantationAmount()}</div>
+              </div>
+            </div>
+          ) : (
+            <div data-layer="Input Field" data-state="not_pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
+              <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, opacity: 0.50, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+                <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страховая сумма по трансплантации</div>
+              </div>
+            </div>
+          )}
+        </>
       )}
       {renderDictionaryButton('frequencyPayment', 'Порядок оплаты', handleOpenFrequencyPayment, !!dictionaryValues.frequencyPayment)}
       <div data-layer="Input Field" data-state="pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
