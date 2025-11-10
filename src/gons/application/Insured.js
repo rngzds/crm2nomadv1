@@ -203,11 +203,6 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
     setCurrentView('types');
   };
   
-  const handleTypeSelect = (type) => {
-    setSelectedInsuredType(type);
-    setCurrentView('types');
-  };
-  
   const handleTypeSave = () => {
     if (selectedInsuredType === 'policyholder') {
       setCurrentView('policyholder-insured');
