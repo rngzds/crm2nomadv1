@@ -70,6 +70,7 @@ const Questionary = ({ onBack, onSave }) => {
       });
       setAutoSetDeclarationAnswers(new Set());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answerEverywhereNoDeclaration, currentView]);
   
   // Автоматическое заполнение "Нет" при включении тогла в Blank
@@ -101,6 +102,7 @@ const Questionary = ({ onBack, onSave }) => {
       });
       setAutoSetBlankAnswers(new Set());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answerEverywhereNoBlank, currentView]);
   
   // Обработчики навигации
