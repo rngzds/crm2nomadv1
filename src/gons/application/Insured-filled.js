@@ -16,8 +16,7 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
   const [selectedInsuredType, setSelectedInsuredType] = useState(''); // 'policyholder', 'other-person', 'other-child', 'own-child'
   
   // Состояния для разных типов
-  const [manualInput, setManualInput] = useState(false); // для other-person
-  const [manualInputPerson, setManualInputPerson] = useState(false); // для person-date
+  const [manualInput, setManualInput] = useState(false); // для other-person и person-date
   const [manualInputChild, setManualInputChild] = useState(false); // для child-date
   const [autoModeState, setAutoModeState] = useState('initial'); // 'initial', 'request_sent', 'response_received', 'data_loaded'
   const [autoModeStatePerson, setAutoModeStatePerson] = useState('initial'); // для person-date
@@ -340,6 +339,8 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
       setAutoModeStatePerson('initial');
     }
   };
+
+  const [manualInputPerson, setManualInputPerson] = useState(false);
 
   const handleSendRequestPerson = () => {
     setAutoModeStatePerson('request_sent');
@@ -785,18 +786,6 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
         });
       }
       if (onBack) onBack();
-    } else if (currentView === 'own-child') {
-      if (onSave) {
-        onSave({
-          selectedInsuredType: 'own-child',
-          selectedChild: selectedChild || (isAddingNewChild ? 'Добавить ребенка' : ''),
-          ...fieldValues,
-          ...dateValues,
-          ...dictionaryValues,
-          ...toggleStates
-        });
-      }
-      if (onBack) onBack();
     }
   };
 
@@ -1166,7 +1155,7 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
           {renderSubHeader('Застрахованный')}
           <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
             {renderDictionaryButton('insuredType', 'Тип Застрахованного', 'Для иного ребенка', handleOpenTypes, true)}
-            {renderDictionaryButton('parentData', 'Данные родителя или опекуна ребенка', parentData.iin && parentData.phone ? [fieldValues.lastName, fieldValues.firstName, fieldValues.middleName].filter(Boolean).join(' ') : '', handleOpenPersonDate, !!(parentData.iin && parentData.phone))}
+            {renderDictionaryButton('parentData', 'Данные родителя или опекуна ребенка', parentData.iin && parentData.phone ? `${parentData.iin} / ${parentData.phone}` : '', handleOpenPersonDate, !!(parentData.iin && parentData.phone))}
             {parentData.iin && parentData.phone && renderDictionaryButton('selectChild', 'Выбрать ребенка', selectedChild || (isAddingNewChild ? 'Добавить ребенка' : ''), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
           </div>
         </div>
@@ -1285,9 +1274,6 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
             )}
             {!manualInputPerson && autoModeStatePerson === 'data_loaded' && (
               <>
-                {renderDictionaryButton('residency', 'Признак резидентства', dictionaryValues.residency, () => {}, true)}
-                {renderInputField('iin', 'ИИН', activeField === 'iin', !!fieldValues.iin)}
-                {renderInputField('phone', 'Номер телефона', activeField === 'phone', !!fieldValues.phone)}
                 {renderInputField('lastName', 'Фамилия', activeField === 'lastName', !!fieldValues.lastName)}
                 {renderInputField('firstName', 'Имя', activeField === 'firstName', !!fieldValues.firstName)}
                 {renderInputField('middleName', 'Отчество', activeField === 'middleName', !!fieldValues.middleName)}
@@ -1371,7 +1357,7 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
           {renderSubHeader('Застрахованный')}
           <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
             {renderDictionaryButton('insuredType', 'Тип Застрахованного', 'Для иного ребенка', handleOpenTypes, true)}
-            {renderDictionaryButton('parentData', 'Данные родителя или опекуна ребенка', parentData.iin && parentData.phone ? [fieldValues.lastName, fieldValues.firstName, fieldValues.middleName].filter(Boolean).join(' ') : '', handleOpenPersonDate, !!(parentData.iin && parentData.phone))}
+            {renderDictionaryButton('parentData', 'Данные родителя или опекуна ребенка', parentData.iin && parentData.phone ? `Иванов Иван Иванович` : '', handleOpenPersonDate, !!(parentData.iin && parentData.phone))}
             {renderDictionaryButton('selectChild', 'Выбрать ребенка', selectedChild || (isAddingNewChild ? 'Добавить ребенка' : ''), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
           </div>
         </div>
