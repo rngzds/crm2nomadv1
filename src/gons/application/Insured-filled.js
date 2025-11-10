@@ -16,8 +16,7 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
   const [selectedInsuredType, setSelectedInsuredType] = useState(''); // 'policyholder', 'other-person', 'other-child', 'own-child'
   
   // Состояния для разных типов
-  const [manualInput, setManualInput] = useState(false); // для other-person
-  const [manualInputPerson, setManualInputPerson] = useState(false); // для person-date
+  const [manualInput, setManualInput] = useState(false); // для other-person и person-date
   const [manualInputChild, setManualInputChild] = useState(false); // для child-date
   const [autoModeState, setAutoModeState] = useState('initial'); // 'initial', 'request_sent', 'response_received', 'data_loaded'
   const [autoModeStatePerson, setAutoModeStatePerson] = useState('initial'); // для person-date
@@ -340,6 +339,8 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
       setAutoModeStatePerson('initial');
     }
   };
+
+  const [manualInputPerson, setManualInputPerson] = useState(false);
 
   const handleSendRequestPerson = () => {
     setAutoModeStatePerson('request_sent');
@@ -777,18 +778,6 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
         onSave({
           selectedInsuredType: 'other-child',
           parentData,
-          selectedChild: selectedChild || (isAddingNewChild ? 'Добавить ребенка' : ''),
-          ...fieldValues,
-          ...dateValues,
-          ...dictionaryValues,
-          ...toggleStates
-        });
-      }
-      if (onBack) onBack();
-    } else if (currentView === 'own-child') {
-      if (onSave) {
-        onSave({
-          selectedInsuredType: 'own-child',
           selectedChild: selectedChild || (isAddingNewChild ? 'Добавить ребенка' : ''),
           ...fieldValues,
           ...dateValues,
@@ -1285,9 +1274,6 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
             )}
             {!manualInputPerson && autoModeStatePerson === 'data_loaded' && (
               <>
-                {renderDictionaryButton('residency', 'Признак резидентства', dictionaryValues.residency, () => {}, true)}
-                {renderInputField('iin', 'ИИН', activeField === 'iin', !!fieldValues.iin)}
-                {renderInputField('phone', 'Номер телефона', activeField === 'phone', !!fieldValues.phone)}
                 {renderInputField('lastName', 'Фамилия', activeField === 'lastName', !!fieldValues.lastName)}
                 {renderInputField('firstName', 'Имя', activeField === 'firstName', !!fieldValues.firstName)}
                 {renderInputField('middleName', 'Отчество', activeField === 'middleName', !!fieldValues.middleName)}
