@@ -991,9 +991,9 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
   // Страница: Иное лицо
   if (currentView === 'other-person') {
     return (
-      <div data-layer="Insured data page" className="InsuredDataPage" style={{width: 1512, height: 982, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+      <div data-layer="Insured data page" className="InsuredDataPage" style={{width: 1512, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
         {renderMenu()}
-        <div data-layer="Insured data" className="InsuredData" style={{width: 1427, height: 982, overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+        <div data-layer="Insured data" className="InsuredData" style={{width: 1427, overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
           {renderSubHeader('Застрахованный')}
           {/* Alert для уведомлений */}
           {!manualInput && (autoModeState === 'request_sent' || autoModeState === 'response_received') && (
