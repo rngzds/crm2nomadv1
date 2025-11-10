@@ -1166,7 +1166,7 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
           {renderSubHeader('Застрахованный')}
           <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
             {renderDictionaryButton('insuredType', 'Тип Застрахованного', 'Для иного ребенка', handleOpenTypes, true)}
-            {renderDictionaryButton('parentData', 'Данные родителя или опекуна ребенка', parentData.iin && parentData.phone ? `${parentData.iin} / ${parentData.phone}` : '', handleOpenPersonDate, !!(parentData.iin && parentData.phone))}
+            {renderDictionaryButton('parentData', 'Данные родителя или опекуна ребенка', parentData.iin && parentData.phone ? [fieldValues.lastName, fieldValues.firstName, fieldValues.middleName].filter(Boolean).join(' ') : '', handleOpenPersonDate, !!(parentData.iin && parentData.phone))}
             {parentData.iin && parentData.phone && renderDictionaryButton('selectChild', 'Выбрать ребенка', selectedChild || (isAddingNewChild ? 'Добавить ребенка' : ''), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
           </div>
         </div>
@@ -1371,7 +1371,7 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
           {renderSubHeader('Застрахованный')}
           <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
             {renderDictionaryButton('insuredType', 'Тип Застрахованного', 'Для иного ребенка', handleOpenTypes, true)}
-            {renderDictionaryButton('parentData', 'Данные родителя или опекуна ребенка', parentData.iin && parentData.phone ? `Иванов Иван Иванович` : '', handleOpenPersonDate, !!(parentData.iin && parentData.phone))}
+            {renderDictionaryButton('parentData', 'Данные родителя или опекуна ребенка', parentData.iin && parentData.phone ? [fieldValues.lastName, fieldValues.firstName, fieldValues.middleName].filter(Boolean).join(' ') : '', handleOpenPersonDate, !!(parentData.iin && parentData.phone))}
             {renderDictionaryButton('selectChild', 'Выбрать ребенка', selectedChild || (isAddingNewChild ? 'Добавить ребенка' : ''), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
           </div>
         </div>
