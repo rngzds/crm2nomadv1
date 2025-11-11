@@ -11,12 +11,8 @@ import IssuedBy from '../dictionary/IssuedBy';
 import ClientType from '../dictionary/ClientType';
 import { getPerson, mapApiDataToForm } from '../../services/personService';
 import { 
-  saveInsuredData, 
-  loadInsuredData, 
   saveInsuredOtherPersonData, 
   loadInsuredOtherPersonData, 
-  saveInsuredParentData, 
-  loadInsuredParentData,
   saveInsuredPolicyholderData,
   loadInsuredPolicyholderData,
   saveInsuredOwnChildData,
