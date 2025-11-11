@@ -1,66 +1,841 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import SelectChild from '../dictionary/SelectChild';
 import Gender from '../dictionary/Gender';
+import SectorCode from '../dictionary/SectorCode';
 import Country from '../dictionary/Country';
-import Citizenship from '../dictionary/Citizenship';
+import Region from '../dictionary/Region';
+import SettlementType from '../dictionary/SettlementType';
 import City from '../dictionary/City';
+import DocType from '../dictionary/DocType';
 import IssuedBy from '../dictionary/IssuedBy';
+import ClientType from '../dictionary/ClientType';
+import { getPerson, mapApiDataToForm } from '../../services/personService';
+import { 
+  saveInsuredData, 
+  loadInsuredData, 
+  saveInsuredOtherPersonData, 
+  loadInsuredOtherPersonData, 
+  saveInsuredParentData, 
+  loadInsuredParentData,
+  saveInsuredPolicyholderData,
+  loadInsuredPolicyholderData,
+  saveInsuredOwnChildData,
+  loadInsuredOwnChildData,
+  saveInsuredOtherChildParentData,
+  loadInsuredOtherChildParentData,
+  saveInsuredOtherChildChildData,
+  loadInsuredOtherChildChildData
+} from '../../services/storageService';
+import { getChildFullName, formatDate as formatChildDate } from '../../services/childService';
 
-const Insured = ({ onBack }) => {
-  const [currentView, setCurrentView] = useState('main');
+const Insured = ({ onBack, policyholderData, onSave }) => {
+  // Навигация
+  const [currentView, setCurrentView] = useState('main'); // 'main', 'types', 'policyholder-insured', 'other-person', 'other-child', 'own-child', 'person-date', 'childs', 'child-date', 'other-child-final'
+  const [selectedInsuredType, setSelectedInsuredType] = useState(''); // 'policyholder', 'other-person', 'other-child', 'own-child'
   
-  // Состояние для управления видимостью полей
-  const [showAllFields, setShowAllFields] = useState(false);
+  // Состояния для разных типов
+  const [manualInput, setManualInput] = useState(false); // для other-person
+  const [manualInputPerson, setManualInputPerson] = useState(false); // для person-date
+  const [manualInputChild, setManualInputChild] = useState(false); // для child-date
+  const [autoModeState, setAutoModeState] = useState('initial'); // 'initial', 'request_sent', 'response_received', 'data_loaded'
+  const [autoModeStatePerson, setAutoModeStatePerson] = useState('initial'); // для person-date
+  const [selectedChild, setSelectedChild] = useState(null); // Теперь храним объект ребенка или строку 'Добавить ребенка'
+  const [isAddingNewChild, setIsAddingNewChild] = useState(false);
   
-  // Состояние для полей ввода
+  // Состояние для хранения данных из API
+  const [apiResponseData, setApiResponseData] = useState(null); // для other-person
+  const [apiResponseDataPerson, setApiResponseDataPerson] = useState(null); // для person-date
+  
+  // Данные для родителя/опекуна (для other-child)
+  const [parentData, setParentData] = useState({
+    iin: '',
+    phone: ''
+  });
+  
+  // Данные для застрахованного
   const [fieldValues, setFieldValues] = useState({
     iin: '',
     phone: '',
-    smsCode: '',
     lastName: '',
     firstName: '',
     middleName: '',
+    street: '',
+    microdistrict: '',
+    houseNumber: '',
+    apartmentNumber: '',
+    documentNumber: '',
+    documentFile: ''
+  });
+
+  // Даты
+  const [dateValues, setDateValues] = useState({
     birthDate: '',
     issueDate: '',
-    documentNumber: '',
-    street: '',
-    house: '',
-    apartment: '',
-    profession: '',
-    workplace: '',
-    position: ''
+    expiryDate: ''
   });
-  
-  // Состояние для выбранных значений из справочников
+
+  // Справочники
   const [dictionaryValues, setDictionaryValues] = useState({
     gender: '',
-    issuedBy: '',
-    citizenship: '',
+    sectorCode: '',
     country: '',
-    city: ''
+    region: '',
+    settlementType: '',
+    city: '',
+    docType: '',
+    issuedBy: '',
+    residency: 'Резидент',
+    clientType: ''
   });
-  
-  // Состояние для отслеживания активного поля
+
+  // Toggle состояния
+  const [toggleStates, setToggleStates] = useState({
+    pdl: false
+  });
+
+  // Активное поле
   const [activeField, setActiveField] = useState(null);
 
-  // Navigation handlers
-  const handleBackToMain = () => setCurrentView('main');
-  const handleOpenGender = () => setCurrentView('gender');
-  const handleOpenCountry = () => setCurrentView('country');
-  const handleOpenCitizenship = () => setCurrentView('citizenship');
-  const handleOpenCity = () => setCurrentView('city');
-  const handleOpenIssuedBy = () => setCurrentView('issuedBy');
+  // Загрузка данных из localStorage при монтировании компонента
+  useEffect(() => {
+    // Определяем, какой тип был выбран последним, проверяя все типы
+    let lastSelectedType = null;
+    let lastView = 'main';
+    
+    // Проверяем каждый тип и находим последний сохраненный
+    const policyholderData = loadInsuredPolicyholderData();
+    if (policyholderData && policyholderData.selectedInsuredType) {
+      lastSelectedType = policyholderData.selectedInsuredType;
+      lastView = policyholderData.currentView || 'policyholder-insured';
+    }
+    
+    const otherPersonData = loadInsuredOtherPersonData();
+    if (otherPersonData && otherPersonData.selectedInsuredType) {
+      lastSelectedType = otherPersonData.selectedInsuredType;
+      lastView = otherPersonData.currentView || 'other-person';
+    }
+    
+    const ownChildData = loadInsuredOwnChildData();
+    if (ownChildData && ownChildData.selectedInsuredType) {
+      lastSelectedType = ownChildData.selectedInsuredType;
+      lastView = ownChildData.currentView || 'own-child';
+    }
+    
+    const otherChildParentData = loadInsuredOtherChildParentData();
+    const otherChildChildData = loadInsuredOtherChildChildData();
+    if (otherChildParentData && otherChildParentData.selectedInsuredType) {
+      lastSelectedType = otherChildParentData.selectedInsuredType;
+      lastView = otherChildParentData.currentView || 'other-child';
+    }
+    
+    // Загружаем данные в зависимости от последнего выбранного типа
+    if (lastSelectedType === 'policyholder' && policyholderData) {
+      setSelectedInsuredType('policyholder');
+      if (policyholderData.fieldValues) setFieldValues(policyholderData.fieldValues);
+      if (policyholderData.dateValues) setDateValues(policyholderData.dateValues);
+      if (policyholderData.dictionaryValues) setDictionaryValues(policyholderData.dictionaryValues);
+      if (policyholderData.toggleStates) setToggleStates(policyholderData.toggleStates);
+      setCurrentView(lastView);
+    } else if (lastSelectedType === 'other-person' && otherPersonData) {
+      setSelectedInsuredType('other-person');
+      if (otherPersonData.fieldValues) setFieldValues(otherPersonData.fieldValues);
+      if (otherPersonData.dateValues) setDateValues(otherPersonData.dateValues);
+      if (otherPersonData.dictionaryValues) setDictionaryValues(otherPersonData.dictionaryValues);
+      if (otherPersonData.toggleStates) setToggleStates(otherPersonData.toggleStates);
+      if (otherPersonData.autoModeState) setAutoModeState(otherPersonData.autoModeState);
+      if (otherPersonData.manualInput !== undefined) setManualInput(otherPersonData.manualInput);
+      setCurrentView(lastView);
+    } else if (lastSelectedType === 'own-child' && ownChildData) {
+      setSelectedInsuredType('own-child');
+      if (ownChildData.fieldValues) setFieldValues(ownChildData.fieldValues);
+      if (ownChildData.dateValues) setDateValues(ownChildData.dateValues);
+      if (ownChildData.dictionaryValues) setDictionaryValues(ownChildData.dictionaryValues);
+      if (ownChildData.toggleStates) setToggleStates(ownChildData.toggleStates);
+      if (ownChildData.selectedChild !== undefined) setSelectedChild(ownChildData.selectedChild);
+      if (ownChildData.isAddingNewChild !== undefined) setIsAddingNewChild(ownChildData.isAddingNewChild);
+      if (ownChildData.manualInputChild !== undefined) setManualInputChild(ownChildData.manualInputChild);
+      setCurrentView(lastView);
+    } else if (lastSelectedType === 'other-child' && otherChildParentData) {
+      setSelectedInsuredType('other-child');
+      // Загружаем данные родителя
+      if (otherChildParentData.parentData) setParentData(otherChildParentData.parentData);
+      if (otherChildParentData.fieldValues) setFieldValues(otherChildParentData.fieldValues);
+      if (otherChildParentData.dateValues) setDateValues(otherChildParentData.dateValues);
+      if (otherChildParentData.dictionaryValues) setDictionaryValues(otherChildParentData.dictionaryValues);
+      if (otherChildParentData.toggleStates) setToggleStates(otherChildParentData.toggleStates);
+      if (otherChildParentData.autoModeStatePerson) setAutoModeStatePerson(otherChildParentData.autoModeStatePerson);
+      if (otherChildParentData.manualInputPerson !== undefined) setManualInputPerson(otherChildParentData.manualInputPerson);
+      
+      // Загружаем данные ребенка
+      if (otherChildChildData) {
+        if (otherChildChildData.selectedChild !== undefined) setSelectedChild(otherChildChildData.selectedChild);
+        if (otherChildChildData.isAddingNewChild !== undefined) setIsAddingNewChild(otherChildChildData.isAddingNewChild);
+        if (otherChildChildData.manualInputChild !== undefined) setManualInputChild(otherChildChildData.manualInputChild);
+        // Если мы на финальной странице, используем данные ребенка
+        if (lastView === 'other-child-final' && otherChildChildData.fieldValues) {
+          setFieldValues(otherChildChildData.fieldValues);
+          if (otherChildChildData.dateValues) setDateValues(otherChildChildData.dateValues);
+          if (otherChildChildData.dictionaryValues) setDictionaryValues(otherChildChildData.dictionaryValues);
+        }
+      }
+      setCurrentView(lastView);
+    }
+  }, []);
 
-  // Button handlers
-  const handleRequestData = () => {
-    setShowAllFields(true);
+  // Загружаем данные из policyholderData при выборе типа "Страхователь является застрахованным"
+  useEffect(() => {
+    if (currentView === 'policyholder-insured' && policyholderData) {
+      setFieldValues(prev => ({
+        ...prev,
+        iin: policyholderData.iin || prev.iin,
+        phone: policyholderData.phone || prev.phone,
+        lastName: policyholderData.lastName || prev.lastName,
+        firstName: policyholderData.firstName || prev.firstName,
+        middleName: policyholderData.middleName || prev.middleName,
+        street: policyholderData.street || prev.street,
+        microdistrict: policyholderData.microdistrict || prev.microdistrict,
+        houseNumber: policyholderData.houseNumber || prev.houseNumber,
+        apartmentNumber: policyholderData.apartmentNumber || prev.apartmentNumber,
+        documentNumber: policyholderData.documentNumber || prev.documentNumber
+      }));
+      setDateValues(prev => ({
+        ...prev,
+        birthDate: policyholderData.birthDate || prev.birthDate,
+        issueDate: policyholderData.issueDate || prev.issueDate,
+        expiryDate: policyholderData.expiryDate || prev.expiryDate
+      }));
+      setDictionaryValues(prev => ({
+        ...prev,
+        gender: policyholderData.gender || prev.gender,
+        sectorCode: policyholderData.sectorCode || prev.sectorCode,
+        country: policyholderData.country || prev.country,
+        region: policyholderData.region || prev.region,
+        settlementType: policyholderData.settlementType || prev.settlementType,
+        city: policyholderData.city || prev.city,
+        docType: policyholderData.docType || prev.docType,
+        issuedBy: policyholderData.issuedBy || prev.issuedBy,
+        residency: policyholderData.residency || 'Резидент'
+      }));
+    }
+  }, [currentView, policyholderData]);
+
+  // Загружаем данные ребенка при переходе на child-date
+  useEffect(() => {
+    if (currentView === 'child-date') {
+      // Сначала пытаемся загрузить сохраненные данные
+      let savedChildData = null;
+      if (selectedInsuredType === 'own-child') {
+        savedChildData = loadInsuredOwnChildData();
+      } else if (selectedInsuredType === 'other-child') {
+        savedChildData = loadInsuredOtherChildChildData();
+      }
+      
+      // Если есть сохраненные данные ребенка, загружаем их
+      // Проверяем как child-date, так и финальные страницы (own-child, other-child-final)
+      if (savedChildData && savedChildData.fieldValues && 
+          (savedChildData.currentView === 'child-date' || 
+           savedChildData.currentView === 'own-child' || 
+           savedChildData.currentView === 'other-child-final')) {
+        if (savedChildData.fieldValues) setFieldValues(savedChildData.fieldValues);
+        if (savedChildData.dateValues) setDateValues(savedChildData.dateValues);
+        if (savedChildData.dictionaryValues) setDictionaryValues(savedChildData.dictionaryValues);
+        if (savedChildData.toggleStates) setToggleStates(savedChildData.toggleStates);
+        if (savedChildData.manualInputChild !== undefined) setManualInputChild(savedChildData.manualInputChild);
+      } else if (selectedChild && !isAddingNewChild && typeof selectedChild === 'object') {
+        // Загружаем данные выбранного ребенка из API ответа
+        setFieldValues({
+          iin: selectedChild.child_iin || '',
+          phone: '',
+          lastName: selectedChild.child_surname || '',
+          firstName: selectedChild.child_name || '',
+          middleName: selectedChild.child_patronymic || '',
+          street: '',
+          microdistrict: '',
+          houseNumber: '',
+          apartmentNumber: '',
+          documentNumber: ''
+        });
+        setDateValues({
+          birthDate: formatChildDate(selectedChild.child_birth_date) || '',
+          issueDate: formatChildDate(selectedChild.act_date) || '',
+          expiryDate: ''
+        });
+        setDictionaryValues(prev => ({
+          ...prev,
+          gender: '',
+          sectorCode: '',
+          country: '',
+          region: '',
+          settlementType: '',
+          city: '',
+          docType: '',
+          issuedBy: selectedChild.zags_name_ru || ''
+        }));
+      } else if (isAddingNewChild || selectedChild === 'Добавить ребенка') {
+        // Очищаем данные для нового ребенка
+        setFieldValues({
+          iin: '',
+          phone: '',
+          lastName: '',
+          firstName: '',
+          middleName: '',
+          street: '',
+          microdistrict: '',
+          houseNumber: '',
+          apartmentNumber: '',
+          documentNumber: ''
+        });
+        setDateValues({
+          birthDate: '',
+          issueDate: '',
+          expiryDate: ''
+        });
+        setDictionaryValues(prev => ({
+          ...prev,
+          gender: '',
+          sectorCode: '',
+          country: '',
+          region: '',
+          settlementType: '',
+          city: '',
+          docType: '',
+          issuedBy: ''
+        }));
+      }
+    }
+  }, [currentView, selectedChild, isAddingNewChild, selectedInsuredType]);
+
+  // Обработчики навигации
+  const handleBackToMain = () => {
+    if (currentView === 'types') {
+      setCurrentView('main');
+    } else if (currentView === 'person-date') {
+      if (selectedInsuredType === 'other-child') {
+        setCurrentView('other-child');
+      }
+    } else if (currentView === 'childs') {
+      if (selectedInsuredType === 'other-child') {
+        setCurrentView('other-child');
+      } else if (selectedInsuredType === 'own-child') {
+        setCurrentView('own-child');
+      }
+    } else if (currentView === 'child-date') {
+      setCurrentView('childs');
+    } else {
+      setCurrentView('main');
+    }
   };
 
-  const handleSave = () => {
-    // Add save logic here
-    console.log('Saving data:', { fieldValues, dictionaryValues });
+  const handleOpenTypes = () => {
+    setPreviousView(currentView);
+    setCurrentView('types');
+  };
+  
+  const handleTypeSave = () => {
+    if (selectedInsuredType === 'policyholder') {
+      // Загружаем сохраненные данные для policyholder
+      const savedData = loadInsuredPolicyholderData();
+      if (savedData) {
+        if (savedData.fieldValues) setFieldValues(savedData.fieldValues);
+        if (savedData.dateValues) setDateValues(savedData.dateValues);
+        if (savedData.dictionaryValues) setDictionaryValues(savedData.dictionaryValues);
+        if (savedData.toggleStates) setToggleStates(savedData.toggleStates);
+        if (savedData.currentView) {
+          setCurrentView(savedData.currentView);
+        } else {
+          setCurrentView('policyholder-insured');
+        }
+      } else {
+        setCurrentView('policyholder-insured');
+      }
+    } else if (selectedInsuredType === 'other-person') {
+      // Загружаем сохраненные данные для other-person
+      const savedData = loadInsuredOtherPersonData();
+      if (savedData) {
+        if (savedData.fieldValues) setFieldValues(savedData.fieldValues);
+        if (savedData.dateValues) setDateValues(savedData.dateValues);
+        if (savedData.dictionaryValues) setDictionaryValues(savedData.dictionaryValues);
+        if (savedData.toggleStates) setToggleStates(savedData.toggleStates);
+        if (savedData.autoModeState) setAutoModeState(savedData.autoModeState);
+        if (savedData.manualInput !== undefined) setManualInput(savedData.manualInput);
+        if (savedData.currentView) {
+          setCurrentView(savedData.currentView);
+        } else {
+          setCurrentView('other-person');
+        }
+      } else {
+        // Очищаем поля при переходе на "иное лицо" если нет сохраненных данных
+        setFieldValues({
+          iin: '',
+          phone: '',
+          lastName: '',
+          firstName: '',
+          middleName: '',
+          street: '',
+          microdistrict: '',
+          houseNumber: '',
+          apartmentNumber: '',
+          documentNumber: '',
+          documentFile: ''
+        });
+        setDateValues({
+          birthDate: '',
+          issueDate: '',
+          expiryDate: ''
+        });
+        setDictionaryValues({
+          gender: '',
+          sectorCode: '',
+          country: '',
+          region: '',
+          settlementType: '',
+          city: '',
+          docType: '',
+          issuedBy: '',
+          residency: 'Резидент',
+          clientType: ''
+        });
+        setAutoModeState('initial');
+        setApiResponseData(null);
+        setCurrentView('other-person');
+      }
+    } else if (selectedInsuredType === 'other-child') {
+      // Загружаем сохраненные данные для other-child
+      const savedParentData = loadInsuredOtherChildParentData();
+      const savedChildData = loadInsuredOtherChildChildData();
+      
+      if (savedParentData) {
+        if (savedParentData.parentData) setParentData(savedParentData.parentData);
+        if (savedParentData.fieldValues) setFieldValues(savedParentData.fieldValues);
+        if (savedParentData.dateValues) setDateValues(savedParentData.dateValues);
+        if (savedParentData.dictionaryValues) setDictionaryValues(savedParentData.dictionaryValues);
+        if (savedParentData.toggleStates) setToggleStates(savedParentData.toggleStates);
+        if (savedParentData.autoModeStatePerson) setAutoModeStatePerson(savedParentData.autoModeStatePerson);
+        if (savedParentData.manualInputPerson !== undefined) setManualInputPerson(savedParentData.manualInputPerson);
+      }
+      
+      if (savedChildData) {
+        if (savedChildData.selectedChild !== undefined) setSelectedChild(savedChildData.selectedChild);
+        if (savedChildData.isAddingNewChild !== undefined) setIsAddingNewChild(savedChildData.isAddingNewChild);
+        if (savedChildData.manualInputChild !== undefined) setManualInputChild(savedChildData.manualInputChild);
+      }
+      
+      if (savedParentData && savedParentData.currentView) {
+        setCurrentView(savedParentData.currentView);
+      } else {
+        setCurrentView('other-child');
+      }
+    } else if (selectedInsuredType === 'own-child') {
+      // Загружаем сохраненные данные для own-child
+      const savedData = loadInsuredOwnChildData();
+      if (savedData) {
+        if (savedData.fieldValues) setFieldValues(savedData.fieldValues);
+        if (savedData.dateValues) setDateValues(savedData.dateValues);
+        if (savedData.dictionaryValues) setDictionaryValues(savedData.dictionaryValues);
+        if (savedData.toggleStates) setToggleStates(savedData.toggleStates);
+        if (savedData.selectedChild !== undefined) setSelectedChild(savedData.selectedChild);
+        if (savedData.isAddingNewChild !== undefined) setIsAddingNewChild(savedData.isAddingNewChild);
+        if (savedData.manualInputChild !== undefined) setManualInputChild(savedData.manualInputChild);
+        if (savedData.currentView) {
+          setCurrentView(savedData.currentView);
+        } else {
+          setCurrentView('own-child');
+        }
+      } else {
+        setCurrentView('own-child');
+      }
+    }
   };
 
-  // Обработчики для полей ввода
+  // Обработчик выбора типа из списка
+  const handleInsuredTypeSelect = (type) => {
+    setSelectedInsuredType(type);
+  };
+
+  // Обработчики для other-person
+  const handleToggleManualInput = () => {
+    setManualInput(!manualInput);
+    if (!manualInput) {
+      // Очищаем данные при включении ручного ввода
+      setFieldValues({
+        iin: '',
+        phone: '',
+        lastName: '',
+        firstName: '',
+        middleName: '',
+        street: '',
+        microdistrict: '',
+        houseNumber: '',
+        apartmentNumber: '',
+        documentNumber: '',
+        documentFile: ''
+      });
+      setDateValues({
+        birthDate: '',
+        issueDate: '',
+        expiryDate: ''
+      });
+      setDictionaryValues({
+        gender: '',
+        sectorCode: '',
+        country: '',
+        region: '',
+        settlementType: '',
+        city: '',
+        docType: '',
+        issuedBy: '',
+        residency: 'Резидент',
+        clientType: ''
+      });
+      setAutoModeState('initial');
+    }
+  };
+
+  const handleSendRequest = async () => {
+    // Проверяем наличие ИИН и телефона
+    if (!fieldValues.iin || !fieldValues.phone) {
+      alert('Пожалуйста, заполните ИИН и номер телефона');
+      return;
+    }
+
+    // Переход в состояние request_sent
+    setAutoModeState('request_sent');
+    
+    try {
+      // Отправляем запрос на сервер
+      const phone = fieldValues.phone.replace(/\D/g, ''); // Убираем все нецифровые символы
+      const iin = fieldValues.iin.replace(/\D/g, ''); // Убираем все нецифровые символы
+      
+      const apiData = await getPerson(phone, iin);
+      
+      // Сохраняем данные из API
+      setApiResponseData(apiData);
+      
+      // Переход в состояние response_received
+      setAutoModeState('response_received');
+    } catch (error) {
+      console.error('Error fetching person data:', error);
+      alert('Ошибка при получении данных. Попробуйте еще раз.');
+      setAutoModeState('initial');
+    }
+  };
+
+  const handleUpdate = () => {
+    if (!apiResponseData) {
+      alert('Нет данных для обновления');
+      return;
+    }
+
+    // Маппинг данных из API ответа в формат формы
+    const mappedData = mapApiDataToForm(apiResponseData);
+    
+    // Обновляем поля формы, используя данные из API в приоритете
+    // Сохраняем только ИИН и телефон, которые были введены пользователем
+    setFieldValues(prev => ({
+      ...prev,
+      iin: prev.iin || mappedData.iin,
+      phone: prev.phone || mappedData.phone,
+      lastName: mappedData.lastName || '',
+      firstName: mappedData.firstName || '',
+      middleName: mappedData.middleName || '',
+      street: mappedData.street || '',
+      houseNumber: mappedData.houseNumber || '',
+      apartmentNumber: mappedData.apartmentNumber || '',
+      documentNumber: mappedData.documentNumber || ''
+    }));
+    
+    setDateValues({
+      birthDate: mappedData.birthDate || '',
+      issueDate: mappedData.issueDate || '',
+      expiryDate: mappedData.expiryDate || ''
+    });
+    
+    setDictionaryValues(prev => ({
+      ...prev,
+      gender: mappedData.gender || '',
+      country: mappedData.country || '',
+      region: mappedData.region || '',
+      city: mappedData.city || '',
+      issuedBy: mappedData.issuedBy || ''
+    }));
+    
+    setAutoModeState('data_loaded');
+  };
+
+  // Обработчики для person-date (данные родителя/опекуна)
+  const handleToggleManualInputPerson = () => {
+    setManualInputPerson(!manualInputPerson);
+    if (!manualInputPerson) {
+      // Очищаем данные при включении ручного ввода
+      setParentData({ iin: '', phone: '' });
+      setFieldValues({
+        iin: '',
+        phone: '',
+        lastName: '',
+        firstName: '',
+        middleName: '',
+        street: '',
+        microdistrict: '',
+        houseNumber: '',
+        apartmentNumber: '',
+        documentNumber: '',
+        documentFile: ''
+      });
+      setDateValues({
+        birthDate: '',
+        issueDate: '',
+        expiryDate: ''
+      });
+      setDictionaryValues(prev => ({
+        ...prev,
+        gender: '',
+        sectorCode: '',
+        country: '',
+        region: '',
+        settlementType: '',
+        city: '',
+        docType: '',
+        issuedBy: '',
+        residency: 'Резидент',
+        clientType: ''
+      }));
+      setAutoModeStatePerson('initial');
+    }
+  };
+
+  const handleSendRequestPerson = async () => {
+    // Проверяем наличие ИИН и телефона родителя/опекуна
+    if (!parentData.iin || !parentData.phone) {
+      alert('Пожалуйста, заполните ИИН и номер телефона родителя/опекуна');
+      return;
+    }
+
+    // Переход в состояние request_sent
+    setAutoModeStatePerson('request_sent');
+    
+    try {
+      // Отправляем запрос на сервер
+      const phone = parentData.phone.replace(/\D/g, ''); // Убираем все нецифровые символы
+      const iin = parentData.iin.replace(/\D/g, ''); // Убираем все нецифровые символы
+      
+      const apiData = await getPerson(phone, iin);
+      
+      // Сохраняем данные из API
+      setApiResponseDataPerson(apiData);
+      
+      // Переход в состояние response_received
+      setAutoModeStatePerson('response_received');
+    } catch (error) {
+      console.error('Error fetching person data:', error);
+      alert('Ошибка при получении данных. Попробуйте еще раз.');
+      setAutoModeStatePerson('initial');
+    }
+  };
+
+  const handleUpdatePerson = () => {
+    if (!apiResponseDataPerson) {
+      alert('Нет данных для обновления');
+      return;
+    }
+
+    // Маппинг данных из API ответа в формат формы
+    const mappedData = mapApiDataToForm(apiResponseDataPerson);
+    
+    // Обновляем данные родителя/опекуна, используя данные из API в приоритете
+    setParentData(prev => ({
+      iin: prev.iin || mappedData.iin,
+      phone: prev.phone || mappedData.phone
+    }));
+    
+    // Обновляем поля формы родителя/опекуна, используя данные из API в приоритете
+    setFieldValues(prev => ({
+      ...prev,
+      iin: mappedData.iin || prev.iin,
+      phone: mappedData.phone || prev.phone,
+      lastName: mappedData.lastName || '',
+      firstName: mappedData.firstName || '',
+      middleName: mappedData.middleName || '',
+      street: mappedData.street || '',
+      houseNumber: mappedData.houseNumber || '',
+      apartmentNumber: mappedData.apartmentNumber || '',
+      documentNumber: mappedData.documentNumber || ''
+    }));
+    
+    setDateValues({
+      birthDate: mappedData.birthDate || '',
+      issueDate: mappedData.issueDate || '',
+      expiryDate: mappedData.expiryDate || ''
+    });
+    
+    setDictionaryValues(prev => ({
+      ...prev,
+      gender: mappedData.gender || '',
+      country: mappedData.country || '',
+      region: mappedData.region || '',
+      city: mappedData.city || '',
+      issuedBy: mappedData.issuedBy || ''
+    }));
+    
+    setAutoModeStatePerson('data_loaded');
+  };
+
+  const handleSavePersonDate = () => {
+    setCurrentView('other-child');
+  };
+
+  // Обработчики для childs (выбор ребенка)
+  const handleOpenChilds = () => {
+    setPreviousView(currentView);
+    setCurrentView('childs');
+  };
+  const handleOpenPersonDate = () => {
+    // Загружаем сохраненные данные родителя/опекуна для other-child
+    const savedParentData = loadInsuredOtherChildParentData();
+    if (savedParentData) {
+      if (savedParentData.parentData) setParentData(savedParentData.parentData);
+      if (savedParentData.fieldValues) setFieldValues(savedParentData.fieldValues);
+      if (savedParentData.dateValues) setDateValues(savedParentData.dateValues);
+      if (savedParentData.dictionaryValues) setDictionaryValues(savedParentData.dictionaryValues);
+      if (savedParentData.toggleStates) setToggleStates(savedParentData.toggleStates);
+      if (savedParentData.autoModeStatePerson) setAutoModeStatePerson(savedParentData.autoModeStatePerson);
+      if (savedParentData.manualInputPerson !== undefined) setManualInputPerson(savedParentData.manualInputPerson);
+    } else {
+      // Очищаем поля при переходе на "родитель/опекун" если нет сохраненных данных
+      setParentData({
+        iin: '',
+        phone: ''
+      });
+      setFieldValues({
+        iin: '',
+        phone: '',
+        lastName: '',
+        firstName: '',
+        middleName: '',
+        street: '',
+        microdistrict: '',
+        houseNumber: '',
+        apartmentNumber: '',
+        documentNumber: '',
+        documentFile: ''
+      });
+      setDateValues({
+        birthDate: '',
+        issueDate: '',
+        expiryDate: ''
+      });
+      setDictionaryValues(prev => ({
+        ...prev,
+        gender: '',
+        sectorCode: '',
+        country: '',
+        region: '',
+        settlementType: '',
+        city: '',
+        docType: '',
+        issuedBy: '',
+        residency: 'Резидент',
+        clientType: ''
+      }));
+      setAutoModeStatePerson('initial');
+      setApiResponseDataPerson(null);
+    }
+    setPreviousView(currentView);
+    setCurrentView('person-date');
+  };
+
+  const handleChildSelect = (value) => {
+    if (value === 'Добавить ребенка') {
+      setIsAddingNewChild(true);
+      setSelectedChild('Добавить ребенка');
+      setManualInputChild(true); // Автоматически включаем ручной ввод
+    } else if (value && typeof value === 'object') {
+      // Выбран ребенок из API
+      setIsAddingNewChild(false);
+      setSelectedChild(value);
+      setManualInputChild(false); // Выключаем ручной ввод при выборе существующего ребенка
+    } else {
+      // Fallback для старого формата (строка)
+      setIsAddingNewChild(false);
+      setSelectedChild(value);
+      setManualInputChild(false);
+    }
+    // Переходим на страницу данных ребенка
+    setCurrentView('child-date');
+  };
+
+  // Обработчики для child-date
+  const handleToggleManualInputChild = () => {
+    setManualInputChild(!manualInputChild);
+  };
+
+  const handleSaveChildDate = () => {
+    // Если добавляется новый ребенок, сохраняем только ФИО
+    if (isAddingNewChild || selectedChild === 'Добавить ребенка') {
+      const fullName = [fieldValues.lastName, fieldValues.firstName, fieldValues.middleName]
+        .filter(Boolean)
+        .join(' ');
+      setSelectedChild(fullName || 'Добавить ребенка');
+    }
+    // Если выбран ребенок из API, selectedChild уже содержит объект, ничего не меняем
+    
+    if (selectedInsuredType === 'other-child') {
+      setCurrentView('other-child-final');
+    } else if (selectedInsuredType === 'own-child') {
+      // После сохранения данных ребенка для своего ребенка, возвращаемся на страницу own-child
+      setCurrentView('own-child');
+    }
+  };
+
+  // Состояние для отслеживания предыдущего экрана перед открытием справочника
+  const [previousView, setPreviousView] = useState('main');
+
+  // Обработчики для справочников
+  const handleDictionaryValueSelect = (fieldName, value) => {
+    setDictionaryValues(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+    setCurrentView(previousView);
+  };
+
+  const handleOpenGender = () => {
+    setPreviousView(currentView);
+    setCurrentView('gender');
+  };
+  const handleOpenSectorCode = () => {
+    setPreviousView(currentView);
+    setCurrentView('sectorCode');
+  };
+  const handleOpenCountry = () => {
+    setPreviousView(currentView);
+    setCurrentView('country');
+  };
+  const handleOpenRegion = () => {
+    setPreviousView(currentView);
+    setCurrentView('region');
+  };
+  const handleOpenSettlementType = () => {
+    setPreviousView(currentView);
+    setCurrentView('settlementType');
+  };
+  const handleOpenCity = () => {
+    setPreviousView(currentView);
+    setCurrentView('city');
+  };
+  const handleOpenDocType = () => {
+    setPreviousView(currentView);
+    setCurrentView('docType');
+  };
+  const handleOpenIssuedBy = () => {
+    setPreviousView(currentView);
+    setCurrentView('issuedBy');
+  };
+  const handleOpenClientType = () => {
+    setPreviousView(currentView);
+    setCurrentView('clientType');
+  };
+
+  // Обработчики полей
   const handleFieldClick = (fieldName) => {
     setActiveField(fieldName);
   };
@@ -72,72 +847,47 @@ const Insured = ({ onBack }) => {
     }));
   };
 
+  const handleParentFieldChange = (fieldName, value) => {
+    setParentData(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
   const handleFieldBlur = (fieldName) => {
-    // Если поле пустое, возвращаем к обычному состоянию
-    if (!fieldValues[fieldName]) {
+    if (!fieldValues[fieldName] && !parentData[fieldName]) {
       setActiveField(null);
     }
   };
 
-  // Обработчик для сохранения выбранных значений из справочников
-  const handleDictionaryValueSelect = (fieldName, value) => {
-    setDictionaryValues(prev => ({
+  const handleTogglePDL = () => {
+    setToggleStates(prev => ({
       ...prev,
-      [fieldName]: value
+      pdl: !prev.pdl
     }));
-    setCurrentView('main');
   };
 
-  // Функция для рендеринга кнопок справочника
-  const renderDictionaryButton = (fieldName, label, onClickHandler, hasValue) => {
-    if (hasValue) {
+  // Функции рендеринга
+  const renderInputField = (fieldName, label, isActive = null, hasValue = null, value = null, onChange = null) => {
+    const fieldValue = value !== null ? value : fieldValues[fieldName];
+    const handleChange = onChange || ((e) => handleFieldChange(fieldName, e.target.value));
+    
+    // Если isActive и hasValue не переданы, определяем их сами (как в Policyholder)
+    const isFieldActive = isActive !== null ? isActive : (activeField === fieldName);
+    const hasFieldValue = hasValue !== null ? hasValue : !!fieldValue;
+    
+    if (isFieldActive || hasFieldValue) {
       return (
-        <div data-layer="InputContainerDictionaryButton" data-state="pressed" className="Inputcontainerdictionarybutton" style={{width: 393, height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
-          <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-            <div data-layer="Label" className="Label" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
-            <div data-layer="Input text" className="InputText" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{dictionaryValues[fieldName]}</div>
-          </div>
-          <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={onClickHandler}>
-            <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7 4L15 11.5L7 19" stroke="black" stroke-width="2"/>
-              </svg>
-            </div>
-          </div>
-        </div>
-      );
-    } else {
-      return (
-        <div data-layer="InputContainerDictionaryButton" data-state="not_pressed" className="Inputcontainerdictionarybutton" style={{width: 393, height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
-          <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, paddingRight: 16, justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-            <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
-          </div>
-          <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={onClickHandler}>
-            <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7 4L15 11.5L7 19" stroke="black" stroke-width="2"/>
-              </svg>
-            </div>
-          </div>
-        </div>
-      );
-    }
-  };
-
-  // Функция для рендеринга поля ввода
-  const renderInputField = (fieldName, label, isActive, hasValue) => {
-    if (isActive || hasValue) {
-      return (
-        <div data-layer="InputContainerWithoutButton" data-state="pressed" className="Inputcontainerwithoutbutton" style={{width: 393, height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
+        <div data-layer="InputContainerWithoutButton" data-state="pressed" className="Inputcontainerwithoutbutton" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
           <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
             <div data-layer="LabelDefault" className="Labeldefault" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
             <div data-layer="%Input text" className="InputText" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column'}}>
               <input
                 type="text"
-                value={fieldValues[fieldName]}
-                onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+                value={fieldValue}
+                onChange={(e) => handleChange(e)}
                 onBlur={() => handleFieldBlur(fieldName)}
-                autoFocus={isActive}
+                autoFocus={isFieldActive}
                 style={{
                   width: '100%',
                   border: 'none',
@@ -146,7 +896,7 @@ const Insured = ({ onBack }) => {
                   fontSize: 16,
                   fontFamily: 'Inter',
                   fontWeight: '500',
-                  color: 'black',
+                  color: '#071222',
                   paddingLeft: 0,
                   marginLeft: 0
                 }}
@@ -157,8 +907,8 @@ const Insured = ({ onBack }) => {
       );
     } else {
       return (
-        <div data-layer="InputContainerWithoutButton" data-state="not_pressed" className="Inputcontainerwithoutbutton" style={{width: 393, height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex', cursor: 'pointer'}} onClick={() => handleFieldClick(fieldName)}>
-          <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, paddingRight: 16, justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+        <div data-layer="InputContainerWithoutButton" data-state="not_pressed" className="Inputcontainerwithoutbutton" onClick={() => handleFieldClick(fieldName)} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+          <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
             <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
           </div>
         </div>
@@ -166,210 +916,951 @@ const Insured = ({ onBack }) => {
     }
   };
 
-  // Conditional rendering for dictionary components
-  if (currentView === 'gender') {
-    return <Gender onBack={handleBackToMain} onSelect={(value) => handleDictionaryValueSelect('gender', value)} />;
-  }
-  if (currentView === 'country') {
-    return <Country onBack={handleBackToMain} onSelect={(value) => handleDictionaryValueSelect('country', value)} />;
-  }
-  if (currentView === 'citizenship') {
-    return <Citizenship onBack={handleBackToMain} onSelect={(value) => handleDictionaryValueSelect('citizenship', value)} />;
-  }
-  if (currentView === 'city') {
-    return <City onBack={handleBackToMain} onSelect={(value) => handleDictionaryValueSelect('city', value)} />;
-  }
-  if (currentView === 'issuedBy') {
-    return <IssuedBy onBack={handleBackToMain} onSelect={(value) => handleDictionaryValueSelect('issuedBy', value)} />;
-  }
-
-  return (
-    <div 
-      data-layer="Main Container" 
-      className="MainContainer" 
-      style={{
-        width: 393,
-        height: '100vh',
-        minHeight: '100vh',
-        background: 'white',
-        overflow: 'hidden',
-        flexDirection: 'column',
-        alignItems: 'center',
-        display: 'flex',
-        position: 'relative'
-      }}
-    >
-      {/* Fixed Header */}
-      <div 
-        data-layer="Header" 
-        data-show-indicator="false" 
-        data-type="Main" 
-        className="Header" 
-        style={{
-          width: 393,
-          height: 85,
-          background: 'white',
-          overflow: 'hidden',
-          borderBottom: '1px #F8E8E8 solid',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          display: 'flex',
-          position: 'fixed',
-          top: 0,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 1000
-        }}
-      >
-        <div data-layer="Back button" className="BackButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={onBack}>
-          <div data-svg-wrapper data-layer="Chewron left" className="ChewronLeft" style={{left: 32, top: 32, position: 'absolute'}}>
+  const renderDictionaryButton = (fieldName, label, value, onClick, showValue = true) => {
+    const hasValue = !!value && showValue;
+    const dataState = hasValue ? "pressed" : "not_pressed";
+    
+    return (
+      <div data-layer="InputContainerDictionaryButton" data-state={dataState} className="Inputcontainerdictionarybutton" onClick={onClick} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex', cursor: 'pointer'}}>
+        {hasValue ? (
+          <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+            <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
+            <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{value}</div>
+          </div>
+        ) : (
+          <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+            <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
+          </div>
+        )}
+        <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+          <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 18L7 10.5L15 3" stroke="black" stroke-width="2"/>
+            <path d="M7 4L15 11.5L7 19" stroke="black" strokeWidth="2"/>
             </svg>
           </div>
         </div>
-        <div data-layer="Title" className="Title" style={{flex: '1 1 0', height: 85, justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
-          <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Застрахованный</div>
-        </div>
-        <div data-layer="Progress container" className="ProgressContainer" style={{width: 85, height: 85, flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 10, display: 'inline-flex'}} />
       </div>
+    );
+  };
 
-      {/* Scrollable Content */}
-      <div 
-        data-layer="Scrollable Content" 
-        className="ScrollableContent" 
-        style={{
-          width: 393,
-          flex: 1,
-          overflowY: 'auto',
-          paddingTop: 85, // Header height
-          paddingBottom: 100, // Button height
-          display: 'flex',
-          flexDirection: 'column'
-        }}
-      >
-        <div 
-          data-layer="Content List" 
-          className="ContentList" 
-          style={{
-            alignSelf: 'stretch',
-            flexDirection: 'column',
-            justifyContent: 'flex-start',
-            alignItems: 'flex-start',
-            gap: 1,
-            display: 'flex'
-          }}
-        >
-          <div data-layer="Alert" className="Alert" style={{width: 393, height: 85, paddingRight: 20, background: 'white', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 8, display: 'inline-flex'}}>
-            <div data-layer="Info container" className="InfoContainer" style={{width: 85, height: 85, position: 'relative', background: 'white', overflow: 'hidden'}}>
-              <div data-svg-wrapper data-layer="Info" className="Info" style={{left: 31, top: 32, position: 'absolute'}}>
+  const renderCalendarField = (fieldName, label, value) => {
+    const hasValue = !!value;
+    const dataState = hasValue ? "pressed" : "not_pressed";
+    
+    return (
+      <div data-layer="InputContainerCalendarButton" data-state={dataState} className="Inputcontainercalendarbutton" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+        {hasValue ? (
+          <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+            <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
+            <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{value}</div>
+          </div>
+        ) : (
+          <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+            <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
+          </div>
+        )}
+        <div data-layer="Calendar button" className="CalendarButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+          <div data-svg-wrapper data-layer="Calendar" className="Calendar" style={{left: 31, top: 32, position: 'absolute'}}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fillRule="evenodd" clipRule="evenodd" d="M7.33301 0.916992C7.83927 0.916992 8.24967 1.3274 8.24967 1.83366V2.75033H13.7497V1.83366C13.7497 1.3274 14.1601 0.916992 14.6663 0.916992C15.1726 0.916992 15.583 1.3274 15.583 1.83366V2.75033H17.4163C18.1457 2.75033 18.8452 3.04006 19.3609 3.55578C19.8766 4.07151 20.1663 4.77098 20.1663 5.50033V18.3337C20.1663 19.063 19.8766 19.7625 19.3609 20.2782C18.8452 20.7939 18.1457 21.0837 17.4163 21.0837H4.58301C3.85366 21.0837 3.15419 20.7939 2.63846 20.2782C2.12274 19.7625 1.83301 19.063 1.83301 18.3337V5.50033C1.83301 4.77098 2.12274 4.07151 2.63846 3.55578C3.15419 3.04006 3.85366 2.75033 4.58301 2.75033H6.41634V1.83366C6.41634 1.3274 6.82675 0.916992 7.33301 0.916992ZM6.41634 4.58366H4.58301C4.33989 4.58366 4.10673 4.68024 3.93483 4.85214C3.76292 5.02405 3.66634 5.25721 3.66634 5.50033V8.25033H18.333V5.50033C18.333 5.25721 18.2364 5.02405 18.0645 4.85214C17.8926 4.68024 17.6595 4.58366 17.4163 4.58366H15.583V5.50033C15.583 6.00659 15.1726 6.41699 14.6663 6.41699C14.1601 6.41699 13.7497 6.00659 13.7497 5.50033V4.58366H8.24967V5.50033C8.24967 6.00659 7.83927 6.41699 7.33301 6.41699C6.82675 6.41699 6.41634 6.00659 6.41634 5.50033V4.58366ZM18.333 10.0837H3.66634V18.3337C3.66634 18.5768 3.76292 18.8099 3.93483 18.9818C4.10673 19.1537 4.33989 19.2503 4.58301 19.2503H17.4163C17.6595 19.2503 17.8926 19.1537 18.0645 18.9818C18.2364 18.8099 18.333 18.5768 18.333 18.3337V10.0837Z" fill="black"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAttachField = (fieldName, label, value) => {
+    const hasValue = !!value;
+    const dataState = hasValue ? "pressed" : "not_pressed";
+    
+    return (
+      <div data-layer="InputContainerAttachButton" data-state={dataState} className="Inputcontainerattachbutton" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+        {hasValue ? (
+          <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+            <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
+            <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{value}</div>
+          </div>
+        ) : (
+          <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+            <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
+          </div>
+        )}
+        <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+          <div data-svg-wrapper data-layer="Attach" className="Attach" style={{left: 31, top: 32, position: 'absolute'}}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fillRule="evenodd" clipRule="evenodd" d="M14.4648 2.1888C13.7349 2.1888 13.0349 2.47875 12.5188 2.99486L4.09463 11.419C3.23451 12.2791 2.7513 13.4457 2.7513 14.6621C2.7513 15.8785 3.23451 17.045 4.09463 17.9052C4.95474 18.7653 6.12131 19.2485 7.33769 19.2485C8.55408 19.2485 9.72065 18.7653 10.5808 17.9052L19.0049 9.48099C19.3629 9.12301 19.9433 9.12301 20.3013 9.48099C20.6593 9.83897 20.6593 10.4194 20.3013 10.7774L11.8771 19.2015C10.6732 20.4055 9.04031 21.0818 7.33769 21.0818C5.63508 21.0818 4.00219 20.4055 2.79826 19.2015C1.59433 17.9976 0.917969 16.3647 0.917969 14.6621C0.917969 12.9595 1.59433 11.3266 2.79826 10.1227L11.2224 1.69849C12.0824 0.838569 13.2487 0.355469 14.4648 0.355469C15.6809 0.355469 16.8472 0.838569 17.7071 1.69849C18.5671 2.55842 19.0501 3.72472 19.0501 4.94084C19.0501 6.15696 18.5671 7.32327 17.7071 8.18319L9.27379 16.6074C8.75788 17.1233 8.05814 17.4131 7.32853 17.4131C6.59891 17.4131 5.89918 17.1233 5.38326 16.6074C4.86735 16.0914 4.57751 15.3917 4.57751 14.6621C4.57751 13.9325 4.86735 13.2327 5.38326 12.7168L13.1661 4.94311C13.5243 4.58534 14.1047 4.58568 14.4625 4.94388C14.8203 5.30207 14.8199 5.88247 14.4617 6.24024L6.67963 14.0132C6.50776 14.1853 6.41084 14.4189 6.41084 14.6621C6.41084 14.9055 6.50753 15.1389 6.67963 15.311C6.85173 15.4831 7.08514 15.5798 7.32853 15.5798C7.57191 15.5798 7.80533 15.4831 7.97743 15.311L16.4108 6.88683C16.9266 6.37075 17.2168 5.67056 17.2168 4.94084C17.2168 4.21095 16.9269 3.51096 16.4108 2.99486C15.8947 2.47875 15.1947 2.1888 14.4648 2.1888Z" fill="black"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderToggleButton = (label, isPressed, onClick) => {
+    return (
+      <div data-layer="InputContainerToggleButton" data-state={isPressed ? "pressed" : "not_pressed"} className="Inputcontainertogglebutton" onClick={onClick} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+        <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+          <div data-layer="LabelDiv" className="Labeldiv" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
+        </div>
+        <div data-layer="Switch container" className="SwitchContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+          <div data-svg-wrapper data-layer="tui-switches" className="TuiSwitches" style={{left: 26, top: 35, position: 'absolute'}}>
+            <svg width="32" height="16" viewBox="0 0 32 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="32" height="16" rx="8" fill={isPressed ? "black" : "#E0E0E0"}/>
+            <circle cx={isPressed ? "24" : "8"} cy="8" r="6" fill="white"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Получение текста для типа застрахованного
+  const getInsuredTypeDisplay = () => {
+    if (selectedInsuredType === 'policyholder') return 'Страхователь является Застрахованным';
+    if (selectedInsuredType === 'other-person') return 'Иное лицо';
+    if (selectedInsuredType === 'other-child') return 'Для иного ребенка';
+    if (selectedInsuredType === 'own-child') return 'Для своего ребенка';
+    return '';
+  };
+
+  // Получение отображаемого имени выбранного ребенка
+  const getSelectedChildDisplay = () => {
+    if (isAddingNewChild || selectedChild === 'Добавить ребенка') {
+      return 'Добавить ребенка';
+    }
+    if (selectedChild && typeof selectedChild === 'object') {
+      return getChildFullName(selectedChild);
+    }
+    if (selectedChild && typeof selectedChild === 'string') {
+      return selectedChild;
+    }
+    return '';
+  };
+
+  // Получение текста кнопки в заголовке
+  const getHeaderButtonText = () => {
+    if (currentView === 'main') return 'Сохранить';
+    if (currentView === 'types') return 'Сохранить';
+    if (currentView === 'policyholder-insured') return 'Сохранить';
+    if (currentView === 'other-person') {
+      if (manualInput) return 'Сохранить';
+      if (autoModeState === 'initial' || autoModeState === 'request_sent') return 'Отправить запрос';
+      if (autoModeState === 'response_received') return 'Обновить';
+      if (autoModeState === 'data_loaded') return 'Сохранить';
+    }
+    if (currentView === 'person-date') {
+      if (manualInputPerson) return 'Сохранить';
+      if (autoModeStatePerson === 'initial' || autoModeStatePerson === 'request_sent') return 'Отправить запрос';
+      if (autoModeStatePerson === 'response_received') return 'Обновить';
+      if (autoModeStatePerson === 'data_loaded') return 'Сохранить';
+    }
+    if (currentView === 'child-date') return 'Сохранить';
+    if (currentView === 'other-child-final') return 'Сохранить';
+    return 'Сохранить';
+  };
+
+  // Обработчик кнопки в заголовке
+  const handleHeaderButtonClick = () => {
+    if (currentView === 'main') {
+      if (selectedInsuredType) {
+        handleTypeSave();
+      } else {
+      if (onSave) {
+        onSave({
+            selectedInsuredType,
+          ...fieldValues,
+          ...dateValues,
+          ...dictionaryValues,
+            ...toggleStates
+          });
+        }
+        if (onBack) onBack();
+      }
+    } else if (currentView === 'types') {
+      handleTypeSave();
+    } else if (currentView === 'policyholder-insured') {
+      // Сохраняем данные для "страхователь является застрахованным"
+      saveInsuredPolicyholderData({
+        selectedInsuredType: 'policyholder',
+        fieldValues,
+        dateValues,
+        dictionaryValues,
+        toggleStates,
+        currentView: 'policyholder-insured'
+      });
+      
+      if (onSave) {
+        onSave({
+          selectedInsuredType: 'policyholder',
+          ...fieldValues,
+          ...dateValues,
+          ...dictionaryValues,
+          ...toggleStates
+        });
+      }
+      if (onBack) onBack();
+    } else if (currentView === 'other-person') {
+      if (manualInput) {
+        const dataToSave = {
+          selectedInsuredType: 'other-person',
+          ...fieldValues,
+          ...dateValues,
+          ...dictionaryValues,
+          ...toggleStates
+        };
+        
+        // Сохраняем в localStorage для "иного лица"
+        saveInsuredOtherPersonData({
+          selectedInsuredType: 'other-person',
+          fieldValues,
+          dateValues,
+          dictionaryValues,
+          toggleStates,
+          autoModeState,
+          manualInput,
+          currentView: 'other-person'
+        });
+        
+        if (onSave) {
+          onSave(dataToSave);
+        }
+        if (onBack) onBack();
+      } else {
+        if (autoModeState === 'initial' || autoModeState === 'request_sent') {
+          handleSendRequest();
+        } else if (autoModeState === 'response_received') {
+          handleUpdate();
+        } else if (autoModeState === 'data_loaded') {
+          const dataToSave = {
+            selectedInsuredType: 'other-person',
+            ...fieldValues,
+            ...dateValues,
+            ...dictionaryValues,
+            ...toggleStates
+          };
+          
+          // Сохраняем в localStorage для "иного лица"
+          saveInsuredOtherPersonData({
+            selectedInsuredType: 'other-person',
+            fieldValues,
+            dateValues,
+            dictionaryValues,
+            toggleStates,
+            autoModeState,
+            manualInput,
+            currentView: 'other-person'
+          });
+          
+          if (onSave) {
+            onSave(dataToSave);
+          }
+          if (onBack) onBack();
+        }
+      }
+    } else if (currentView === 'person-date') {
+      if (manualInputPerson) {
+        // Сохраняем данные родителя/опекуна в localStorage (для other-child)
+        saveInsuredOtherChildParentData({
+          selectedInsuredType: 'other-child',
+          parentData,
+          fieldValues,
+          dateValues,
+          dictionaryValues,
+          toggleStates,
+          autoModeStatePerson,
+          manualInputPerson,
+          currentView: 'person-date'
+        });
+        
+        handleSavePersonDate();
+      } else {
+        if (autoModeStatePerson === 'initial' || autoModeStatePerson === 'request_sent') {
+          handleSendRequestPerson();
+        } else if (autoModeStatePerson === 'response_received') {
+          handleUpdatePerson();
+        } else if (autoModeStatePerson === 'data_loaded') {
+          // Сохраняем данные родителя/опекуна в localStorage (для other-child)
+          saveInsuredOtherChildParentData({
+            selectedInsuredType: 'other-child',
+            parentData,
+            fieldValues,
+            dateValues,
+            dictionaryValues,
+            toggleStates,
+            autoModeStatePerson,
+            manualInputPerson,
+            currentView: 'person-date'
+          });
+          
+          handleSavePersonDate();
+        }
+      }
+    } else if (currentView === 'child-date') {
+      handleSaveChildDate();
+    } else if (currentView === 'other-child-final') {
+      // Сохраняем финальные данные для "иной ребенок" (родитель и ребенок уже сохранены отдельно)
+      // Обновляем данные родителя и ребенка с финальными значениями
+      saveInsuredOtherChildParentData({
+        selectedInsuredType: 'other-child',
+        parentData,
+        fieldValues,
+        dateValues,
+        dictionaryValues,
+        toggleStates,
+        autoModeStatePerson,
+        manualInputPerson,
+        currentView: 'other-child-final'
+      });
+      
+      saveInsuredOtherChildChildData({
+        selectedInsuredType: 'other-child',
+        selectedChild,
+        isAddingNewChild,
+        fieldValues,
+        dateValues,
+        dictionaryValues,
+        toggleStates,
+        manualInputChild,
+        currentView: 'other-child-final'
+      });
+      
+      if (onSave) {
+        onSave({
+          selectedInsuredType: 'other-child',
+          parentData,
+          selectedChild: selectedChild, // Может быть объектом или строкой
+          ...fieldValues,
+          ...dateValues,
+          ...dictionaryValues,
+          ...toggleStates
+        });
+      }
+      if (onBack) onBack();
+    } else if (currentView === 'own-child') {
+      // Сохраняем финальные данные для "свой ребенок"
+      saveInsuredOwnChildData({
+        selectedInsuredType: 'own-child',
+        selectedChild,
+        isAddingNewChild,
+        fieldValues,
+        dateValues,
+        dictionaryValues,
+        toggleStates,
+        manualInputChild,
+        currentView: 'own-child'
+      });
+      
+      if (onSave) {
+        onSave({
+          selectedInsuredType: 'own-child',
+          selectedChild: selectedChild, // Может быть объектом или строкой
+          ...fieldValues,
+          ...dateValues,
+          ...dictionaryValues,
+          ...toggleStates
+        });
+      }
+      if (onBack) onBack();
+    }
+  };
+
+  // Рендеринг справочников
+  if (currentView === 'gender') {
+    return <Gender onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('gender', value)} />;
+  }
+  if (currentView === 'sectorCode') {
+    return <SectorCode onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('sectorCode', value)} />;
+  }
+  if (currentView === 'country') {
+    return <Country onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('country', value)} />;
+  }
+  if (currentView === 'region') {
+    return <Region onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('region', value)} />;
+  }
+  if (currentView === 'settlementType') {
+    return <SettlementType onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('settlementType', value)} />;
+  }
+  if (currentView === 'city') {
+    return <City onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('city', value)} />;
+  }
+  if (currentView === 'docType') {
+    return <DocType onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('docType', value)} />;
+  }
+  if (currentView === 'issuedBy') {
+    return <IssuedBy onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('issuedBy', value)} />;
+  }
+  if (currentView === 'childs') {
+    // Определяем, откуда брать ИИН и телефон в зависимости от типа застрахованного
+    let childIin = '';
+    let childPhone = '';
+    
+    if (selectedInsuredType === 'own-child') {
+      // Для своего ребенка - используем данные страхователя
+      if (policyholderData) {
+        childIin = policyholderData.iin || '';
+        childPhone = policyholderData.phone || '';
+      }
+    } else if (selectedInsuredType === 'other-child') {
+      // Для иного ребенка - используем данные родителя/опекуна
+      childIin = parentData.iin || '';
+      childPhone = parentData.phone || '';
+    }
+    
+    return <SelectChild onBack={handleBackToMain} onSelect={handleChildSelect} iin={childIin} phone={childPhone} />;
+  }
+  if (currentView === 'clientType') {
+    return <ClientType onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('clientType', value)} />;
+  }
+
+  // Рендеринг основных страниц
+  const renderMenu = () => (
+      <div data-layer="Menu" data-property-1="Menu one" className="Menu" style={{width: 85, height: 982, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+      <div data-layer="Back button" className="BackButton" onClick={currentView === 'main' ? onBack : handleBackToMain} style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', cursor: 'pointer'}}>
+          <div data-svg-wrapper data-layer="Chewron left" className="ChewronLeft" style={{left: 32, top: 32, position: 'absolute'}}>
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 18L7 10.5L15 3" stroke="black" strokeWidth="2"/>
+            </svg>
+          </div>
+        </div>
+        <div data-layer="OpenDocument button" className="OpendocumentButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
+          <div data-layer="File" className="File" style={{width: 22, height: 22, left: 31, top: 32, position: 'absolute'}}>
+            <div data-svg-wrapper data-layer="Frame 1321316875" className="Frame1321316875" style={{left: 3, top: 1, position: 'absolute'}}>
+              <svg width="16" height="20" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M10 0L16.001 6V18.001C16.0009 19.1008 15.1008 20.0008 14.001 20.001H1.99023C0.890252 20.001 0.000107007 19.1009 0 18.001L0.00976562 2C0.00980161 0.900011 0.900014 4.85053e-05 2 0H10ZM2.00293 2V18.001H14.0039V7H9.00293V2H2.00293Z" fill="black"/>
+            <line x1="4.00024" y1="11.2505" x2="12.0006" y2="11.2505" stroke="black" strokeWidth="1.5"/>
+            <line x1="4.00024" y1="15.2505" x2="10.0005" y2="15.2505" stroke="black" strokeWidth="1.5"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+  );
+
+  const renderSubHeader = (title) => (
+        <div data-layer="SubHeader" data-type="SectionApplication" className="Subheader" style={{alignSelf: 'stretch', height: 85, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'space-between', alignItems: 'center', display: 'inline-flex'}}>
+          <div data-layer="Title" className="Title" style={{flex: '1 1 0', height: 85, paddingLeft: 20, justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
+        <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{title}</div>
+            <div data-layer="Button container" className="ButtonContainer" style={{justifyContent: 'flex-start', alignItems: 'center', display: 'flex'}}>
+              <div data-layer="Application section transition buttons" className="ApplicationSectionTransitionButtons" style={{justifyContent: 'flex-start', alignItems: 'center', display: 'flex'}}>
+                <div data-layer="Next Button" className="NextButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderRight: '1px #F8E8E8 solid'}}>
+                  <div data-svg-wrapper data-layer="Chewron down" className="ChewronDown" style={{left: 31, top: 32, position: 'absolute'}}>
+                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18.5 7.5L11 15.5L3.5 7.5" stroke="black" strokeWidth="2"/>
+                    </svg>
+                  </div>
+                </div>
+                <div data-layer="Previous Button" className="PreviousButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
+                  <div data-svg-wrapper data-layer="Chewron up" className="ChewronUp" style={{left: 31, top: 32, position: 'absolute'}}>
+                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3.5 15.5L11 7.5L18.5 15.5" stroke="black" strokeWidth="2"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+          <div data-layer="Send request button" data-state="pressed" className="SendRequestButton" onClick={handleHeaderButtonClick} style={{width: 390, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: 'pointer'}}>
+                <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{getHeaderButtonText()}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+  );
+
+  // Начальная страница (main)
+  if (currentView === 'main') {
+    return (
+      <div data-layer="Insured data page" className="InsuredDataPage" style={{width: 1512, height: 982, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+        {renderMenu()}
+        <div data-layer="Insured data" className="InsuredData" style={{width: 1427, height: 982, overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+          {renderSubHeader('Застрахованный')}
+          <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
+            {renderDictionaryButton('insuredType', 'Тип Застрахованного', getInsuredTypeDisplay(), handleOpenTypes, !!selectedInsuredType)}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Страница выбора типа (types)
+  if (currentView === 'types') {
+    return (
+      <div data-layer="List variants" className="ListVariants" style={{width: 1512, height: 982, justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+        <div data-layer="Menu" data-property-1="Menu three" className="Menu" style={{width: 85, height: 982, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+          <div data-layer="Menu button" className="MenuButton" onClick={handleBackToMain} style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', cursor: 'pointer'}}>
+            <div data-svg-wrapper data-layer="Chewron left" className="ChewronLeft" style={{left: 31, top: 32, position: 'absolute'}}>
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <g clip-path="url(#clip0_4974_224)">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M0.916504 11C0.916504 5.43099 5.43083 0.916672 10.9998 0.916672C16.5688 0.916672 21.0832 5.43099 21.0832 11C21.0832 16.569 16.5688 21.0833 10.9998 21.0833C5.43083 21.0833 0.916504 16.569 0.916504 11ZM10.9998 2.75001C6.44335 2.75001 2.74984 6.44352 2.74984 11C2.74984 15.5565 6.44335 19.25 10.9998 19.25C15.5563 19.25 19.2498 15.5565 19.2498 11C19.2498 6.44352 15.5563 2.75001 10.9998 2.75001ZM10.074 7.33334C10.074 6.82708 10.4844 6.41667 10.9907 6.41667H10.9998C11.5061 6.41667 11.9165 6.82708 11.9165 7.33334C11.9165 7.8396 11.5061 8.25001 10.9998 8.25001H10.9907C10.4844 8.25001 10.074 7.8396 10.074 7.33334ZM10.9998 10.0833C11.5061 10.0833 11.9165 10.4937 11.9165 11V14.6667C11.9165 15.1729 11.5061 15.5833 10.9998 15.5833C10.4936 15.5833 10.0832 15.1729 10.0832 14.6667V11C10.0832 10.4937 10.4936 10.0833 10.9998 10.0833Z" fill="black"/>
-                </g>
-                <defs>
-                <clipPath id="clip0_4974_224">
-                <rect width="22" height="22" fill="white"/>
-                </clipPath>
-                </defs>
+              <path d="M15 18L7 10.5L15 3" stroke="black" strokeWidth="2"/>
                 </svg>
               </div>
             </div>
-            <div data-layer="Label" className="Label" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Нажмите на обновить, чтобы получить персональные данные клиента</div>
+          <div data-layer="OpenDocument button" className="OpendocumentButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
+            <div data-layer="File" className="File" style={{width: 22, height: 22, left: 31, top: 32, position: 'absolute'}}>
+              <div data-svg-wrapper data-layer="Frame 1321316875" className="Frame1321316875" style={{left: 3, top: 1, position: 'absolute'}}>
+                <svg width="16" height="20" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 0L16.001 6V18.001C16.0009 19.1008 15.1008 20.0008 14.001 20.001H1.99023C0.890252 20.001 0.000107007 19.1009 0 18.001L0.00976562 2C0.00980161 0.900011 0.900014 4.85053e-05 2 0H10ZM2.00293 2V18.001H14.0039V7H9.00293V2H2.00293Z" fill="black"/>
+                <line x1="4.00024" y1="11.2505" x2="12.0006" y2="11.2505" stroke="black" strokeWidth="1.5"/>
+                <line x1="4.00024" y1="15.2508" x2="10.0005" y2="15.2508" stroke="black" strokeWidth="1.5"/>
+                </svg>
+              </div>
+            </div>
           </div>
-          {/* Базовые поля - всегда видимы */}
-          {renderInputField('iin', 'ИИН', activeField === 'iin', !!fieldValues.iin)}
-          {renderInputField('phone', 'Номер телефона', activeField === 'phone', !!fieldValues.phone)}
-          
-          {/* Дополнительные поля - показываются после нажатия "Запросить данные" */}
-          {showAllFields && (
-            <>
-              {renderInputField('smsCode', 'Смс код', activeField === 'smsCode', !!fieldValues.smsCode)}
-              {renderInputField('lastName', 'Фамилия', activeField === 'lastName', !!fieldValues.lastName)}
-              {renderInputField('firstName', 'Имя', activeField === 'firstName', !!fieldValues.firstName)}
-              {renderInputField('middleName', 'Отчество', activeField === 'middleName', !!fieldValues.middleName)}
-              {renderDictionaryButton('gender', 'Пол', handleOpenGender, !!dictionaryValues.gender)}
-              {renderInputField('birthDate', 'Дата рождения', activeField === 'birthDate', !!fieldValues.birthDate)}
-              {renderInputField('issueDate', 'Дата выдачи', activeField === 'issueDate', !!fieldValues.issueDate)}
-              {renderDictionaryButton('issuedBy', 'Кем выдано', handleOpenIssuedBy, !!dictionaryValues.issuedBy)}
-              {renderInputField('documentNumber', 'Номер документа', activeField === 'documentNumber', !!fieldValues.documentNumber)}
-              {renderDictionaryButton('citizenship', 'Гражданство', handleOpenCitizenship, !!dictionaryValues.citizenship)}
-              {renderDictionaryButton('country', 'Страна', handleOpenCountry, !!dictionaryValues.country)}
-              {renderDictionaryButton('city', 'Город', handleOpenCity, !!dictionaryValues.city)}
-              {renderInputField('street', 'Улица', activeField === 'street', !!fieldValues.street)}
-              {renderInputField('house', 'Дом', activeField === 'house', !!fieldValues.house)}
-              {renderInputField('apartment', 'Квартира', activeField === 'apartment', !!fieldValues.apartment)}
-              {renderInputField('profession', 'Профессия', activeField === 'profession', !!fieldValues.profession)}
-              {renderInputField('workplace', 'Место работы', activeField === 'workplace', !!fieldValues.workplace)}
-              {renderInputField('position', 'Занимаемая должность', activeField === 'position', !!fieldValues.position)}
-            </>
-          )}
+        </div>
+        <div data-layer="List variants" className="ListVariants" style={{flex: '1 1 0', height: 982, background: 'white', overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+          <div data-layer="SubHeader" data-type="Creating an order" className="Subheader" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'space-between', alignItems: 'center', display: 'inline-flex'}}>
+            <div data-layer="Title" className="Title" style={{flex: '1 1 0', height: 85, paddingLeft: 20, justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
+              <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Тип Застрахованного</div>
+              <div data-layer="ActionButtonWithoutRounding" data-state="pressed" className="Actionbuttonwithoutrounding" onClick={handleHeaderButtonClick} style={{width: 388, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: 'pointer'}}>
+                <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Сохранить</div>
+              </div>
+            </div>
+          </div>
+          <div data-layer="Fields List" className="FieldsList" style={{alignSelf: 'stretch', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
+            <div data-layer="InputContainerRadioButton" data-state={selectedInsuredType === 'own-child' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => handleInsuredTypeSelect('own-child')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+              <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+                <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Для своего ребенка</div>
+              </div>
+              <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+                {selectedInsuredType === 'own-child' ? (
+                  <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
+                    </svg>
+                  </div>
+                ) : (
+                  <div data-svg-wrapper data-layer="Ellipse-off" className="EllipseOff" style={{left: 35, top: 36, position: 'absolute'}}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="7" cy="7" r="6.5" stroke="black"/>
+                    </svg>
+          </div>
+        )}
+              </div>
+            </div>
+            <div data-layer="InputContainerRadioButton" data-state={selectedInsuredType === 'other-child' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => handleInsuredTypeSelect('other-child')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+              <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+                <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Для иного ребенка</div>
+              </div>
+              <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+                {selectedInsuredType === 'other-child' ? (
+                  <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
+                    </svg>
+                  </div>
+                ) : (
+                  <div data-svg-wrapper data-layer="Ellipse-off" className="EllipseOff" style={{left: 35, top: 36, position: 'absolute'}}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="7" cy="7" r="6.5" stroke="black"/>
+                    </svg>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div data-layer="InputContainerRadioButton" data-state={selectedInsuredType === 'policyholder' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => handleInsuredTypeSelect('policyholder')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+              <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+                <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страхователь является Застрахованным</div>
+              </div>
+              <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+                {selectedInsuredType === 'policyholder' ? (
+                  <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
+                    </svg>
+                  </div>
+                ) : (
+                  <div data-svg-wrapper data-layer="Ellipse-off" className="EllipseOff" style={{left: 35, top: 36, position: 'absolute'}}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="7" cy="7" r="6.5" stroke="black"/>
+                    </svg>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div data-layer="InputContainerRadioButton" data-state={selectedInsuredType === 'other-person' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => handleInsuredTypeSelect('other-person')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+              <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+                <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Иное лицо</div>
+              </div>
+              <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+                {selectedInsuredType === 'other-person' ? (
+                  <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
+                    </svg>
+                  </div>
+                ) : (
+                  <div data-svg-wrapper data-layer="Ellipse-off" className="EllipseOff" style={{left: 35, top: 36, position: 'absolute'}}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="7" cy="7" r="6.5" stroke="black"/>
+                    </svg>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+    );
+  }
 
-      {/* Fixed Footer/Button */}
-      <div 
-        data-layer="Button Container" 
-        className="ButtonContainer" 
-        style={{
-          width: 393,
-          height: 100,
-          paddingLeft: 16,
-          paddingRight: 16,
-          paddingTop: 16,
-          paddingBottom: 16,
-          background: 'white',
-          borderTop: '1px #F8E8E8 solid',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: 10,
-          display: 'flex',
-          position: 'fixed',
-          bottom: 0,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 1000
-        }}
-      >
-        <div 
-          data-layer="Button" 
-          data-state="pressed" 
-          className="Button" 
-          style={{
-            width: 361, 
-            height: 68, 
-            background: '#E0E0E0', 
-            overflow: 'hidden', 
-            borderRadius: 8, 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            display: 'inline-flex',
-            cursor: 'pointer'
-          }} 
-          onClick={showAllFields ? handleSave : handleRequestData}
-        >
-          <div 
-            data-layer="Button Text" 
-            className="ButtonText" 
-            style={{
-              flex: '1 1 0', 
-              textBoxTrim: 'trim-both', 
-              textBoxEdge: 'cap alphabetic', 
-              textAlign: 'center', 
-              color: 'black', 
-              fontSize: 16, 
-              fontFamily: 'Inter', 
-              fontWeight: '500', 
-              wordWrap: 'break-word'
-            }}
-          >
-            {showAllFields ? 'Сохранить' : 'Запросить данные'}
-          </div>
+  // Страница: Страхователь является застрахованным
+  if (currentView === 'policyholder-insured') {
+    return (
+      <div data-layer="Insured data page" className="InsuredDataPage" style={{width: 1512, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+        {renderMenu()}
+        <div data-layer="Insured data" className="InsuredData" style={{width: 1427, overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+          {renderSubHeader('Застрахованный')}
+          <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
+            {renderDictionaryButton('insuredType', 'Тип Застрахованного', 'Страхователь является Застрахованным', handleOpenTypes, true)}
+            {renderDictionaryButton('residency', 'Признак резидентства', dictionaryValues.residency, () => {}, true)}
+            {renderInputField('iin', 'ИИН', false, !!fieldValues.iin)}
+            {renderInputField('phone', 'Номер телефона', false, !!fieldValues.phone)}
+            {renderInputField('lastName', 'Фамилия', false, !!fieldValues.lastName)}
+            {renderInputField('firstName', 'Имя', false, !!fieldValues.firstName)}
+            {renderInputField('middleName', 'Отчество', false, !!fieldValues.middleName)}
+            {renderCalendarField('birthDate', 'Дата рождения', dateValues.birthDate)}
+            {renderDictionaryButton('gender', 'Пол', dictionaryValues.gender, handleOpenGender, true)}
+            {renderDictionaryButton('sectorCode', 'Код сектора экономики', dictionaryValues.sectorCode, handleOpenSectorCode, true)}
+            {renderDictionaryButton('country', 'Страна', dictionaryValues.country, handleOpenCountry, true)}
+            {renderDictionaryButton('region', 'Область', dictionaryValues.region, handleOpenRegion, true)}
+            {renderDictionaryButton('settlementType', 'Вид населенного пункта', dictionaryValues.settlementType, handleOpenSettlementType, true)}
+            {renderDictionaryButton('city', 'Город', dictionaryValues.city, handleOpenCity, true)}
+            {renderInputField('street', 'Улица', false, !!fieldValues.street)}
+            {renderInputField('microdistrict', 'Микрорайон', false, !!fieldValues.microdistrict)}
+            {renderInputField('houseNumber', '№ дома', false, !!fieldValues.houseNumber)}
+            {renderInputField('apartmentNumber', '№ квартиры', false, !!fieldValues.apartmentNumber)}
+            {renderDictionaryButton('docType', 'Тип документа', dictionaryValues.docType, handleOpenDocType, true)}
+            {renderInputField('documentNumber', 'Номер документа', false, !!fieldValues.documentNumber)}
+            {renderDictionaryButton('issuedBy', 'Кем выдано', dictionaryValues.issuedBy, handleOpenIssuedBy, true)}
+            {renderCalendarField('issueDate', 'Выдан от', dateValues.issueDate)}
+            {renderCalendarField('expiryDate', 'Действует до', dateValues.expiryDate)}
+            {renderToggleButton('Признак ПДЛ', toggleStates.pdl, handleTogglePDL)}
         </div>
       </div>
     </div>
   );
+  }
+
+  // Страница: Иное лицо
+  if (currentView === 'other-person') {
+    return (
+      <div data-layer="Insured data page" className="InsuredDataPage" style={{width: 1512, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+        {renderMenu()}
+        <div data-layer="Insured data" className="InsuredData" style={{width: 1427, overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+          {renderSubHeader('Застрахованный')}
+          {/* Alert для уведомлений */}
+          {!manualInput && (autoModeState === 'request_sent' || autoModeState === 'response_received') && (
+            <div data-layer="Alert" className="Alert" style={{alignSelf: 'stretch', height: 85, paddingRight: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 8, display: 'inline-flex'}}>
+              <div data-layer="Info container" className="InfoContainer" style={{width: 85, height: 85, position: 'relative', background: 'white', overflow: 'hidden'}}>
+                <div data-svg-wrapper data-layer="Info" className="Info" style={{left: 31, top: 32, position: 'absolute'}}>
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g clipPath="url(#clip0_491_9703)">
+                  <path fillRule="evenodd" clipRule="evenodd" d="M0.916748 10.9998C0.916748 5.43083 5.43107 0.916504 11.0001 0.916504C16.5691 0.916504 21.0834 5.43083 21.0834 10.9998C21.0834 16.5688 16.5691 21.0832 11.0001 21.0832C5.43107 21.0832 0.916748 16.5688 0.916748 10.9998ZM11.0001 2.74984C6.44359 2.74984 2.75008 6.44335 2.75008 10.9998C2.75008 15.5563 6.44359 19.2498 11.0001 19.2498C15.5566 19.2498 19.2501 15.5563 19.2501 10.9998C19.2501 6.44335 15.5566 2.74984 11.0001 2.74984ZM10.0742 7.33317C10.0742 6.82691 10.4847 6.4165 10.9909 6.4165H11.0001C11.5063 6.4165 11.9167 6.82691 11.9167 7.33317C11.9167 7.83943 11.5063 8.24984 11.0001 8.24984H10.9909C10.4847 8.24984 10.0742 7.83943 10.0742 7.33317ZM11.0001 10.0832C11.5063 10.0832 11.9167 10.4936 11.9167 10.9998V14.6665C11.9167 15.1728 11.5063 15.5832 11.0001 15.5832C10.4938 15.5832 10.0834 15.1728 10.0834 14.6665V10.9998C10.0834 10.4936 10.4938 10.0832 11.0001 10.0832Z" fill="black"/>
+                  </g>
+                  <defs>
+                  <clipPath id="clip0_491_9703">
+                  <rect width="22" height="22" fill="white"/>
+                  </clipPath>
+                  </defs>
+                  </svg>
+                </div>
+              </div>
+              <div data-layer="Label" className="Label" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
+                {autoModeState === 'request_sent' 
+                  ? 'На номер будет отправлено СМС для получения согласия, клиенту необходимо ответить 511'
+                  : 'Нажмите на обновить, чтобы получить данные'}
+              </div>
+            </div>
+          )}
+          <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
+            {renderDictionaryButton('insuredType', 'Тип Застрахованного', 'Иное лицо', handleOpenTypes, true)}
+            {renderToggleButton('Ручной ввод данных', manualInput, handleToggleManualInput)}
+            {!manualInput && (
+              <>
+                {renderInputField('iin', 'ИИН', activeField === 'iin', !!fieldValues.iin)}
+                {renderInputField('phone', 'Номер телефона', activeField === 'phone', !!fieldValues.phone)}
+              </>
+            )}
+            {manualInput && (
+              <>
+                {renderDictionaryButton('residency', 'Признак резидентства', dictionaryValues.residency, () => {}, true)}
+                {renderInputField('iin', 'ИИН')}
+                {renderInputField('phone', 'Номер телефона')}
+                {renderInputField('lastName', 'Фамилия')}
+                {renderInputField('firstName', 'Имя')}
+                {renderInputField('middleName', 'Отчество')}
+                {renderCalendarField('birthDate', 'Дата рождения', dateValues.birthDate)}
+                {renderDictionaryButton('gender', 'Пол', dictionaryValues.gender, handleOpenGender)}
+                {renderDictionaryButton('sectorCode', 'Код сектора экономики', dictionaryValues.sectorCode, handleOpenSectorCode)}
+                {renderDictionaryButton('country', 'Страна', dictionaryValues.country, handleOpenCountry)}
+                {renderDictionaryButton('region', 'Область', dictionaryValues.region, handleOpenRegion)}
+                {renderDictionaryButton('settlementType', 'Вид населенного пункта', dictionaryValues.settlementType, handleOpenSettlementType)}
+                {renderDictionaryButton('city', 'Город', dictionaryValues.city, handleOpenCity)}
+                {renderInputField('street', 'Улица')}
+                {renderInputField('microdistrict', 'Микрорайон')}
+                {renderInputField('houseNumber', '№ дома')}
+                {renderInputField('apartmentNumber', '№ квартиры')}
+                {renderAttachField('documentFile', 'Документ подтверждающий личность', fieldValues.documentFile)}
+                {renderDictionaryButton('docType', 'Тип документа', dictionaryValues.docType, handleOpenDocType)}
+                {renderInputField('documentNumber', 'Номер документа')}
+                {renderDictionaryButton('issuedBy', 'Кем выдано', dictionaryValues.issuedBy, handleOpenIssuedBy)}
+                {renderCalendarField('issueDate', 'Выдан от', dateValues.issueDate)}
+                {renderCalendarField('expiryDate', 'Действует до', dateValues.expiryDate)}
+                {renderToggleButton('Признак ПДЛ', toggleStates.pdl, handleTogglePDL)}
+                {renderDictionaryButton('clientType', 'Тип клиента', dictionaryValues.clientType, handleOpenClientType)}
+              </>
+            )}
+            {!manualInput && autoModeState === 'data_loaded' && (
+              <>
+                {renderInputField('lastName', 'Фамилия', activeField === 'lastName', !!fieldValues.lastName)}
+                {renderInputField('firstName', 'Имя', activeField === 'firstName', !!fieldValues.firstName)}
+                {renderInputField('middleName', 'Отчество', activeField === 'middleName', !!fieldValues.middleName)}
+                {renderCalendarField('birthDate', 'Дата рождения', dateValues.birthDate)}
+                {renderDictionaryButton('gender', 'Пол', dictionaryValues.gender, handleOpenGender)}
+                {renderDictionaryButton('sectorCode', 'Код сектора экономики', dictionaryValues.sectorCode, handleOpenSectorCode)}
+                {renderDictionaryButton('country', 'Страна', dictionaryValues.country, handleOpenCountry)}
+                {renderDictionaryButton('region', 'Область', dictionaryValues.region, handleOpenRegion)}
+                {renderDictionaryButton('settlementType', 'Вид населенного пункта', dictionaryValues.settlementType, handleOpenSettlementType)}
+                {renderDictionaryButton('city', 'Город', dictionaryValues.city, handleOpenCity)}
+                {renderInputField('street', 'Улица', activeField === 'street', !!fieldValues.street)}
+                {renderInputField('microdistrict', 'Микрорайон', activeField === 'microdistrict', !!fieldValues.microdistrict)}
+                {renderInputField('houseNumber', '№ дома', activeField === 'houseNumber', !!fieldValues.houseNumber)}
+                {renderInputField('apartmentNumber', '№ квартиры', activeField === 'apartmentNumber', !!fieldValues.apartmentNumber)}
+                {renderDictionaryButton('docType', 'Тип документа', dictionaryValues.docType, handleOpenDocType)}
+                {renderInputField('documentNumber', 'Номер документа', activeField === 'documentNumber', !!fieldValues.documentNumber)}
+                {renderDictionaryButton('issuedBy', 'Кем выдано', dictionaryValues.issuedBy, handleOpenIssuedBy)}
+                {renderCalendarField('issueDate', 'Выдан от', dateValues.issueDate)}
+                {renderCalendarField('expiryDate', 'Действует до', dateValues.expiryDate)}
+                {renderToggleButton('Признак ПДЛ', toggleStates.pdl, handleTogglePDL)}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Страница: Для иного ребенка (начальная)
+  if (currentView === 'other-child') {
+    return (
+      <div data-layer="Insured data page" className="InsuredDataPage" style={{width: 1512, height: 982, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+        {renderMenu()}
+        <div data-layer="Insured data" className="InsuredData" style={{width: 1427, height: 982, overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+          {renderSubHeader('Застрахованный')}
+          <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
+            {renderDictionaryButton('insuredType', 'Тип Застрахованного', 'Для иного ребенка', handleOpenTypes, true)}
+            {renderDictionaryButton('parentData', 'Данные родителя или опекуна ребенка', parentData.iin && parentData.phone ? [fieldValues.lastName, fieldValues.firstName, fieldValues.middleName].filter(Boolean).join(' ') : '', handleOpenPersonDate, !!(parentData.iin && parentData.phone))}
+            {parentData.iin && parentData.phone && renderDictionaryButton('selectChild', 'Выбрать ребенка', getSelectedChildDisplay(), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Страница: Для своего ребенка
+  if (currentView === 'own-child') {
+    return (
+      <div data-layer="Insured data page" className="InsuredDataPage" style={{width: 1512, height: 982, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+        {renderMenu()}
+        <div data-layer="Insured data" className="InsuredData" style={{width: 1427, height: 982, overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+          {renderSubHeader('Застрахованный')}
+          <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
+            {renderDictionaryButton('insuredType', 'Тип Застрахованного', 'Для своего ребенка', handleOpenTypes, true)}
+            {renderDictionaryButton('selectChild', 'Выбрать ребенка', getSelectedChildDisplay(), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Страница: Данные родителя или опекуна ребенка
+  if (currentView === 'person-date') {
+    return (
+      <div data-layer="Insured data page" className="InsuredDataPage" style={{width: 1512, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+        {renderMenu()}
+        <div data-layer="Insured data" className="InsuredData" style={{width: 1427, overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+          <div data-layer="SubHeader" data-type="SectionApplication" className="Subheader" style={{alignSelf: 'stretch', height: 85, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'space-between', alignItems: 'center', display: 'inline-flex'}}>
+            <div data-layer="Title" className="Title" style={{flex: '1 1 0', height: 85, paddingLeft: 20, justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
+              <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Данные родителя или опекуна ребенка</div>
+              <div data-layer="Button container" className="ButtonContainer" style={{justifyContent: 'flex-start', alignItems: 'center', display: 'flex'}}>
+                <div data-layer="Application section transition buttons" className="ApplicationSectionTransitionButtons" style={{justifyContent: 'flex-start', alignItems: 'center', display: 'flex'}}>
+                  <div data-layer="Next Button" className="NextButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderRight: '1px #F8E8E8 solid'}}>
+                    <div data-svg-wrapper data-layer="Chewron down" className="ChewronDown" style={{left: 31, top: 32, position: 'absolute'}}>
+                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M18.5 7.5L11 15.5L3.5 7.5" stroke="black" strokeWidth="2"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <div data-layer="Previous Button" className="PreviousButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
+                    <div data-svg-wrapper data-layer="Chewron up" className="ChewronUp" style={{left: 31, top: 32, position: 'absolute'}}>
+                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M3.5 15.5L11 7.5L18.5 15.5" stroke="black" strokeWidth="2"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                <div data-layer="Save button" data-state="pressed" className="SaveButton" onClick={handleHeaderButtonClick} style={{width: 390, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: 'pointer'}}>
+                  <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{getHeaderButtonText()}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Alert для уведомлений */}
+          {!manualInputPerson && (autoModeStatePerson === 'request_sent' || autoModeStatePerson === 'response_received') && (
+            <div data-layer="Alert" className="Alert" style={{alignSelf: 'stretch', height: 85, paddingRight: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 8, display: 'inline-flex'}}>
+              <div data-layer="Info container" className="InfoContainer" style={{width: 85, height: 85, position: 'relative', background: 'white', overflow: 'hidden'}}>
+                <div data-svg-wrapper data-layer="Info" className="Info" style={{left: 31, top: 32, position: 'absolute'}}>
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g clipPath="url(#clip0_491_9703)">
+                  <path fillRule="evenodd" clipRule="evenodd" d="M0.916748 10.9998C0.916748 5.43083 5.43107 0.916504 11.0001 0.916504C16.5691 0.916504 21.0834 5.43083 21.0834 10.9998C21.0834 16.5688 16.5691 21.0832 11.0001 21.0832C5.43107 21.0832 0.916748 16.5688 0.916748 10.9998ZM11.0001 2.74984C6.44359 2.74984 2.75008 6.44335 2.75008 10.9998C2.75008 15.5563 6.44359 19.2498 11.0001 19.2498C15.5566 19.2498 19.2501 15.5563 19.2501 10.9998C19.2501 6.44335 15.5566 2.74984 11.0001 2.74984ZM10.0742 7.33317C10.0742 6.82691 10.4847 6.4165 10.9909 6.4165H11.0001C11.5063 6.4165 11.9167 6.82691 11.9167 7.33317C11.9167 7.83943 11.5063 8.24984 11.0001 8.24984H10.9909C10.4847 8.24984 10.0742 7.83943 10.0742 7.33317ZM11.0001 10.0832C11.5063 10.0832 11.9167 10.4936 11.9167 10.9998V14.6665C11.9167 15.1728 11.5063 15.5832 11.0001 15.5832C10.4938 15.5832 10.0834 15.1728 10.0834 14.6665V10.9998C10.0834 10.4936 10.4938 10.0832 11.0001 10.0832Z" fill="black"/>
+                  </g>
+                  <defs>
+                  <clipPath id="clip0_491_9703">
+                  <rect width="22" height="22" fill="white"/>
+                  </clipPath>
+                  </defs>
+                  </svg>
+                </div>
+              </div>
+              <div data-layer="Label" className="Label" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
+                {autoModeStatePerson === 'request_sent' 
+                  ? 'На номер будет отправлено СМС для получения согласия, клиенту необходимо ответить 511'
+                  : 'Нажмите на обновить, чтобы получить данные'}
+              </div>
+            </div>
+          )}
+          <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
+            {renderToggleButton('Ручной ввод данных', manualInputPerson, handleToggleManualInputPerson)}
+            {!manualInputPerson && (
+              <>
+                {renderInputField('parentIin', 'ИИН', activeField === 'parentIin', !!parentData.iin, parentData.iin, (e) => handleParentFieldChange('iin', e.target.value))}
+                {renderInputField('parentPhone', 'Номер телефона', activeField === 'parentPhone', !!parentData.phone, parentData.phone, (e) => handleParentFieldChange('phone', e.target.value))}
+              </>
+            )}
+            {manualInputPerson && (
+              <>
+                {renderDictionaryButton('residency', 'Признак резидентства', dictionaryValues.residency, () => {}, true)}
+                {renderInputField('iin', 'ИИН')}
+                {renderInputField('phone', 'Номер телефона')}
+                {renderInputField('lastName', 'Фамилия')}
+                {renderInputField('firstName', 'Имя')}
+                {renderInputField('middleName', 'Отчество')}
+                {renderCalendarField('birthDate', 'Дата рождения', dateValues.birthDate)}
+                {renderDictionaryButton('gender', 'Пол', dictionaryValues.gender, handleOpenGender)}
+                {renderDictionaryButton('sectorCode', 'Код сектора экономики', dictionaryValues.sectorCode, handleOpenSectorCode)}
+                {renderDictionaryButton('country', 'Страна', dictionaryValues.country, handleOpenCountry)}
+                {renderDictionaryButton('region', 'Область', dictionaryValues.region, handleOpenRegion)}
+                {renderDictionaryButton('settlementType', 'Вид населенного пункта', dictionaryValues.settlementType, handleOpenSettlementType)}
+                {renderDictionaryButton('city', 'Город', dictionaryValues.city, handleOpenCity)}
+                {renderInputField('street', 'Улица')}
+                {renderInputField('microdistrict', 'Микрорайон')}
+                {renderInputField('houseNumber', '№ дома')}
+                {renderInputField('apartmentNumber', '№ квартиры')}
+                {renderAttachField('documentFile', 'Документ подтверждающий личность', fieldValues.documentFile)}
+                {renderDictionaryButton('docType', 'Тип документа', dictionaryValues.docType, handleOpenDocType)}
+                {renderInputField('documentNumber', 'Номер документа')}
+                {renderDictionaryButton('issuedBy', 'Кем выдано', dictionaryValues.issuedBy, handleOpenIssuedBy)}
+                {renderCalendarField('issueDate', 'Выдан от', dateValues.issueDate)}
+                {renderCalendarField('expiryDate', 'Действует до', dateValues.expiryDate)}
+                {renderToggleButton('Признак ПДЛ', toggleStates.pdl, handleTogglePDL)}
+                {renderDictionaryButton('clientType', 'Тип клиента', dictionaryValues.clientType, handleOpenClientType)}
+              </>
+            )}
+            {!manualInputPerson && autoModeStatePerson === 'data_loaded' && (
+              <>
+                {renderDictionaryButton('residency', 'Признак резидентства', dictionaryValues.residency, () => {}, true)}
+                {renderInputField('iin', 'ИИН', activeField === 'iin', !!fieldValues.iin)}
+                {renderInputField('phone', 'Номер телефона', activeField === 'phone', !!fieldValues.phone)}
+                {renderInputField('lastName', 'Фамилия', activeField === 'lastName', !!fieldValues.lastName)}
+                {renderInputField('firstName', 'Имя', activeField === 'firstName', !!fieldValues.firstName)}
+                {renderInputField('middleName', 'Отчество', activeField === 'middleName', !!fieldValues.middleName)}
+                {renderCalendarField('birthDate', 'Дата рождения', dateValues.birthDate)}
+                {renderDictionaryButton('gender', 'Пол', dictionaryValues.gender, handleOpenGender)}
+                {renderDictionaryButton('sectorCode', 'Код сектора экономики', dictionaryValues.sectorCode, handleOpenSectorCode)}
+                {renderDictionaryButton('country', 'Страна', dictionaryValues.country, handleOpenCountry)}
+                {renderDictionaryButton('region', 'Область', dictionaryValues.region, handleOpenRegion)}
+                {renderDictionaryButton('settlementType', 'Вид населенного пункта', dictionaryValues.settlementType, handleOpenSettlementType)}
+                {renderDictionaryButton('city', 'Город', dictionaryValues.city, handleOpenCity)}
+                {renderInputField('street', 'Улица', activeField === 'street', !!fieldValues.street)}
+                {renderInputField('microdistrict', 'Микрорайон', activeField === 'microdistrict', !!fieldValues.microdistrict)}
+                {renderInputField('houseNumber', '№ дома', activeField === 'houseNumber', !!fieldValues.houseNumber)}
+                {renderInputField('apartmentNumber', '№ квартиры', activeField === 'apartmentNumber', !!fieldValues.apartmentNumber)}
+                {renderDictionaryButton('docType', 'Тип документа', dictionaryValues.docType, handleOpenDocType)}
+                {renderInputField('documentNumber', 'Номер документа', activeField === 'documentNumber', !!fieldValues.documentNumber)}
+                {renderDictionaryButton('issuedBy', 'Кем выдано', dictionaryValues.issuedBy, handleOpenIssuedBy)}
+                {renderCalendarField('issueDate', 'Выдан от', dateValues.issueDate)}
+                {renderCalendarField('expiryDate', 'Действует до', dateValues.expiryDate)}
+                {renderToggleButton('Признак ПДЛ', toggleStates.pdl, handleTogglePDL)}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Страница: Данные ребенка
+  if (currentView === 'child-date') {
+    return (
+      <div data-layer="Insured data page" className="InsuredDataPage" style={{width: 1512, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+        {renderMenu()}
+        <div data-layer="Insured data" className="InsuredData" style={{width: 1427, overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+          <div data-layer="SubHeader" data-type="SectionApplication" className="Subheader" style={{alignSelf: 'stretch', height: 85, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'space-between', alignItems: 'center', display: 'inline-flex'}}>
+            <div data-layer="Title" className="Title" style={{flex: '1 1 0', height: 85, paddingLeft: 20, justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
+              <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Данные ребенка</div>
+              <div data-layer="Button container" className="ButtonContainer" style={{justifyContent: 'flex-start', alignItems: 'center', display: 'flex'}}>
+                <div data-layer="Save button" data-state="pressed" className="SaveButton" onClick={handleHeaderButtonClick} style={{width: 390, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: 'pointer'}}>
+                  <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Сохранить</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
+            {renderDictionaryButton('selectChild', 'Выбрать ребенка', getSelectedChildDisplay(), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
+            {renderToggleButton('Ручной ввод данных', manualInputChild, handleToggleManualInputChild)}
+            {renderInputField('iin', 'ИИН', activeField === 'iin', !!fieldValues.iin)}
+            {renderInputField('lastName', 'Фамилия', activeField === 'lastName', !!fieldValues.lastName)}
+            {renderInputField('firstName', 'Имя', activeField === 'firstName', !!fieldValues.firstName)}
+            {renderInputField('middleName', 'Отчество', activeField === 'middleName', !!fieldValues.middleName)}
+            {renderCalendarField('birthDate', 'Дата рождения', dateValues.birthDate)}
+            {renderDictionaryButton('gender', 'Пол', dictionaryValues.gender, handleOpenGender)}
+            {renderDictionaryButton('sectorCode', 'Код сектора экономики', dictionaryValues.sectorCode, handleOpenSectorCode)}
+            {renderDictionaryButton('country', 'Страна', dictionaryValues.country, handleOpenCountry)}
+            {renderDictionaryButton('region', 'Область', dictionaryValues.region, handleOpenRegion)}
+            {renderDictionaryButton('settlementType', 'Вид населенного пункта', dictionaryValues.settlementType, handleOpenSettlementType)}
+            {renderDictionaryButton('city', 'Город', dictionaryValues.city, handleOpenCity)}
+            {renderInputField('street', 'Улица', activeField === 'street', !!fieldValues.street)}
+            {renderInputField('microdistrict', 'Микрорайон', activeField === 'microdistrict', !!fieldValues.microdistrict)}
+            {renderInputField('houseNumber', '№ дома', activeField === 'houseNumber', !!fieldValues.houseNumber)}
+            {renderInputField('apartmentNumber', '№ квартиры', activeField === 'apartmentNumber', !!fieldValues.apartmentNumber)}
+            {renderDictionaryButton('docType', 'Тип документа', dictionaryValues.docType, handleOpenDocType)}
+            {renderInputField('documentNumber', 'Номер документа', activeField === 'documentNumber', !!fieldValues.documentNumber)}
+            {renderDictionaryButton('issuedBy', 'Кем выдано', dictionaryValues.issuedBy, handleOpenIssuedBy)}
+            {renderCalendarField('issueDate', 'Выдан от', dateValues.issueDate)}
+            {renderCalendarField('expiryDate', 'Действует до', dateValues.expiryDate)}
+            {renderToggleButton('Признак ПДЛ', toggleStates.pdl, handleTogglePDL)}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Страница: Для иного ребенка (финальная)
+  if (currentView === 'other-child-final') {
+    return (
+      <div data-layer="Insured data page" className="InsuredDataPage" style={{width: 1512, height: 982, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+        {renderMenu()}
+        <div data-layer="Insured data" className="InsuredData" style={{width: 1427, height: 982, overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+          {renderSubHeader('Застрахованный')}
+          <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
+            {renderDictionaryButton('insuredType', 'Тип Застрахованного', 'Для иного ребенка', handleOpenTypes, true)}
+            {renderDictionaryButton('parentData', 'Данные родителя или опекуна ребенка', parentData.iin && parentData.phone ? [fieldValues.lastName, fieldValues.firstName, fieldValues.middleName].filter(Boolean).join(' ') : '', handleOpenPersonDate, !!(parentData.iin && parentData.phone))}
+            {renderDictionaryButton('selectChild', 'Выбрать ребенка', getSelectedChildDisplay(), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 };
 
 export default Insured;
