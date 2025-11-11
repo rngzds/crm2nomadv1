@@ -22,7 +22,6 @@ const Application = ({ selectedProduct, onBack }) => {
   };
   const handleOpenPolicyholder = () => setCurrentView('policyholder');
   const handleOpenInsured = () => setCurrentView('insured');
-  const handleOpenBeneficiary = () => setCurrentView('beneficiary');
   const handleOpenTerms = () => setCurrentView('terms');
   const handleOpenQuestionary = () => setCurrentView('questionary');
   const handleViewFullHistory = () => setCurrentView('history');
