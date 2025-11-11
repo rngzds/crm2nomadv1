@@ -1,15 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getChildren, getChildFullName } from '../../services/childService';
 
-const SelectChild = ({ onBack, onSelect }) => {
-  const [selectedValue, setSelectedValue] = useState(null);
+const SelectChild = ({ onBack, onSelect, iin, phone }) => {
+  const [selectedChild, setSelectedChild] = useState(null);
+  const [children, setChildren] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const handleSelect = (value) => {
-    setSelectedValue(value);
+  // Загрузка детей из API при монтировании
+  useEffect(() => {
+    const loadChildren = async () => {
+      if (!iin || !phone) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        const phoneClean = phone.replace(/\D/g, ''); // Убираем все нецифровые символы
+        const iinClean = iin.replace(/\D/g, ''); // Убираем все нецифровые символы
+        const childrenData = await getChildren(iinClean, phoneClean);
+        setChildren(childrenData);
+      } catch (err) {
+        console.error('Error loading children:', err);
+        setError('Ошибка при загрузке данных о детях');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadChildren();
+  }, [iin, phone]);
+
+  const handleSelect = (child) => {
+    setSelectedChild(child);
   };
 
   const handleSave = () => {
-    if (selectedValue && onSelect) {
-      onSelect(selectedValue);
+    if (selectedChild && onSelect) {
+      onSelect(selectedChild);
     } else if (onBack) {
       onBack();
     }
@@ -36,52 +66,61 @@ const SelectChild = ({ onBack, onSelect }) => {
       </div>
     </div>
     <div data-layer="Fields List" className="FieldsList" style={{alignSelf: 'stretch', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
-      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'Иванова Алена Ивановна' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => handleSelect('Иванова Алена Ивановна')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
-        <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-          <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Иванова Алена Ивановна</div>
+      {loading && (
+        <div data-layer="Loading" className="Loading" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
+          <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Загрузка...</div>
         </div>
-        <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          {selectedValue === 'Иванова Алена Ивановна' ? (
-            <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
-              </svg>
-            </div>
-          ) : (
-            <div data-svg-wrapper data-layer="Ellipse-off" className="EllipseOff" style={{left: 35, top: 36, position: 'absolute'}}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="7" cy="7" r="6.5" stroke="black"/>
-              </svg>
-            </div>
-          )}
+      )}
+      {error && (
+        <div data-layer="Error" className="Error" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
+          <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'red', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{error}</div>
         </div>
-      </div>
-      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'Иванов Петр Иванович' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => handleSelect('Иванов Петр Иванович')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
-        <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-          <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Иванов Петр Иванович</div>
-        </div>
-        <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          {selectedValue === 'Иванов Петр Иванович' ? (
-            <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
-              </svg>
+      )}
+      {!loading && !error && children.map((child, index) => {
+        const fullName = getChildFullName(child);
+        const isSelected = selectedChild && selectedChild.child_iin === child.child_iin;
+        return (
+          <div 
+            key={child.child_iin || index} 
+            data-layer="InputContainerRadioButton" 
+            data-state={isSelected ? 'pressed' : 'not_pressed'} 
+            className="Inputcontainerradiobutton" 
+            onClick={() => handleSelect(child)} 
+            style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}
+          >
+            <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+              <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{fullName}</div>
             </div>
-          ) : (
-            <div data-svg-wrapper data-layer="Ellipse-off" className="EllipseOff" style={{left: 35, top: 36, position: 'absolute'}}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="7" cy="7" r="6.5" stroke="black"/>
-              </svg>
+            <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+              {isSelected ? (
+                <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
+                  </svg>
+                </div>
+              ) : (
+                <div data-svg-wrapper data-layer="Ellipse-off" className="EllipseOff" style={{left: 35, top: 36, position: 'absolute'}}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="7" cy="7" r="6.5" stroke="black"/>
+                  </svg>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
-      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'Добавить ребенка' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => handleSelect('Добавить ребенка')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
+          </div>
+        );
+      })}
+      <div 
+        data-layer="InputContainerRadioButton" 
+        data-state={selectedChild === 'Добавить ребенка' ? 'pressed' : 'not_pressed'} 
+        className="Inputcontainerradiobutton" 
+        onClick={() => handleSelect('Добавить ребенка')} 
+        style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}
+      >
         <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
           <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Добавить ребенка</div>
         </div>
         <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          {selectedValue === 'Добавить ребенка' ? (
+          {selectedChild === 'Добавить ребенка' ? (
             <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>

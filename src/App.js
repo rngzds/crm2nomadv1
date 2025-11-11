@@ -5,6 +5,7 @@ import Statements from './Statements';
 import Products from './Products';
 import GonsApplication from './senim/application/Application';
 import SenimApplication from './pensan/application/Application';
+import { clearAllData } from './services/storageService';
 
 function App() {
   const [currentView, setCurrentView] = useState('auth');
@@ -15,6 +16,8 @@ function App() {
   };
 
   const handleLogout = () => {
+    // Очищаем все данные из localStorage при выходе (хард ресет)
+    clearAllData();
     setCurrentView('auth');
     setSelectedProduct(null);
   };

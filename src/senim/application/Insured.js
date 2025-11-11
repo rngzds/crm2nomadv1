@@ -9,6 +9,24 @@ import City from '../dictionary/City';
 import DocType from '../dictionary/DocType';
 import IssuedBy from '../dictionary/IssuedBy';
 import ClientType from '../dictionary/ClientType';
+import { getPerson, mapApiDataToForm } from '../../services/personService';
+import { 
+  saveInsuredData, 
+  loadInsuredData, 
+  saveInsuredOtherPersonData, 
+  loadInsuredOtherPersonData, 
+  saveInsuredParentData, 
+  loadInsuredParentData,
+  saveInsuredPolicyholderData,
+  loadInsuredPolicyholderData,
+  saveInsuredOwnChildData,
+  loadInsuredOwnChildData,
+  saveInsuredOtherChildParentData,
+  loadInsuredOtherChildParentData,
+  saveInsuredOtherChildChildData,
+  loadInsuredOtherChildChildData
+} from '../../services/storageService';
+import { getChildFullName, formatDate as formatChildDate } from '../../services/childService';
 
 const Insured = ({ onBack, policyholderData, onSave }) => {
   // Навигация
@@ -21,8 +39,12 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
   const [manualInputChild, setManualInputChild] = useState(false); // для child-date
   const [autoModeState, setAutoModeState] = useState('initial'); // 'initial', 'request_sent', 'response_received', 'data_loaded'
   const [autoModeStatePerson, setAutoModeStatePerson] = useState('initial'); // для person-date
-  const [selectedChild, setSelectedChild] = useState('');
+  const [selectedChild, setSelectedChild] = useState(null); // Теперь храним объект ребенка или строку 'Добавить ребенка'
   const [isAddingNewChild, setIsAddingNewChild] = useState(false);
+  
+  // Состояние для хранения данных из API
+  const [apiResponseData, setApiResponseData] = useState(null); // для other-person
+  const [apiResponseDataPerson, setApiResponseDataPerson] = useState(null); // для person-date
   
   // Данные для родителя/опекуна (для other-child)
   const [parentData, setParentData] = useState({
@@ -74,6 +96,92 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
   // Активное поле
   const [activeField, setActiveField] = useState(null);
 
+  // Загрузка данных из localStorage при монтировании компонента
+  useEffect(() => {
+    // Определяем, какой тип был выбран последним, проверяя все типы
+    let lastSelectedType = null;
+    let lastView = 'main';
+    
+    // Проверяем каждый тип и находим последний сохраненный
+    const policyholderData = loadInsuredPolicyholderData();
+    if (policyholderData && policyholderData.selectedInsuredType) {
+      lastSelectedType = policyholderData.selectedInsuredType;
+      lastView = policyholderData.currentView || 'policyholder-insured';
+    }
+    
+    const otherPersonData = loadInsuredOtherPersonData();
+    if (otherPersonData && otherPersonData.selectedInsuredType) {
+      lastSelectedType = otherPersonData.selectedInsuredType;
+      lastView = otherPersonData.currentView || 'other-person';
+    }
+    
+    const ownChildData = loadInsuredOwnChildData();
+    if (ownChildData && ownChildData.selectedInsuredType) {
+      lastSelectedType = ownChildData.selectedInsuredType;
+      lastView = ownChildData.currentView || 'own-child';
+    }
+    
+    const otherChildParentData = loadInsuredOtherChildParentData();
+    const otherChildChildData = loadInsuredOtherChildChildData();
+    if (otherChildParentData && otherChildParentData.selectedInsuredType) {
+      lastSelectedType = otherChildParentData.selectedInsuredType;
+      lastView = otherChildParentData.currentView || 'other-child';
+    }
+    
+    // Загружаем данные в зависимости от последнего выбранного типа
+    if (lastSelectedType === 'policyholder' && policyholderData) {
+      setSelectedInsuredType('policyholder');
+      if (policyholderData.fieldValues) setFieldValues(policyholderData.fieldValues);
+      if (policyholderData.dateValues) setDateValues(policyholderData.dateValues);
+      if (policyholderData.dictionaryValues) setDictionaryValues(policyholderData.dictionaryValues);
+      if (policyholderData.toggleStates) setToggleStates(policyholderData.toggleStates);
+      setCurrentView(lastView);
+    } else if (lastSelectedType === 'other-person' && otherPersonData) {
+      setSelectedInsuredType('other-person');
+      if (otherPersonData.fieldValues) setFieldValues(otherPersonData.fieldValues);
+      if (otherPersonData.dateValues) setDateValues(otherPersonData.dateValues);
+      if (otherPersonData.dictionaryValues) setDictionaryValues(otherPersonData.dictionaryValues);
+      if (otherPersonData.toggleStates) setToggleStates(otherPersonData.toggleStates);
+      if (otherPersonData.autoModeState) setAutoModeState(otherPersonData.autoModeState);
+      if (otherPersonData.manualInput !== undefined) setManualInput(otherPersonData.manualInput);
+      setCurrentView(lastView);
+    } else if (lastSelectedType === 'own-child' && ownChildData) {
+      setSelectedInsuredType('own-child');
+      if (ownChildData.fieldValues) setFieldValues(ownChildData.fieldValues);
+      if (ownChildData.dateValues) setDateValues(ownChildData.dateValues);
+      if (ownChildData.dictionaryValues) setDictionaryValues(ownChildData.dictionaryValues);
+      if (ownChildData.toggleStates) setToggleStates(ownChildData.toggleStates);
+      if (ownChildData.selectedChild !== undefined) setSelectedChild(ownChildData.selectedChild);
+      if (ownChildData.isAddingNewChild !== undefined) setIsAddingNewChild(ownChildData.isAddingNewChild);
+      if (ownChildData.manualInputChild !== undefined) setManualInputChild(ownChildData.manualInputChild);
+      setCurrentView(lastView);
+    } else if (lastSelectedType === 'other-child' && otherChildParentData) {
+      setSelectedInsuredType('other-child');
+      // Загружаем данные родителя
+      if (otherChildParentData.parentData) setParentData(otherChildParentData.parentData);
+      if (otherChildParentData.fieldValues) setFieldValues(otherChildParentData.fieldValues);
+      if (otherChildParentData.dateValues) setDateValues(otherChildParentData.dateValues);
+      if (otherChildParentData.dictionaryValues) setDictionaryValues(otherChildParentData.dictionaryValues);
+      if (otherChildParentData.toggleStates) setToggleStates(otherChildParentData.toggleStates);
+      if (otherChildParentData.autoModeStatePerson) setAutoModeStatePerson(otherChildParentData.autoModeStatePerson);
+      if (otherChildParentData.manualInputPerson !== undefined) setManualInputPerson(otherChildParentData.manualInputPerson);
+      
+      // Загружаем данные ребенка
+      if (otherChildChildData) {
+        if (otherChildChildData.selectedChild !== undefined) setSelectedChild(otherChildChildData.selectedChild);
+        if (otherChildChildData.isAddingNewChild !== undefined) setIsAddingNewChild(otherChildChildData.isAddingNewChild);
+        if (otherChildChildData.manualInputChild !== undefined) setManualInputChild(otherChildChildData.manualInputChild);
+        // Если мы на финальной странице, используем данные ребенка
+        if (lastView === 'other-child-final' && otherChildChildData.fieldValues) {
+          setFieldValues(otherChildChildData.fieldValues);
+          if (otherChildChildData.dateValues) setDateValues(otherChildChildData.dateValues);
+          if (otherChildChildData.dictionaryValues) setDictionaryValues(otherChildChildData.dictionaryValues);
+        }
+      }
+      setCurrentView(lastView);
+    }
+  }, []);
+
   // Загружаем данные из policyholderData при выборе типа "Страхователь является застрахованным"
   useEffect(() => {
     if (currentView === 'policyholder-insured' && policyholderData) {
@@ -114,37 +222,56 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
   // Загружаем данные ребенка при переходе на child-date
   useEffect(() => {
     if (currentView === 'child-date') {
-      if (selectedChild && !isAddingNewChild) {
-        // Симуляция загрузки данных выбранного ребенка
+      // Сначала пытаемся загрузить сохраненные данные
+      let savedChildData = null;
+      if (selectedInsuredType === 'own-child') {
+        savedChildData = loadInsuredOwnChildData();
+      } else if (selectedInsuredType === 'other-child') {
+        savedChildData = loadInsuredOtherChildChildData();
+      }
+      
+      // Если есть сохраненные данные ребенка, загружаем их
+      // Проверяем как child-date, так и финальные страницы (own-child, other-child-final)
+      if (savedChildData && savedChildData.fieldValues && 
+          (savedChildData.currentView === 'child-date' || 
+           savedChildData.currentView === 'own-child' || 
+           savedChildData.currentView === 'other-child-final')) {
+        if (savedChildData.fieldValues) setFieldValues(savedChildData.fieldValues);
+        if (savedChildData.dateValues) setDateValues(savedChildData.dateValues);
+        if (savedChildData.dictionaryValues) setDictionaryValues(savedChildData.dictionaryValues);
+        if (savedChildData.toggleStates) setToggleStates(savedChildData.toggleStates);
+        if (savedChildData.manualInputChild !== undefined) setManualInputChild(savedChildData.manualInputChild);
+      } else if (selectedChild && !isAddingNewChild && typeof selectedChild === 'object') {
+        // Загружаем данные выбранного ребенка из API ответа
         setFieldValues({
-          iin: '940 218 300 972',
+          iin: selectedChild.child_iin || '',
           phone: '',
-          lastName: 'Иванов',
-          firstName: 'Петр',
-          middleName: 'Иванович',
-          street: 'Абая',
-          microdistrict: '-',
-          houseNumber: '17',
-          apartmentNumber: '12',
-          documentNumber: '01002003'
+          lastName: selectedChild.child_surname || '',
+          firstName: selectedChild.child_name || '',
+          middleName: selectedChild.child_patronymic || '',
+          street: '',
+          microdistrict: '',
+          houseNumber: '',
+          apartmentNumber: '',
+          documentNumber: ''
         });
         setDateValues({
-          birthDate: '12.02.2000',
-          issueDate: '01.01.2016',
-          expiryDate: '01.01.2026'
+          birthDate: formatChildDate(selectedChild.child_birth_date) || '',
+          issueDate: formatChildDate(selectedChild.act_date) || '',
+          expiryDate: ''
         });
         setDictionaryValues(prev => ({
           ...prev,
-          gender: 'Мужской',
-          sectorCode: 'Не выбран',
-          country: 'Казахстан',
-          region: 'Алматинская область',
-          settlementType: 'Город',
-          city: 'Алматы',
-          docType: 'Уд. личности',
-          issuedBy: 'МВД РК'
+          gender: '',
+          sectorCode: '',
+          country: '',
+          region: '',
+          settlementType: '',
+          city: '',
+          docType: '',
+          issuedBy: selectedChild.zags_name_ru || ''
         }));
-      } else if (isAddingNewChild) {
+      } else if (isAddingNewChild || selectedChild === 'Добавить ребенка') {
         // Очищаем данные для нового ребенка
         setFieldValues({
           iin: '',
@@ -176,7 +303,7 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
         }));
       }
     }
-  }, [currentView, selectedChild, isAddingNewChild]);
+  }, [currentView, selectedChild, isAddingNewChild, selectedInsuredType]);
 
   // Обработчики навигации
   const handleBackToMain = () => {
@@ -206,13 +333,117 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
   
   const handleTypeSave = () => {
     if (selectedInsuredType === 'policyholder') {
-      setCurrentView('policyholder-insured');
+      // Загружаем сохраненные данные для policyholder
+      const savedData = loadInsuredPolicyholderData();
+      if (savedData) {
+        if (savedData.fieldValues) setFieldValues(savedData.fieldValues);
+        if (savedData.dateValues) setDateValues(savedData.dateValues);
+        if (savedData.dictionaryValues) setDictionaryValues(savedData.dictionaryValues);
+        if (savedData.toggleStates) setToggleStates(savedData.toggleStates);
+        if (savedData.currentView) {
+          setCurrentView(savedData.currentView);
+        } else {
+          setCurrentView('policyholder-insured');
+        }
+      } else {
+        setCurrentView('policyholder-insured');
+      }
     } else if (selectedInsuredType === 'other-person') {
-      setCurrentView('other-person');
+      // Загружаем сохраненные данные для other-person
+      const savedData = loadInsuredOtherPersonData();
+      if (savedData) {
+        if (savedData.fieldValues) setFieldValues(savedData.fieldValues);
+        if (savedData.dateValues) setDateValues(savedData.dateValues);
+        if (savedData.dictionaryValues) setDictionaryValues(savedData.dictionaryValues);
+        if (savedData.toggleStates) setToggleStates(savedData.toggleStates);
+        if (savedData.autoModeState) setAutoModeState(savedData.autoModeState);
+        if (savedData.manualInput !== undefined) setManualInput(savedData.manualInput);
+        if (savedData.currentView) {
+          setCurrentView(savedData.currentView);
+        } else {
+          setCurrentView('other-person');
+        }
+      } else {
+        // Очищаем поля при переходе на "иное лицо" если нет сохраненных данных
+        setFieldValues({
+          iin: '',
+          phone: '',
+          lastName: '',
+          firstName: '',
+          middleName: '',
+          street: '',
+          microdistrict: '',
+          houseNumber: '',
+          apartmentNumber: '',
+          documentNumber: '',
+          documentFile: ''
+        });
+        setDateValues({
+          birthDate: '',
+          issueDate: '',
+          expiryDate: ''
+        });
+        setDictionaryValues({
+          gender: '',
+          sectorCode: '',
+          country: '',
+          region: '',
+          settlementType: '',
+          city: '',
+          docType: '',
+          issuedBy: '',
+          residency: 'Резидент',
+          clientType: ''
+        });
+        setAutoModeState('initial');
+        setApiResponseData(null);
+        setCurrentView('other-person');
+      }
     } else if (selectedInsuredType === 'other-child') {
-      setCurrentView('other-child');
+      // Загружаем сохраненные данные для other-child
+      const savedParentData = loadInsuredOtherChildParentData();
+      const savedChildData = loadInsuredOtherChildChildData();
+      
+      if (savedParentData) {
+        if (savedParentData.parentData) setParentData(savedParentData.parentData);
+        if (savedParentData.fieldValues) setFieldValues(savedParentData.fieldValues);
+        if (savedParentData.dateValues) setDateValues(savedParentData.dateValues);
+        if (savedParentData.dictionaryValues) setDictionaryValues(savedParentData.dictionaryValues);
+        if (savedParentData.toggleStates) setToggleStates(savedParentData.toggleStates);
+        if (savedParentData.autoModeStatePerson) setAutoModeStatePerson(savedParentData.autoModeStatePerson);
+        if (savedParentData.manualInputPerson !== undefined) setManualInputPerson(savedParentData.manualInputPerson);
+      }
+      
+      if (savedChildData) {
+        if (savedChildData.selectedChild !== undefined) setSelectedChild(savedChildData.selectedChild);
+        if (savedChildData.isAddingNewChild !== undefined) setIsAddingNewChild(savedChildData.isAddingNewChild);
+        if (savedChildData.manualInputChild !== undefined) setManualInputChild(savedChildData.manualInputChild);
+      }
+      
+      if (savedParentData && savedParentData.currentView) {
+        setCurrentView(savedParentData.currentView);
+      } else {
+        setCurrentView('other-child');
+      }
     } else if (selectedInsuredType === 'own-child') {
-      setCurrentView('own-child');
+      // Загружаем сохраненные данные для own-child
+      const savedData = loadInsuredOwnChildData();
+      if (savedData) {
+        if (savedData.fieldValues) setFieldValues(savedData.fieldValues);
+        if (savedData.dateValues) setDateValues(savedData.dateValues);
+        if (savedData.dictionaryValues) setDictionaryValues(savedData.dictionaryValues);
+        if (savedData.toggleStates) setToggleStates(savedData.toggleStates);
+        if (savedData.selectedChild !== undefined) setSelectedChild(savedData.selectedChild);
+        if (savedData.isAddingNewChild !== undefined) setIsAddingNewChild(savedData.isAddingNewChild);
+        if (savedData.manualInputChild !== undefined) setManualInputChild(savedData.manualInputChild);
+        if (savedData.currentView) {
+          setCurrentView(savedData.currentView);
+        } else {
+          setCurrentView('own-child');
+        }
+      } else {
+        setCurrentView('own-child');
+      }
     }
   };
 
@@ -260,43 +491,74 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
     }
   };
 
-  const handleSendRequest = () => {
+  const handleSendRequest = async () => {
+    // Проверяем наличие ИИН и телефона
+    if (!fieldValues.iin || !fieldValues.phone) {
+      alert('Пожалуйста, заполните ИИН и номер телефона');
+      return;
+    }
+
+    // Переход в состояние request_sent
     setAutoModeState('request_sent');
-    setTimeout(() => {
+    
+    try {
+      // Отправляем запрос на сервер
+      const phone = fieldValues.phone.replace(/\D/g, ''); // Убираем все нецифровые символы
+      const iin = fieldValues.iin.replace(/\D/g, ''); // Убираем все нецифровые символы
+      
+      const apiData = await getPerson(phone, iin);
+      
+      // Сохраняем данные из API
+      setApiResponseData(apiData);
+      
+      // Переход в состояние response_received
       setAutoModeState('response_received');
-    }, 2000);
+    } catch (error) {
+      console.error('Error fetching person data:', error);
+      alert('Ошибка при получении данных. Попробуйте еще раз.');
+      setAutoModeState('initial');
+    }
   };
 
   const handleUpdate = () => {
-    // Симуляция загрузки данных
-    setFieldValues({
-      iin: '940 218 300 972',
-      phone: '+7 707 759 10 10',
-        lastName: 'Иванов',
-        firstName: 'Иван',
-        middleName: 'Иванович',
-        street: 'Абая',
-        microdistrict: '-',
-      houseNumber: '17',
-      apartmentNumber: '12',
-        documentNumber: '01002003'
-    });
+    if (!apiResponseData) {
+      alert('Нет данных для обновления');
+      return;
+    }
+
+    // Маппинг данных из API ответа в формат формы
+    const mappedData = mapApiDataToForm(apiResponseData);
+    
+    // Обновляем поля формы, используя данные из API в приоритете
+    // Сохраняем только ИИН и телефон, которые были введены пользователем
+    setFieldValues(prev => ({
+      ...prev,
+      iin: prev.iin || mappedData.iin,
+      phone: prev.phone || mappedData.phone,
+      lastName: mappedData.lastName || '',
+      firstName: mappedData.firstName || '',
+      middleName: mappedData.middleName || '',
+      street: mappedData.street || '',
+      houseNumber: mappedData.houseNumber || '',
+      apartmentNumber: mappedData.apartmentNumber || '',
+      documentNumber: mappedData.documentNumber || ''
+    }));
+    
     setDateValues({
-        birthDate: '12.02.2000',
-        issueDate: '01.01.2016',
-      expiryDate: '01.01.2026'
+      birthDate: mappedData.birthDate || '',
+      issueDate: mappedData.issueDate || '',
+      expiryDate: mappedData.expiryDate || ''
     });
-    setDictionaryValues({
-        gender: 'Мужской',
-        sectorCode: 'Не выбран',
-        country: 'Казахстан',
-        region: 'Алматинская область',
-        settlementType: 'Город',
-        city: 'Алматы',
-        docType: 'Уд. личности',
-      issuedBy: 'МВД РК',
-      residency: 'Резидент'
-    });
+    
+    setDictionaryValues(prev => ({
+      ...prev,
+      gender: mappedData.gender || '',
+      country: mappedData.country || '',
+      region: mappedData.region || '',
+      city: mappedData.city || '',
+      issuedBy: mappedData.issuedBy || ''
+    }));
+    
     setAutoModeState('data_loaded');
   };
 
@@ -341,50 +603,79 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
     }
   };
 
-  const handleSendRequestPerson = () => {
+  const handleSendRequestPerson = async () => {
+    // Проверяем наличие ИИН и телефона родителя/опекуна
+    if (!parentData.iin || !parentData.phone) {
+      alert('Пожалуйста, заполните ИИН и номер телефона родителя/опекуна');
+      return;
+    }
+
+    // Переход в состояние request_sent
     setAutoModeStatePerson('request_sent');
-    setTimeout(() => {
+    
+    try {
+      // Отправляем запрос на сервер
+      const phone = parentData.phone.replace(/\D/g, ''); // Убираем все нецифровые символы
+      const iin = parentData.iin.replace(/\D/g, ''); // Убираем все нецифровые символы
+      
+      const apiData = await getPerson(phone, iin);
+      
+      // Сохраняем данные из API
+      setApiResponseDataPerson(apiData);
+      
+      // Переход в состояние response_received
       setAutoModeStatePerson('response_received');
-    }, 2000);
+    } catch (error) {
+      console.error('Error fetching person data:', error);
+      alert('Ошибка при получении данных. Попробуйте еще раз.');
+      setAutoModeStatePerson('initial');
+    }
   };
 
   const handleUpdatePerson = () => {
-    // Симуляция загрузки данных родителя/опекуна
-    setParentData({
-      iin: '940 218 300 972',
-      phone: '+7 707 759 10 10'
-    });
-    setFieldValues({
-      iin: '940 218 300 972',
-      phone: '+7 707 759 10 10',
-      lastName: 'Иванов',
-      firstName: 'Иван',
-      middleName: 'Иванович',
-      street: 'Абая',
-      microdistrict: '-',
-      houseNumber: '17',
-      apartmentNumber: '12',
-      documentNumber: '01002003',
-      documentFile: ''
-    });
+    if (!apiResponseDataPerson) {
+      alert('Нет данных для обновления');
+      return;
+    }
+
+    // Маппинг данных из API ответа в формат формы
+    const mappedData = mapApiDataToForm(apiResponseDataPerson);
+    
+    // Обновляем данные родителя/опекуна, используя данные из API в приоритете
+    setParentData(prev => ({
+      iin: prev.iin || mappedData.iin,
+      phone: prev.phone || mappedData.phone
+    }));
+    
+    // Обновляем поля формы родителя/опекуна, используя данные из API в приоритете
+    setFieldValues(prev => ({
+      ...prev,
+      iin: mappedData.iin || prev.iin,
+      phone: mappedData.phone || prev.phone,
+      lastName: mappedData.lastName || '',
+      firstName: mappedData.firstName || '',
+      middleName: mappedData.middleName || '',
+      street: mappedData.street || '',
+      houseNumber: mappedData.houseNumber || '',
+      apartmentNumber: mappedData.apartmentNumber || '',
+      documentNumber: mappedData.documentNumber || ''
+    }));
+    
     setDateValues({
-      birthDate: '12.02.2000',
-      issueDate: '01.01.2016',
-      expiryDate: '01.01.2026'
+      birthDate: mappedData.birthDate || '',
+      issueDate: mappedData.issueDate || '',
+      expiryDate: mappedData.expiryDate || ''
     });
+    
     setDictionaryValues(prev => ({
       ...prev,
-      gender: 'Мужской',
-      sectorCode: 'Не выбран',
-      country: 'Казахстан',
-      region: 'Алматинская область',
-      settlementType: 'Город',
-      city: 'Алматы',
-      docType: 'Уд. личности',
-      issuedBy: 'МВД РК',
-      residency: 'Резидент',
-      clientType: ''
+      gender: mappedData.gender || '',
+      country: mappedData.country || '',
+      region: mappedData.region || '',
+      city: mappedData.city || '',
+      issuedBy: mappedData.issuedBy || ''
     }));
+    
     setAutoModeStatePerson('data_loaded');
   };
 
@@ -398,6 +689,56 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
     setCurrentView('childs');
   };
   const handleOpenPersonDate = () => {
+    // Загружаем сохраненные данные родителя/опекуна для other-child
+    const savedParentData = loadInsuredOtherChildParentData();
+    if (savedParentData) {
+      if (savedParentData.parentData) setParentData(savedParentData.parentData);
+      if (savedParentData.fieldValues) setFieldValues(savedParentData.fieldValues);
+      if (savedParentData.dateValues) setDateValues(savedParentData.dateValues);
+      if (savedParentData.dictionaryValues) setDictionaryValues(savedParentData.dictionaryValues);
+      if (savedParentData.toggleStates) setToggleStates(savedParentData.toggleStates);
+      if (savedParentData.autoModeStatePerson) setAutoModeStatePerson(savedParentData.autoModeStatePerson);
+      if (savedParentData.manualInputPerson !== undefined) setManualInputPerson(savedParentData.manualInputPerson);
+    } else {
+      // Очищаем поля при переходе на "родитель/опекун" если нет сохраненных данных
+      setParentData({
+        iin: '',
+        phone: ''
+      });
+      setFieldValues({
+        iin: '',
+        phone: '',
+        lastName: '',
+        firstName: '',
+        middleName: '',
+        street: '',
+        microdistrict: '',
+        houseNumber: '',
+        apartmentNumber: '',
+        documentNumber: '',
+        documentFile: ''
+      });
+      setDateValues({
+        birthDate: '',
+        issueDate: '',
+        expiryDate: ''
+      });
+      setDictionaryValues(prev => ({
+        ...prev,
+        gender: '',
+        sectorCode: '',
+        country: '',
+        region: '',
+        settlementType: '',
+        city: '',
+        docType: '',
+        issuedBy: '',
+        residency: 'Резидент',
+        clientType: ''
+      }));
+      setAutoModeStatePerson('initial');
+      setApiResponseDataPerson(null);
+    }
     setPreviousView(currentView);
     setCurrentView('person-date');
   };
@@ -405,12 +746,18 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
   const handleChildSelect = (value) => {
     if (value === 'Добавить ребенка') {
       setIsAddingNewChild(true);
-      setSelectedChild('');
+      setSelectedChild('Добавить ребенка');
       setManualInputChild(true); // Автоматически включаем ручной ввод
-    } else {
+    } else if (value && typeof value === 'object') {
+      // Выбран ребенок из API
       setIsAddingNewChild(false);
       setSelectedChild(value);
       setManualInputChild(false); // Выключаем ручной ввод при выборе существующего ребенка
+    } else {
+      // Fallback для старого формата (строка)
+      setIsAddingNewChild(false);
+      setSelectedChild(value);
+      setManualInputChild(false);
     }
     // Переходим на страницу данных ребенка
     setCurrentView('child-date');
@@ -423,12 +770,13 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
 
   const handleSaveChildDate = () => {
     // Если добавляется новый ребенок, сохраняем только ФИО
-    if (isAddingNewChild) {
+    if (isAddingNewChild || selectedChild === 'Добавить ребенка') {
       const fullName = [fieldValues.lastName, fieldValues.firstName, fieldValues.middleName]
         .filter(Boolean)
         .join(' ');
-      setSelectedChild(fullName || '');
+      setSelectedChild(fullName || 'Добавить ребенка');
     }
+    // Если выбран ребенок из API, selectedChild уже содержит объект, ничего не меняем
     
     if (selectedInsuredType === 'other-child') {
       setCurrentView('other-child-final');
@@ -676,6 +1024,20 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
     return '';
   };
 
+  // Получение отображаемого имени выбранного ребенка
+  const getSelectedChildDisplay = () => {
+    if (isAddingNewChild || selectedChild === 'Добавить ребенка') {
+      return 'Добавить ребенка';
+    }
+    if (selectedChild && typeof selectedChild === 'object') {
+      return getChildFullName(selectedChild);
+    }
+    if (selectedChild && typeof selectedChild === 'string') {
+      return selectedChild;
+    }
+    return '';
+  };
+
   // Получение текста кнопки в заголовке
   const getHeaderButtonText = () => {
     if (currentView === 'main') return 'Сохранить';
@@ -718,6 +1080,16 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
     } else if (currentView === 'types') {
       handleTypeSave();
     } else if (currentView === 'policyholder-insured') {
+      // Сохраняем данные для "страхователь является застрахованным"
+      saveInsuredPolicyholderData({
+        selectedInsuredType: 'policyholder',
+        fieldValues,
+        dateValues,
+        dictionaryValues,
+        toggleStates,
+        currentView: 'policyholder-insured'
+      });
+      
       if (onSave) {
         onSave({
           selectedInsuredType: 'policyholder',
@@ -730,36 +1102,77 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
       if (onBack) onBack();
     } else if (currentView === 'other-person') {
       if (manualInput) {
-      if (onSave) {
-        onSave({
-            selectedInsuredType: 'other-person',
+        const dataToSave = {
+          selectedInsuredType: 'other-person',
           ...fieldValues,
           ...dateValues,
           ...dictionaryValues,
-            ...toggleStates
-          });
+          ...toggleStates
+        };
+        
+        // Сохраняем в localStorage для "иного лица"
+        saveInsuredOtherPersonData({
+          selectedInsuredType: 'other-person',
+          fieldValues,
+          dateValues,
+          dictionaryValues,
+          toggleStates,
+          autoModeState,
+          manualInput,
+          currentView: 'other-person'
+        });
+        
+        if (onSave) {
+          onSave(dataToSave);
         }
         if (onBack) onBack();
       } else {
-    if (autoModeState === 'initial' || autoModeState === 'request_sent') {
-      handleSendRequest();
+        if (autoModeState === 'initial' || autoModeState === 'request_sent') {
+          handleSendRequest();
         } else if (autoModeState === 'response_received') {
-      handleUpdate();
+          handleUpdate();
         } else if (autoModeState === 'data_loaded') {
-      if (onSave) {
-        onSave({
-              selectedInsuredType: 'other-person',
-          ...fieldValues,
-          ...dateValues,
-          ...dictionaryValues,
-              ...toggleStates
-            });
+          const dataToSave = {
+            selectedInsuredType: 'other-person',
+            ...fieldValues,
+            ...dateValues,
+            ...dictionaryValues,
+            ...toggleStates
+          };
+          
+          // Сохраняем в localStorage для "иного лица"
+          saveInsuredOtherPersonData({
+            selectedInsuredType: 'other-person',
+            fieldValues,
+            dateValues,
+            dictionaryValues,
+            toggleStates,
+            autoModeState,
+            manualInput,
+            currentView: 'other-person'
+          });
+          
+          if (onSave) {
+            onSave(dataToSave);
           }
           if (onBack) onBack();
         }
       }
     } else if (currentView === 'person-date') {
       if (manualInputPerson) {
+        // Сохраняем данные родителя/опекуна в localStorage (для other-child)
+        saveInsuredOtherChildParentData({
+          selectedInsuredType: 'other-child',
+          parentData,
+          fieldValues,
+          dateValues,
+          dictionaryValues,
+          toggleStates,
+          autoModeStatePerson,
+          manualInputPerson,
+          currentView: 'person-date'
+        });
+        
         handleSavePersonDate();
       } else {
         if (autoModeStatePerson === 'initial' || autoModeStatePerson === 'request_sent') {
@@ -767,17 +1180,56 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
         } else if (autoModeStatePerson === 'response_received') {
           handleUpdatePerson();
         } else if (autoModeStatePerson === 'data_loaded') {
+          // Сохраняем данные родителя/опекуна в localStorage (для other-child)
+          saveInsuredOtherChildParentData({
+            selectedInsuredType: 'other-child',
+            parentData,
+            fieldValues,
+            dateValues,
+            dictionaryValues,
+            toggleStates,
+            autoModeStatePerson,
+            manualInputPerson,
+            currentView: 'person-date'
+          });
+          
           handleSavePersonDate();
         }
       }
     } else if (currentView === 'child-date') {
       handleSaveChildDate();
     } else if (currentView === 'other-child-final') {
+      // Сохраняем финальные данные для "иной ребенок" (родитель и ребенок уже сохранены отдельно)
+      // Обновляем данные родителя и ребенка с финальными значениями
+      saveInsuredOtherChildParentData({
+        selectedInsuredType: 'other-child',
+        parentData,
+        fieldValues,
+        dateValues,
+        dictionaryValues,
+        toggleStates,
+        autoModeStatePerson,
+        manualInputPerson,
+        currentView: 'other-child-final'
+      });
+      
+      saveInsuredOtherChildChildData({
+        selectedInsuredType: 'other-child',
+        selectedChild,
+        isAddingNewChild,
+        fieldValues,
+        dateValues,
+        dictionaryValues,
+        toggleStates,
+        manualInputChild,
+        currentView: 'other-child-final'
+      });
+      
       if (onSave) {
         onSave({
           selectedInsuredType: 'other-child',
           parentData,
-          selectedChild: selectedChild || (isAddingNewChild ? 'Добавить ребенка' : ''),
+          selectedChild: selectedChild, // Может быть объектом или строкой
           ...fieldValues,
           ...dateValues,
           ...dictionaryValues,
@@ -786,10 +1238,23 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
       }
       if (onBack) onBack();
     } else if (currentView === 'own-child') {
+      // Сохраняем финальные данные для "свой ребенок"
+      saveInsuredOwnChildData({
+        selectedInsuredType: 'own-child',
+        selectedChild,
+        isAddingNewChild,
+        fieldValues,
+        dateValues,
+        dictionaryValues,
+        toggleStates,
+        manualInputChild,
+        currentView: 'own-child'
+      });
+      
       if (onSave) {
         onSave({
           selectedInsuredType: 'own-child',
-          selectedChild: selectedChild || (isAddingNewChild ? 'Добавить ребенка' : ''),
+          selectedChild: selectedChild, // Может быть объектом или строкой
           ...fieldValues,
           ...dateValues,
           ...dictionaryValues,
@@ -826,7 +1291,23 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
     return <IssuedBy onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('issuedBy', value)} />;
   }
   if (currentView === 'childs') {
-    return <SelectChild onBack={handleBackToMain} onSelect={handleChildSelect} />;
+    // Определяем, откуда брать ИИН и телефон в зависимости от типа застрахованного
+    let childIin = '';
+    let childPhone = '';
+    
+    if (selectedInsuredType === 'own-child') {
+      // Для своего ребенка - используем данные страхователя
+      if (policyholderData) {
+        childIin = policyholderData.iin || '';
+        childPhone = policyholderData.phone || '';
+      }
+    } else if (selectedInsuredType === 'other-child') {
+      // Для иного ребенка - используем данные родителя/опекуна
+      childIin = parentData.iin || '';
+      childPhone = parentData.phone || '';
+    }
+    
+    return <SelectChild onBack={handleBackToMain} onSelect={handleChildSelect} iin={childIin} phone={childPhone} />;
   }
   if (currentView === 'clientType') {
     return <ClientType onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('clientType', value)} />;
@@ -1167,7 +1648,7 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
           <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
             {renderDictionaryButton('insuredType', 'Тип Застрахованного', 'Для иного ребенка', handleOpenTypes, true)}
             {renderDictionaryButton('parentData', 'Данные родителя или опекуна ребенка', parentData.iin && parentData.phone ? [fieldValues.lastName, fieldValues.firstName, fieldValues.middleName].filter(Boolean).join(' ') : '', handleOpenPersonDate, !!(parentData.iin && parentData.phone))}
-            {parentData.iin && parentData.phone && renderDictionaryButton('selectChild', 'Выбрать ребенка', selectedChild || (isAddingNewChild ? 'Добавить ребенка' : ''), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
+            {parentData.iin && parentData.phone && renderDictionaryButton('selectChild', 'Выбрать ребенка', getSelectedChildDisplay(), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
           </div>
         </div>
       </div>
@@ -1183,7 +1664,7 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
           {renderSubHeader('Застрахованный')}
           <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
             {renderDictionaryButton('insuredType', 'Тип Застрахованного', 'Для своего ребенка', handleOpenTypes, true)}
-            {renderDictionaryButton('selectChild', 'Выбрать ребенка', selectedChild || (isAddingNewChild ? 'Добавить ребенка' : ''), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
+            {renderDictionaryButton('selectChild', 'Выбрать ребенка', getSelectedChildDisplay(), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
           </div>
         </div>
       </div>
@@ -1333,7 +1814,7 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
             </div>
           </div>
           <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
-            {renderDictionaryButton('selectChild', 'Выбрать ребенка', selectedChild || (isAddingNewChild ? 'Добавить ребенка' : ''), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
+            {renderDictionaryButton('selectChild', 'Выбрать ребенка', getSelectedChildDisplay(), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
             {renderToggleButton('Ручной ввод данных', manualInputChild, handleToggleManualInputChild)}
             {renderInputField('iin', 'ИИН', activeField === 'iin', !!fieldValues.iin)}
             {renderInputField('lastName', 'Фамилия', activeField === 'lastName', !!fieldValues.lastName)}
@@ -1372,7 +1853,7 @@ const Insured = ({ onBack, policyholderData, onSave }) => {
           <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
             {renderDictionaryButton('insuredType', 'Тип Застрахованного', 'Для иного ребенка', handleOpenTypes, true)}
             {renderDictionaryButton('parentData', 'Данные родителя или опекуна ребенка', parentData.iin && parentData.phone ? [fieldValues.lastName, fieldValues.firstName, fieldValues.middleName].filter(Boolean).join(' ') : '', handleOpenPersonDate, !!(parentData.iin && parentData.phone))}
-            {renderDictionaryButton('selectChild', 'Выбрать ребенка', selectedChild || (isAddingNewChild ? 'Добавить ребенка' : ''), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
+            {renderDictionaryButton('selectChild', 'Выбрать ребенка', getSelectedChildDisplay(), handleOpenChilds, !!(selectedChild || isAddingNewChild))}
           </div>
         </div>
       </div>

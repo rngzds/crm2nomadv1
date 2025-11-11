@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Gender from '../dictionary/Gender';
 import SectorCode from '../dictionary/SectorCode';
 import Country from '../dictionary/Country';
@@ -8,6 +8,8 @@ import City from '../dictionary/City';
 import DocType from '../dictionary/DocType';
 import IssuedBy from '../dictionary/IssuedBy';
 import ClientType from '../dictionary/ClientType';
+import { getPerson, mapApiDataToForm } from '../../services/personService';
+import { savePolicyholderData, loadPolicyholderData } from '../../services/storageService';
 
 const Policyholder = ({ onBack, onSave }) => {
   const [currentView, setCurrentView] = useState('main');
@@ -57,6 +59,32 @@ const Policyholder = ({ onBack, onSave }) => {
 
   // Состояние для автоматического режима
   const [autoModeState, setAutoModeState] = useState('initial'); // 'initial' | 'request_sent' | 'response_received' | 'data_loaded'
+  
+  // Состояние для хранения данных из API
+  const [apiResponseData, setApiResponseData] = useState(null);
+
+  // Загрузка данных из localStorage при монтировании компонента
+  useEffect(() => {
+    const savedData = loadPolicyholderData();
+    if (savedData) {
+      // Восстанавливаем данные из localStorage
+      if (savedData.fieldValues) {
+        setFieldValues(savedData.fieldValues);
+      }
+      if (savedData.dateValues) {
+        setDateValues(savedData.dateValues);
+      }
+      if (savedData.dictionaryValues) {
+        setDictionaryValues(savedData.dictionaryValues);
+      }
+      if (savedData.toggleStates) {
+        setToggleStates(savedData.toggleStates);
+      }
+      if (savedData.autoModeState) {
+        setAutoModeState(savedData.autoModeState);
+      }
+    }
+  }, []);
 
   // Обработчик для сохранения выбранных значений из справочников
   const handleDictionaryValueSelect = (fieldName, value) => {
@@ -111,59 +139,73 @@ const Policyholder = ({ onBack, onSave }) => {
   };
 
   // Обработчик для отправки запроса
-  const handleSendRequest = () => {
-    // TODO: Отправить запрос на сервер
-    // Пример: await sendRequestToServer(fieldValues.iin, fieldValues.phone);
-    
+  const handleSendRequest = async () => {
+    // Проверяем наличие ИИН и телефона
+    if (!fieldValues.iin || !fieldValues.phone) {
+      alert('Пожалуйста, заполните ИИН и номер телефона');
+      return;
+    }
+
     // Переход в состояние request_sent
     setAutoModeState('request_sent');
     
-    // Симуляция получения ответа от сервера через 2 секунды
-    setTimeout(() => {
+    try {
+      // Отправляем запрос на сервер
+      const phone = fieldValues.phone.replace(/\D/g, ''); // Убираем все нецифровые символы
+      const iin = fieldValues.iin.replace(/\D/g, ''); // Убираем все нецифровые символы
+      
+      const apiData = await getPerson(phone, iin);
+      
+      // Сохраняем данные из API
+      setApiResponseData(apiData);
+      
+      // Переход в состояние response_received
       setAutoModeState('response_received');
-    }, 2000);
+    } catch (error) {
+      console.error('Error fetching person data:', error);
+      alert('Ошибка при получении данных. Попробуйте еще раз.');
+      setAutoModeState('initial');
+    }
   };
 
   // Обработчик для обновления данных
   const handleUpdate = () => {
-    // Симуляция загрузки данных с сервера
+    if (!apiResponseData) {
+      alert('Нет данных для обновления');
+      return;
+    }
+
+    // Маппинг данных из API ответа в формат формы
+    const mappedData = mapApiDataToForm(apiResponseData);
+    
+    // Обновляем поля формы, сохраняя уже введенные ИИН и телефон
     setFieldValues(prev => ({
       ...prev,
-      iin: prev.iin || '940 218 300 972', // Сохраняем уже введенное или устанавливаем дефолтное
-      phone: prev.phone || '+7 707 759 10 10', // Сохраняем уже введенное или устанавливаем дефолтное
-      lastName: 'Иванов',
-      firstName: 'Иван',
-      middleName: 'Иванович',
-      street: 'Абая',
-      microdistrict: '-',
-      houseNumber: '№17',
-      apartmentNumber: '№17',
-      documentNumber: '01002003'
+      iin: prev.iin || mappedData.iin,
+      phone: prev.phone || mappedData.phone,
+      lastName: mappedData.lastName || prev.lastName,
+      firstName: mappedData.firstName || prev.firstName,
+      middleName: mappedData.middleName || prev.middleName,
+      street: mappedData.street || prev.street,
+      houseNumber: mappedData.houseNumber || prev.houseNumber,
+      apartmentNumber: mappedData.apartmentNumber || prev.apartmentNumber,
+      documentNumber: mappedData.documentNumber || prev.documentNumber
     }));
     
     setDateValues(prev => ({
       ...prev,
-      birthDate: '12.02.2000',
-      issueDate: '01.01.2016',
-      expiryDate: '01.01.2016'
+      birthDate: mappedData.birthDate || prev.birthDate,
+      issueDate: mappedData.issueDate || prev.issueDate,
+      expiryDate: mappedData.expiryDate || prev.expiryDate
     }));
     
     setDictionaryValues(prev => ({
       ...prev,
-      gender: 'Мужской',
-      sectorCode: 'Не выбран',
-      country: 'Казахстан',
-      region: 'Алматинская область',
-      settlementType: 'Город',
-      city: 'Алматы',
-      docType: 'Уд. личности',
-      issuedBy: 'МВД РК',
-      clientType: ''
-    }));
-    
-    setToggleStates(prev => ({
-      ...prev,
-      pdl: false
+      gender: mappedData.gender || prev.gender,
+      country: mappedData.country || prev.country,
+      region: mappedData.region || prev.region,
+      city: mappedData.city || prev.city,
+      issuedBy: mappedData.issuedBy || prev.issuedBy
     }));
     
     // Переход в состояние data_loaded
@@ -197,13 +239,24 @@ const Policyholder = ({ onBack, onSave }) => {
   const handleHeaderButtonClick = () => {
     // Если ручной ввод включен - сохраняем данные
     if (toggleStates.manualInput) {
+      const dataToSave = {
+        ...fieldValues,
+        ...dateValues,
+        ...dictionaryValues,
+        ...toggleStates
+      };
+      
+      // Сохраняем в localStorage
+      savePolicyholderData({
+        fieldValues,
+        dateValues,
+        dictionaryValues,
+        toggleStates,
+        autoModeState
+      });
+      
       if (onSave) {
-        onSave({
-          ...fieldValues,
-          ...dateValues,
-          ...dictionaryValues,
-          ...toggleStates
-        });
+        onSave(dataToSave);
       }
       if (onBack) {
         onBack();
@@ -224,13 +277,24 @@ const Policyholder = ({ onBack, onSave }) => {
     
     if (autoModeState === 'data_loaded') {
       // Сохранение данных
+      const dataToSave = {
+        ...fieldValues,
+        ...dateValues,
+        ...dictionaryValues,
+        ...toggleStates
+      };
+      
+      // Сохраняем в localStorage
+      savePolicyholderData({
+        fieldValues,
+        dateValues,
+        dictionaryValues,
+        toggleStates,
+        autoModeState
+      });
+      
       if (onSave) {
-        onSave({
-          ...fieldValues,
-          ...dateValues,
-          ...dictionaryValues,
-          ...toggleStates
-        });
+        onSave(dataToSave);
       }
       if (onBack) {
         onBack();
