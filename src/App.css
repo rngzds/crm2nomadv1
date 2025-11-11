@@ -17,6 +17,7 @@ body {
   align-items: flex-start;
   padding: 0;
   margin: 0;
+  background: white;
 }
 
 /* Desktop styles - when width is more than 700px */
