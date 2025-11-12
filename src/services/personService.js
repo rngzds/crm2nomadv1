@@ -65,28 +65,28 @@ export const formatGender = (genderCode) => {
 };
 
 /**
- * Маппинг данных из API ответа в формат формы
+ * Маппинг данных из API ответа в формат формы с правильными названиями полей
  * @param {Object} apiData - Данные из API
- * @returns {Object} Данные в формате формы
+ * @returns {Object} Данные в формате формы с правильными названиями полей
  */
 export const mapApiDataToForm = (apiData) => {
   if (!apiData) return {};
 
   return {
     iin: apiData.iin || '',
-    phone: apiData.phone || '',
-    lastName: apiData.surname || '',
-    firstName: apiData.name || '',
-    middleName: apiData.patronymic || '',
+    telephone: apiData.phone || '',
+    surname: apiData.surname || '',
+    name: apiData.name || '',
+    patronymic: apiData.patronymic || '',
     birthDate: formatDate(apiData.birthdate),
-    gender: formatGender(apiData.gender),
-    country: apiData.country_nameru || '',
-    region: apiData.region_nameru || '',
+    gender: formatGender(apiData.gender), // Строка (название), не ID
+    countryId: apiData.country_nameru || '', // Строка (название), не ID
+    region_id: apiData.region_nameru || '', // Строка (название), не ID
     city: apiData.district_nameru || '',
     street: apiData.street || '',
     houseNumber: apiData.building || '',
     apartmentNumber: apiData.flat || '',
-    documentNumber: apiData.document_number || '',
+    docNumber: apiData.document_number || '',
     issueDate: formatDate(apiData.begin_date),
     expiryDate: formatDate(apiData.enddate),
     issuedBy: apiData.issueorganization_nameru || ''

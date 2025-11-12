@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { loadGlobalApplicationData, updateGlobalApplicationSection } from '../../services/storageService';
 
-const Questionary = ({ onBack, onSave }) => {
+const Questionary = ({ onBack, onSave, applicationId }) => {
   // Состояния навигации
   const [currentView, setCurrentView] = useState('main-off');
   
@@ -35,6 +36,49 @@ const Questionary = ({ onBack, onSave }) => {
   // Состояние для полей роста и веса
   const [heightWeightValues, setHeightWeightValues] = useState({ height: '', weight: '' });
   const [activeHeightWeightField, setActiveHeightWeightField] = useState(null);
+  
+  // Флаг для предотвращения сохранения при начальной загрузке
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Загрузка данных из глобального хранилища при монтировании
+  useEffect(() => {
+    if (applicationId) {
+      const globalData = loadGlobalApplicationData(applicationId);
+      if (globalData && globalData.Questionary) {
+        const savedData = globalData.Questionary;
+        console.log('📖 [АНКЕТА] Загружено из глобального хранилища:', savedData);
+        if (savedData.fillWithoutManager !== undefined) setFillWithoutManager(savedData.fillWithoutManager);
+        if (savedData.answerEverywhereNoDeclaration !== undefined) setAnswerEverywhereNoDeclaration(savedData.answerEverywhereNoDeclaration);
+        if (savedData.answerEverywhereNoBlank !== undefined) setAnswerEverywhereNoBlank(savedData.answerEverywhereNoBlank);
+        if (savedData.declarationAnswers) setDeclarationAnswers(savedData.declarationAnswers);
+        if (savedData.blankAnswers) setBlankAnswers(savedData.blankAnswers);
+        if (savedData.declarationDetailedAnswers) setDeclarationDetailedAnswers(savedData.declarationDetailedAnswers);
+        if (savedData.blankDetailedAnswers) setBlankDetailedAnswers(savedData.blankDetailedAnswers);
+        if (savedData.heightWeightValues) setHeightWeightValues(savedData.heightWeightValues);
+        if (savedData.currentView) setCurrentView(savedData.currentView);
+      }
+    }
+    setIsInitialLoad(false);
+  }, [applicationId]);
+
+  // Автоматическое сохранение данных в глобальное хранилище при их изменении
+  useEffect(() => {
+    if (!isInitialLoad && applicationId) {
+      const questionaryData = {
+        fillWithoutManager,
+        answerEverywhereNoDeclaration,
+        answerEverywhereNoBlank,
+        declarationAnswers,
+        blankAnswers,
+        declarationDetailedAnswers,
+        blankDetailedAnswers,
+        heightWeightValues,
+        currentView
+      };
+      console.log('💾 [АНКЕТА] Автосохранение в глобальное хранилище:', questionaryData);
+      updateGlobalApplicationSection('Questionary', questionaryData, applicationId);
+    }
+  }, [fillWithoutManager, answerEverywhereNoDeclaration, answerEverywhereNoBlank, declarationAnswers, blankAnswers, declarationDetailedAnswers, blankDetailedAnswers, heightWeightValues, currentView, isInitialLoad, applicationId]);
   
   // Автоматическое заполнение "Нет" при включении тогла в Declaration
   useEffect(() => {
@@ -217,6 +261,24 @@ const Questionary = ({ onBack, onSave }) => {
       ...blankAnswers,
       ...pendingBlankAnswers
     };
+    
+    const questionaryData = {
+      fillWithoutManager,
+      answerEverywhereNoDeclaration,
+      answerEverywhereNoBlank,
+      declarationAnswers: finalDeclarationAnswers,
+      blankAnswers: finalBlankAnswers,
+      declarationDetailedAnswers,
+      blankDetailedAnswers,
+      heightWeightValues,
+      currentView
+    };
+    
+    // Сохраняем в глобальное хранилище
+    if (applicationId) {
+      console.log('💾 [АНКЕТА] Сохранение по кнопке:', questionaryData);
+      updateGlobalApplicationSection('Questionary', questionaryData, applicationId);
+    }
     
     // Сохраняем данные анкеты
     if (onSave) {
@@ -476,17 +538,6 @@ const Questionary = ({ onBack, onSave }) => {
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M15 18L7 10.5L15 3" stroke="black" strokeWidth="2"/>
         </svg>
-      </div>
-    </div>
-    <div data-layer="OpenDocument button" className="OpendocumentButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
-      <div data-layer="File" className="File" style={{width: 22, height: 22, left: 31, top: 32, position: 'absolute'}}>
-        <div data-svg-wrapper data-layer="Frame 1321316875" className="Frame1321316875" style={{left: 3, top: 1, position: 'absolute'}}>
-          <svg width="16" height="20" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M10 0L16.001 6V18.001C16.0009 19.1008 15.1008 20.0008 14.001 20.001H1.99023C0.890252 20.001 0.000107007 19.1009 0 18.001L0.00976562 2C0.00980161 0.900011 0.900014 4.85053e-05 2 0H10ZM2.00293 2V18.001H14.0039V7H9.00293V2H2.00293Z" fill="black"/>
-            <line x1="4" y1="11.25" x2="12.0004" y2="11.25" stroke="black" strokeWidth="1.5"/>
-            <line x1="4" y1="15.25" x2="10.0003" y2="15.25" stroke="black" strokeWidth="1.5"/>
-          </svg>
-        </div>
       </div>
     </div>
   </div>

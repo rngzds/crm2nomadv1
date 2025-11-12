@@ -9,43 +9,40 @@ import DocType from '../dictionary/DocType';
 import IssuedBy from '../dictionary/IssuedBy';
 import ClientType from '../dictionary/ClientType';
 import { getPerson, mapApiDataToForm } from '../../services/personService';
-import { savePolicyholderData, loadPolicyholderData } from '../../services/storageService';
+import { savePolicyholderData, loadPolicyholderData, loadGlobalApplicationData, updateGlobalApplicationSection } from '../../services/storageService';
 
-const Policyholder = ({ onBack, onSave }) => {
+const Policyholder = ({ onBack, onSave, applicationId }) => {
   const [currentView, setCurrentView] = useState('main');
 
-  // Состояние для выбранных значений из справочников
-  const [dictionaryValues, setDictionaryValues] = useState({
-    gender: '',
-    sectorCode: '',
-    country: '',
-    region: '',
-    settlementType: '',
-    city: '',
-    docType: '',
-    issuedBy: '',
-    clientType: ''
-  });
-
-  // Состояние для полей ввода без кнопок
-  const [fieldValues, setFieldValues] = useState({
+  // Единый объект состояния с правильными названиями полей
+  const [policyholderData, setPolicyholderData] = useState({
+    // Основные поля
     iin: '',
-    phone: '',
-    lastName: '',
-    firstName: '',
-    middleName: '',
+    telephone: '',
+    name: '',
+    surname: '',
+    patronymic: '',
+    // Адрес (отдельные поля)
     street: '',
     microdistrict: '',
     houseNumber: '',
     apartmentNumber: '',
-    documentNumber: ''
-  });
-
-  // Состояние для полей с календарем
-  const [dateValues, setDateValues] = useState({
+    // Документ
+    docNumber: '',
+    // Даты
     birthDate: '',
     issueDate: '',
-    expiryDate: ''
+    expiryDate: '',
+    // Справочники (как строки)
+    gender: '',
+    economSecId: '',
+    countryId: '',
+    region_id: '',
+    settlementType: '',
+    city: '',
+    vidDocId: '',
+    issuedBy: '',
+    clientType: ''
   });
 
   // Состояние для отслеживания активного поля
@@ -62,20 +59,65 @@ const Policyholder = ({ onBack, onSave }) => {
   
   // Состояние для хранения данных из API
   const [apiResponseData, setApiResponseData] = useState(null);
+  
+  // Флаг для предотвращения сохранения при начальной загрузке
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Загрузка данных из localStorage при монтировании компонента
+  // Загрузка данных из глобального хранилища или localStorage при монтировании компонента
   useEffect(() => {
-    const savedData = loadPolicyholderData();
+    // Сначала проверяем глобальное хранилище
+    const globalData = loadGlobalApplicationData(applicationId);
+    let savedData = null;
+    
+    if (globalData && globalData.Policyholder) {
+      savedData = globalData.Policyholder;
+      console.log('📖 [СТРАХОВАТЕЛЬ] Загружено из глобального хранилища:', savedData);
+    } else {
+      // Если в глобальном хранилище нет, загружаем из старого хранилища
+      savedData = loadPolicyholderData(applicationId);
+      if (savedData) {
+        console.log('📖 [СТРАХОВАТЕЛЬ] Загружено из старого хранилища:', savedData);
+        // Сохраняем в глобальное хранилище для миграции
+        updateGlobalApplicationSection('Policyholder', savedData, applicationId);
+      }
+    }
+    
     if (savedData) {
-      // Восстанавливаем данные из localStorage
-      if (savedData.fieldValues) {
-        setFieldValues(savedData.fieldValues);
-      }
-      if (savedData.dateValues) {
-        setDateValues(savedData.dateValues);
-      }
-      if (savedData.dictionaryValues) {
-        setDictionaryValues(savedData.dictionaryValues);
+      // Миграция старых данных в новую структуру
+      if (savedData.fieldValues || savedData.dateValues || savedData.dictionaryValues) {
+        const migratedData = {
+          // Миграция основных полей
+          iin: savedData.fieldValues?.iin || savedData.iin || '',
+          telephone: savedData.fieldValues?.phone || savedData.telephone || '',
+          name: savedData.fieldValues?.firstName || savedData.name || '',
+          surname: savedData.fieldValues?.lastName || savedData.surname || '',
+          patronymic: savedData.fieldValues?.middleName || savedData.patronymic || '',
+          // Миграция адреса
+          street: savedData.fieldValues?.street || savedData.street || '',
+          microdistrict: savedData.fieldValues?.microdistrict || savedData.microdistrict || '',
+          houseNumber: savedData.fieldValues?.houseNumber || savedData.houseNumber || '',
+          apartmentNumber: savedData.fieldValues?.apartmentNumber || savedData.apartmentNumber || '',
+          // Миграция документа
+          docNumber: savedData.fieldValues?.documentNumber || savedData.docNumber || '',
+          // Миграция дат
+          birthDate: savedData.dateValues?.birthDate || savedData.birthDate || '',
+          issueDate: savedData.dateValues?.issueDate || savedData.issueDate || '',
+          expiryDate: savedData.dateValues?.expiryDate || savedData.expiryDate || '',
+          // Миграция справочников
+          gender: savedData.dictionaryValues?.gender || savedData.gender || '',
+          economSecId: savedData.dictionaryValues?.sectorCode || savedData.economSecId || '',
+          countryId: savedData.dictionaryValues?.country || savedData.countryId || '',
+          region_id: savedData.dictionaryValues?.region || savedData.region_id || '',
+          settlementType: savedData.dictionaryValues?.settlementType || savedData.settlementType || '',
+          city: savedData.dictionaryValues?.city || savedData.city || '',
+          vidDocId: savedData.dictionaryValues?.docType || savedData.vidDocId || '',
+          issuedBy: savedData.dictionaryValues?.issuedBy || savedData.issuedBy || '',
+          clientType: savedData.dictionaryValues?.clientType || savedData.clientType || ''
+        };
+        setPolicyholderData(migratedData);
+      } else if (savedData.iin || savedData.name) {
+        // Если данные уже в новом формате
+        setPolicyholderData(prev => ({ ...prev, ...savedData }));
       }
       if (savedData.toggleStates) {
         setToggleStates(savedData.toggleStates);
@@ -84,14 +126,33 @@ const Policyholder = ({ onBack, onSave }) => {
         setAutoModeState(savedData.autoModeState);
       }
     }
-  }, []);
+    
+    setIsInitialLoad(false);
+  }, [applicationId]);
+
+  // Маппинг старых названий полей справочников на новые
+  const getDictionaryFieldName = (oldName) => {
+    const mapping = {
+      'sectorCode': 'economSecId',
+      'country': 'countryId',
+      'region': 'region_id',
+      'docType': 'vidDocId'
+    };
+    return mapping[oldName] || oldName;
+  };
 
   // Обработчик для сохранения выбранных значений из справочников
   const handleDictionaryValueSelect = (fieldName, value) => {
-    setDictionaryValues(prev => ({
-      ...prev,
-      [fieldName]: value
-    }));
+    const newFieldName = getDictionaryFieldName(fieldName);
+    console.log('🔵 [DICTIONARY SELECT] Поле:', fieldName, '→', newFieldName, 'Значение:', value);
+    setPolicyholderData(prev => {
+      const updated = {
+        ...prev,
+        [newFieldName]: value
+      };
+      console.log('🔵 [DICTIONARY SELECT] Обновленные данные:', updated);
+      return updated;
+    });
     setCurrentView('main');
   };
 
@@ -111,17 +172,31 @@ const Policyholder = ({ onBack, onSave }) => {
     setActiveField(fieldName);
   };
 
+  // Маппинг старых названий полей на новые
+  const getFieldName = (oldName) => {
+    const mapping = {
+      'phone': 'telephone',
+      'firstName': 'name',
+      'lastName': 'surname',
+      'middleName': 'patronymic',
+      'documentNumber': 'docNumber'
+    };
+    return mapping[oldName] || oldName;
+  };
+
   // Обновление значения поля
   const handleFieldChange = (fieldName, value) => {
-    setFieldValues(prev => ({
+    const newFieldName = getFieldName(fieldName);
+    setPolicyholderData(prev => ({
       ...prev,
-      [fieldName]: value
+      [newFieldName]: value
     }));
   };
 
   // Возврат к обычному состоянию при потере фокуса
   const handleFieldBlur = (fieldName) => {
-    if (!fieldValues[fieldName]) {
+    const newFieldName = getFieldName(fieldName);
+    if (!policyholderData[newFieldName]) {
       setActiveField(null);
     }
   };
@@ -141,7 +216,7 @@ const Policyholder = ({ onBack, onSave }) => {
   // Обработчик для отправки запроса
   const handleSendRequest = async () => {
     // Проверяем наличие ИИН и телефона
-    if (!fieldValues.iin || !fieldValues.phone) {
+    if (!policyholderData.iin || !policyholderData.telephone) {
       alert('Пожалуйста, заполните ИИН и номер телефона');
       return;
     }
@@ -151,8 +226,8 @@ const Policyholder = ({ onBack, onSave }) => {
     
     try {
       // Отправляем запрос на сервер
-      const phone = fieldValues.phone.replace(/\D/g, ''); // Убираем все нецифровые символы
-      const iin = fieldValues.iin.replace(/\D/g, ''); // Убираем все нецифровые символы
+      const phone = policyholderData.telephone.replace(/\D/g, ''); // Убираем все нецифровые символы
+      const iin = policyholderData.iin.replace(/\D/g, ''); // Убираем все нецифровые символы
       
       const apiData = await getPerson(phone, iin);
       
@@ -179,33 +254,25 @@ const Policyholder = ({ onBack, onSave }) => {
     const mappedData = mapApiDataToForm(apiResponseData);
     
     // Обновляем поля формы, сохраняя уже введенные ИИН и телефон
-    setFieldValues(prev => ({
+    setPolicyholderData(prev => ({
       ...prev,
-      iin: prev.iin || mappedData.iin,
-      phone: prev.phone || mappedData.phone,
-      lastName: mappedData.lastName || prev.lastName,
-      firstName: mappedData.firstName || prev.firstName,
-      middleName: mappedData.middleName || prev.middleName,
-      street: mappedData.street || prev.street,
-      houseNumber: mappedData.houseNumber || prev.houseNumber,
-      apartmentNumber: mappedData.apartmentNumber || prev.apartmentNumber,
-      documentNumber: mappedData.documentNumber || prev.documentNumber
-    }));
-    
-    setDateValues(prev => ({
-      ...prev,
-      birthDate: mappedData.birthDate || prev.birthDate,
-      issueDate: mappedData.issueDate || prev.issueDate,
-      expiryDate: mappedData.expiryDate || prev.expiryDate
-    }));
-    
-    setDictionaryValues(prev => ({
-      ...prev,
-      gender: mappedData.gender || prev.gender,
-      country: mappedData.country || prev.country,
-      region: mappedData.region || prev.region,
-      city: mappedData.city || prev.city,
-      issuedBy: mappedData.issuedBy || prev.issuedBy
+      iin: prev.iin || mappedData.iin || '',
+      telephone: prev.telephone || mappedData.telephone || '',
+      name: mappedData.name || prev.name || '',
+      surname: mappedData.surname || prev.surname || '',
+      patronymic: mappedData.patronymic || prev.patronymic || '',
+      street: mappedData.street || prev.street || '',
+      houseNumber: mappedData.houseNumber || prev.houseNumber || '',
+      apartmentNumber: mappedData.apartmentNumber || prev.apartmentNumber || '',
+      docNumber: mappedData.docNumber || prev.docNumber || '',
+      birthDate: mappedData.birthDate || prev.birthDate || '',
+      issueDate: mappedData.issueDate || prev.issueDate || '',
+      expiryDate: mappedData.expiryDate || prev.expiryDate || '',
+      gender: mappedData.gender || prev.gender || '',
+      countryId: mappedData.countryId || prev.countryId || '',
+      region_id: mappedData.region_id || prev.region_id || '',
+      city: mappedData.city || prev.city || '',
+      issuedBy: mappedData.issuedBy || prev.issuedBy || ''
     }));
     
     // Переход в состояние data_loaded
@@ -240,20 +307,21 @@ const Policyholder = ({ onBack, onSave }) => {
     // Если ручной ввод включен - сохраняем данные
     if (toggleStates.manualInput) {
       const dataToSave = {
-        ...fieldValues,
-        ...dateValues,
-        ...dictionaryValues,
+        ...policyholderData,
         ...toggleStates
       };
       
       // Сохраняем в localStorage
-      savePolicyholderData({
-        fieldValues,
-        dateValues,
-        dictionaryValues,
+      const saveData = {
+        ...policyholderData,
         toggleStates,
         autoModeState
-      });
+      };
+      console.log('💾 [СТРАХОВАТЕЛЬ] Сохранение по кнопке (ручной ввод):', saveData);
+      // Сохраняем в глобальное хранилище
+      updateGlobalApplicationSection('Policyholder', saveData, applicationId);
+      // Также сохраняем в старое хранилище для обратной совместимости
+      savePolicyholderData(saveData, applicationId);
       
       if (onSave) {
         onSave(dataToSave);
@@ -278,20 +346,21 @@ const Policyholder = ({ onBack, onSave }) => {
     if (autoModeState === 'data_loaded') {
       // Сохранение данных
       const dataToSave = {
-        ...fieldValues,
-        ...dateValues,
-        ...dictionaryValues,
+        ...policyholderData,
         ...toggleStates
       };
       
       // Сохраняем в localStorage
-      savePolicyholderData({
-        fieldValues,
-        dateValues,
-        dictionaryValues,
+      const saveData = {
+        ...policyholderData,
         toggleStates,
         autoModeState
-      });
+      };
+      console.log('💾 [СТРАХОВАТЕЛЬ] Сохранение по кнопке (авторежим):', saveData);
+      // Сохраняем в глобальное хранилище
+      updateGlobalApplicationSection('Policyholder', saveData, applicationId);
+      // Также сохраняем в старое хранилище для обратной совместимости
+      savePolicyholderData(saveData, applicationId);
       
       if (onSave) {
         onSave(dataToSave);
@@ -305,12 +374,13 @@ const Policyholder = ({ onBack, onSave }) => {
 
   // Функция для рендеринга кнопок справочника
   const renderDictionaryButton = (fieldName, label, onClickHandler, hasValue) => {
+    const newFieldName = getDictionaryFieldName(fieldName);
     if (hasValue) {
       return (
         <div data-layer={`Input '${label}'`} data-state="pressed" className="Input" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
           <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
             <div data-layer="Label" className="Label" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
-            <div data-layer="Input text" className="InputText" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{dictionaryValues[fieldName]}</div>
+            <div data-layer="Input text" className="InputText" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{policyholderData[newFieldName]}</div>
           </div>
           <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={onClickHandler}>
             <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
@@ -342,7 +412,7 @@ const Policyholder = ({ onBack, onSave }) => {
   // Функция рендеринга поля с календарем
   const renderCalendarField = (fieldName, label) => {
     const isActive = activeField === fieldName;
-    const hasValue = !!dateValues[fieldName];
+    const hasValue = !!policyholderData[fieldName];
 
     if (isActive || hasValue) {
       // Активное состояние - с полем ввода
@@ -353,15 +423,15 @@ const Policyholder = ({ onBack, onSave }) => {
             <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
               <input
                 type="text"
-                value={dateValues[fieldName] || ''}
+                value={policyholderData[fieldName] || ''}
                 onChange={(e) => {
-                  setDateValues(prev => ({
+                  setPolicyholderData(prev => ({
                     ...prev,
                     [fieldName]: e.target.value
                   }));
                 }}
                 onBlur={() => {
-                  if (!dateValues[fieldName]) {
+                  if (!policyholderData[fieldName]) {
                     setActiveField(null);
                   }
                 }}
@@ -411,8 +481,9 @@ const Policyholder = ({ onBack, onSave }) => {
 
   // Функция рендеринга поля без кнопки
   const renderInputField = (fieldName, label, defaultValue = '') => {
+    const newFieldName = getFieldName(fieldName);
     const isActive = activeField === fieldName;
-    const hasValue = !!fieldValues[fieldName];
+    const hasValue = !!policyholderData[newFieldName];
 
     if (isActive || hasValue) {
       // Активное состояние - с полем ввода
@@ -423,7 +494,7 @@ const Policyholder = ({ onBack, onSave }) => {
             <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
               <input
                 type="text"
-                value={fieldValues[fieldName] || ''}
+                value={policyholderData[newFieldName] || ''}
                 onChange={(e) => handleFieldChange(fieldName, e.target.value)}
                 onBlur={() => handleFieldBlur(fieldName)}
                 autoFocus={isActive}
@@ -465,23 +536,23 @@ const Policyholder = ({ onBack, onSave }) => {
   }
 
   if (currentView === 'country') {
-    return <Country onBack={handleBackToMain} onSelect={(value) => handleDictionaryValueSelect('country', value)} />;
+    return <Country onBack={handleBackToMain} onSave={(value) => handleDictionaryValueSelect('country', value)} />;
   }
 
   if (currentView === 'region') {
-    return <Region onBack={handleBackToMain} onSelect={(value) => handleDictionaryValueSelect('region', value)} />;
+    return <Region onBack={handleBackToMain} onSave={(value) => handleDictionaryValueSelect('region', value)} />;
   }
 
   if (currentView === 'settlementType') {
-    return <SettlementType onBack={handleBackToMain} onSelect={(value) => handleDictionaryValueSelect('settlementType', value)} />;
+    return <SettlementType onBack={handleBackToMain} onSave={(value) => handleDictionaryValueSelect('settlementType', value)} />;
   }
 
   if (currentView === 'city') {
-    return <City onBack={handleBackToMain} onSelect={(value) => handleDictionaryValueSelect('city', value)} />;
+    return <City onBack={handleBackToMain} onSave={(value) => handleDictionaryValueSelect('city', value)} />;
   }
 
   if (currentView === 'docType') {
-    return <DocType onBack={handleBackToMain} onSelect={(value) => handleDictionaryValueSelect('docType', value)} />;
+    return <DocType onBack={handleBackToMain} onSave={(value) => handleDictionaryValueSelect('docType', value)} />;
   }
 
   if (currentView === 'issuedBy') {
@@ -489,7 +560,7 @@ const Policyholder = ({ onBack, onSave }) => {
   }
 
   if (currentView === 'clientType') {
-    return <ClientType onBack={handleBackToMain} onSelect={(value) => handleDictionaryValueSelect('clientType', value)} />;
+    return <ClientType onBack={handleBackToMain} onSave={(value) => handleDictionaryValueSelect('clientType', value)} />;
   }
 
   return (
@@ -500,17 +571,6 @@ const Policyholder = ({ onBack, onSave }) => {
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M15 18L7 10.5L15 3" stroke="black" strokeWidth="2"/>
         </svg>
-      </div>
-    </div>
-    <div data-layer="OpenDocument button" className="OpendocumentButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
-      <div data-layer="File" className="File" style={{width: 22, height: 22, left: 31, top: 32, position: 'absolute'}}>
-        <div data-svg-wrapper data-layer="Frame 1321316875" className="Frame1321316875" style={{left: 3, top: 1, position: 'absolute'}}>
-          <svg width="16" height="20" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M10 0L16.001 6V18.001C16.0009 19.1008 15.1008 20.0008 14.001 20.001H1.99023C0.890252 20.001 0.000107007 19.1009 0 18.001L0.00976562 2C0.00980161 0.900011 0.900014 4.85053e-05 2 0H10ZM2.00293 2V18.001H14.0039V7H9.00293V2H2.00293Z" fill="black"/>
-          <line x1="4.00049" y1="11.2505" x2="12.0008" y2="11.2505" stroke="black" strokeWidth="1.5"/>
-          <line x1="4.00049" y1="15.2508" x2="10.0008" y2="15.2508" stroke="black" strokeWidth="1.5"/>
-          </svg>
-        </div>
       </div>
     </div>
   </div>
@@ -589,19 +649,19 @@ const Policyholder = ({ onBack, onSave }) => {
           {renderInputField('firstName', 'Имя')}
           {renderInputField('middleName', 'Отчество')}
           {renderCalendarField('birthDate', 'Дата рождения')}
-          {renderDictionaryButton('gender', 'Пол', handleOpenGender, !!dictionaryValues.gender)}
-          {renderDictionaryButton('sectorCode', 'Код сектора экономики', handleOpenSectorCode, !!dictionaryValues.sectorCode)}
-          {renderDictionaryButton('country', 'Страна', handleOpenCountry, !!dictionaryValues.country)}
-          {renderDictionaryButton('region', 'Область', handleOpenRegion, !!dictionaryValues.region)}
-          {renderDictionaryButton('settlementType', 'Вид населенного пункта', handleOpenSettlementType, !!dictionaryValues.settlementType)}
-          {renderDictionaryButton('city', 'Город', handleOpenCity, !!dictionaryValues.city)}
+          {renderDictionaryButton('gender', 'Пол', handleOpenGender, !!policyholderData.gender)}
+          {renderDictionaryButton('sectorCode', 'Код сектора экономики', handleOpenSectorCode, !!policyholderData.economSecId)}
+          {renderDictionaryButton('country', 'Страна', handleOpenCountry, !!policyholderData.countryId)}
+          {renderDictionaryButton('region', 'Область', handleOpenRegion, !!policyholderData.region_id)}
+          {renderDictionaryButton('settlementType', 'Вид населенного пункта', handleOpenSettlementType, !!policyholderData.settlementType)}
+          {renderDictionaryButton('city', 'Город', handleOpenCity, !!policyholderData.city)}
           {renderInputField('street', 'Улица')}
           {renderInputField('microdistrict', 'Микрорайон')}
           {renderInputField('houseNumber', '№ дома')}
           {renderInputField('apartmentNumber', '№ квартиры')}
-          {renderDictionaryButton('docType', 'Тип документа', handleOpenDocType, !!dictionaryValues.docType)}
+          {renderDictionaryButton('docType', 'Тип документа', handleOpenDocType, !!policyholderData.vidDocId)}
           {renderInputField('documentNumber', 'Номер документа')}
-          {renderDictionaryButton('issuedBy', 'Кем выдано', handleOpenIssuedBy, !!dictionaryValues.issuedBy)}
+          {renderDictionaryButton('issuedBy', 'Кем выдано', handleOpenIssuedBy, !!policyholderData.issuedBy)}
           {renderCalendarField('issueDate', 'Выдан от')}
           {renderCalendarField('expiryDate', 'Действует до')}
           <div data-layer="ПризнакПДЛ ToggleButton" data-state={toggleStates.pdl ? "pressed" : "not_pressed"} className="Togglebutton" onClick={() => handleToggleClick('pdl')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
@@ -617,7 +677,7 @@ const Policyholder = ({ onBack, onSave }) => {
               </div>
             </div>
           </div>
-          {renderDictionaryButton('clientType', 'Тип клиента', handleOpenClientType, !!dictionaryValues.clientType)}
+          {renderDictionaryButton('clientType', 'Тип клиента', handleOpenClientType, !!policyholderData.clientType)}
         </>
       ) : (
         // Ручной ввод выключен - показываем поля в зависимости от состояния
@@ -631,19 +691,19 @@ const Policyholder = ({ onBack, onSave }) => {
               {renderInputField('firstName', 'Имя')}
               {renderInputField('middleName', 'Отчество')}
               {renderCalendarField('birthDate', 'Дата рождения')}
-              {renderDictionaryButton('gender', 'Пол', handleOpenGender, !!dictionaryValues.gender)}
-              {renderDictionaryButton('sectorCode', 'Код сектора экономики', handleOpenSectorCode, !!dictionaryValues.sectorCode)}
-              {renderDictionaryButton('country', 'Страна', handleOpenCountry, !!dictionaryValues.country)}
-              {renderDictionaryButton('region', 'Область', handleOpenRegion, !!dictionaryValues.region)}
-              {renderDictionaryButton('settlementType', 'Вид населенного пункта', handleOpenSettlementType, !!dictionaryValues.settlementType)}
-              {renderDictionaryButton('city', 'Город', handleOpenCity, !!dictionaryValues.city)}
+              {renderDictionaryButton('gender', 'Пол', handleOpenGender, !!policyholderData.gender)}
+              {renderDictionaryButton('sectorCode', 'Код сектора экономики', handleOpenSectorCode, !!policyholderData.economSecId)}
+              {renderDictionaryButton('country', 'Страна', handleOpenCountry, !!policyholderData.countryId)}
+              {renderDictionaryButton('region', 'Область', handleOpenRegion, !!policyholderData.region_id)}
+              {renderDictionaryButton('settlementType', 'Вид населенного пункта', handleOpenSettlementType, !!policyholderData.settlementType)}
+              {renderDictionaryButton('city', 'Город', handleOpenCity, !!policyholderData.city)}
               {renderInputField('street', 'Улица')}
               {renderInputField('microdistrict', 'Микрорайон')}
               {renderInputField('houseNumber', '№ дома')}
               {renderInputField('apartmentNumber', '№ квартиры')}
-              {renderDictionaryButton('docType', 'Тип документа', handleOpenDocType, !!dictionaryValues.docType)}
+              {renderDictionaryButton('docType', 'Тип документа', handleOpenDocType, !!policyholderData.vidDocId)}
               {renderInputField('documentNumber', 'Номер документа')}
-              {renderDictionaryButton('issuedBy', 'Кем выдано', handleOpenIssuedBy, !!dictionaryValues.issuedBy)}
+              {renderDictionaryButton('issuedBy', 'Кем выдано', handleOpenIssuedBy, !!policyholderData.issuedBy)}
               {renderCalendarField('issueDate', 'Выдан от')}
               {renderCalendarField('expiryDate', 'Действует до')}
               <div data-layer="ПризнакПДЛ ToggleButton" data-state={toggleStates.pdl ? "pressed" : "not_pressed"} className="Togglebutton" onClick={() => handleToggleClick('pdl')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
@@ -659,7 +719,7 @@ const Policyholder = ({ onBack, onSave }) => {
                   </div>
                 </div>
               </div>
-              {renderDictionaryButton('clientType', 'Тип клиента', handleOpenClientType, !!dictionaryValues.clientType)}
+              {renderDictionaryButton('clientType', 'Тип клиента', handleOpenClientType, !!policyholderData.clientType)}
             </>
           )}
         </>
