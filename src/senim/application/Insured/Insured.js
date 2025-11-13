@@ -1,13 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import OtherChild from './Other-child';
+import OwnChild from './Own-child';
+import PolicyholderInsured from './PolicyholderInsured';
+import OtherPerson from './Other-person';
 
-const Insured = ({ onBack, policyholderData, onSave, applicationId }) => {
+const Insured = ({ onBack, policyholderData, onSave, applicationId, savedInsuredData }) => {
   const [selectedInsuredType, setSelectedInsuredType] = useState('');
   const [currentView, setCurrentView] = useState('main');
 
+  // Проверка сохраненных данных при монтировании
+  useEffect(() => {
+    if (savedInsuredData && savedInsuredData.fullData) {
+      // Определяем тип застрахованного по сохраненным данным
+      const insuredType = savedInsuredData.fullData.insuredType;
+      if (insuredType === 'own-child') {
+        setSelectedInsuredType('own-child');
+        setCurrentView('own-child');
+      } else if (insuredType === 'other-child') {
+        setSelectedInsuredType('other-child');
+        setCurrentView('other-child');
+      } else if (insuredType === 'policyholder') {
+        setSelectedInsuredType('policyholder');
+        setCurrentView('policyholder');
+      } else if (insuredType === 'other-person') {
+        setSelectedInsuredType('other-person');
+        setCurrentView('other-person');
+      }
+    }
+  }, [savedInsuredData]);
+
   const handleInsuredTypeSelect = (type) => {
-    // Только "Для иного ребенка" активна
-    if (type === 'other-child') {
+    // Все типы активны
+    if (type === 'other-child' || type === 'own-child' || type === 'policyholder' || type === 'other-person') {
       setSelectedInsuredType(type);
     } else {
       // Для остальных показываем сообщение "В разработке"
@@ -18,6 +42,12 @@ const Insured = ({ onBack, policyholderData, onSave, applicationId }) => {
   const handleContinue = () => {
     if (selectedInsuredType === 'other-child') {
       setCurrentView('other-child');
+    } else if (selectedInsuredType === 'own-child') {
+      setCurrentView('own-child');
+    } else if (selectedInsuredType === 'policyholder') {
+      setCurrentView('policyholder');
+    } else if (selectedInsuredType === 'other-person') {
+      setCurrentView('other-person');
     } else if (selectedInsuredType) {
       // Для других типов показываем сообщение
       alert('В разработке');
@@ -30,7 +60,16 @@ const Insured = ({ onBack, policyholderData, onSave, applicationId }) => {
 
   // Роутинг на компоненты типов
   if (currentView === 'other-child') {
-    return <OtherChild onBack={handleBackToMain} onSave={onSave} applicationId={applicationId} policyholderData={policyholderData} />;
+    return <OtherChild onBack={onBack} onSave={onSave} applicationId={applicationId} policyholderData={policyholderData} savedData={savedInsuredData} />;
+  }
+  if (currentView === 'own-child') {
+    return <OwnChild onBack={onBack} onSave={onSave} applicationId={applicationId} policyholderData={policyholderData} savedData={savedInsuredData} onOpenTypes={handleBackToMain} />;
+  }
+  if (currentView === 'policyholder') {
+    return <PolicyholderInsured onBack={onBack} onSave={onSave} applicationId={applicationId} policyholderData={policyholderData} savedData={savedInsuredData} onOpenTypes={handleBackToMain} />;
+  }
+  if (currentView === 'other-person') {
+    return <OtherPerson onBack={onBack} onSave={onSave} applicationId={applicationId} savedData={savedInsuredData} onOpenTypes={handleBackToMain} />;
   }
 
   // Основной вид - выбор типа
