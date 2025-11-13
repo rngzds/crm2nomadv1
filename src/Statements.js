@@ -96,6 +96,7 @@ const Statements = ({ onCreateApplication, onLogout }) => {
               </div>
             </div>
           </div>
+          {/* TODO: Список заявок будет загружаться из API */}
           <div data-layer="Table of applications" className="TableOfApplications" style={{alignSelf: 'stretch', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
             <div data-layer="Header" data-state="not_pressed" className="Header" style={{alignSelf: 'stretch', position: 'relative', background: '#F6F6F6', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 16, display: 'inline-flex'}}>
               <div data-layer="Container" className="Container" style={{flex: '1 1 0', justifyContent: 'flex-start', alignItems: 'center', gap: 20, display: 'flex'}}>
@@ -136,125 +137,9 @@ const Statements = ({ onCreateApplication, onLogout }) => {
                 </div>
               </div>
             </div>
-            <div data-layer="Row" data-state="pressed" className="Row" style={{alignSelf: 'stretch', position: 'relative', background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 16, display: 'inline-flex'}}>
-              <div data-layer="Container" className="Container" style={{flex: '1 1 0', justifyContent: 'flex-start', alignItems: 'center', gap: 20, display: 'flex'}}>
-                <div data-layer="Select button" className="SelectButton" style={{width: 85, height: 85, position: 'relative', overflow: 'hidden'}}>
-                  <div data-svg-wrapper data-layer="CheckButton" data-state="not_pressed" className="Checkbutton" style={{left: 32, top: 32, position: 'absolute'}}>
-                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="1.75064" y="1.75" width="18.5" height="18.5" stroke="black" strokeWidth="1.5"/>
-                    </svg>
-                  </div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>RZ-1234BS</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>123 123 123 123</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>20.09.2025</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Сенiм</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>800 000 ₸ </div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Оформление</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Новая заявка</div>
-                </div>
-              </div>
-              <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, left: 1342, top: 0, position: 'absolute', background: '#FBF9F9', overflow: 'hidden'}}>
-                <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
-                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 4L15 11.5L7 19" stroke="black" strokeWidth="2"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
-            <div data-layer="Row" data-state="pressed" className="Row" style={{alignSelf: 'stretch', position: 'relative', background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 16, display: 'inline-flex'}}>
-              <div data-layer="Container" className="Container" style={{flex: '1 1 0', justifyContent: 'flex-start', alignItems: 'center', gap: 20, display: 'flex'}}>
-                <div data-layer="Select button" className="SelectButton" style={{width: 85, height: 85, position: 'relative', overflow: 'hidden'}}>
-                  <div data-svg-wrapper data-layer="CheckButton" data-state="not_pressed" className="Checkbutton" style={{left: 32, top: 32, position: 'absolute'}}>
-                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="1.75064" y="1.75" width="18.5" height="18.5" stroke="black" strokeWidth="1.5"/>
-                    </svg>
-                  </div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>RZ-5678AS</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>123 123 123 123</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>20.09.2025</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>ГОНС</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>1 200 000 ₸ </div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Оформление</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Отклонено</div>
-                </div>
-              </div>
-              <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, left: 1342, top: 0, position: 'absolute', background: '#FBF9F9', overflow: 'hidden'}}>
-                <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
-                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 4L15 11.5L7 19" stroke="black" strokeWidth="2"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
-            <div data-layer="Row" data-state="pressed" className="Row" style={{alignSelf: 'stretch', position: 'relative', background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 16, display: 'inline-flex'}}>
-              <div data-layer="Container" className="Container" style={{flex: '1 1 0', justifyContent: 'flex-start', alignItems: 'center', gap: 20, display: 'flex'}}>
-                <div data-layer="Select button" className="SelectButton" style={{width: 85, height: 85, position: 'relative', overflow: 'hidden'}}>
-                  <div data-svg-wrapper data-layer="CheckButton" data-state="not_pressed" className="Checkbutton" style={{left: 32, top: 32, position: 'absolute'}}>
-                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="1.75064" y="1.75" width="18.5" height="18.5" stroke="black" strokeWidth="1.5"/>
-                    </svg>
-                  </div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>RZ-5678AS</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>123 123 123 123</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>20.09.2025</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Пенсионный Аннуитет</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>1 200 000 ₸ </div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Оформление</div>
-                </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Отправлено на согласование</div>
-                </div>
-              </div>
-              <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, left: 1342, top: 0, position: 'absolute', background: '#FBF9F9', overflow: 'hidden'}}>
-                <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
-                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 4L15 11.5L7 19" stroke="black" strokeWidth="2"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
+        {/* TODO: Пагинация будет работать с данными из API */}
         <div data-layer="Pagination" className="Pagination" style={{alignSelf: 'stretch', height: 85, background: 'white', overflow: 'hidden', borderTop: '1px #F8E8E8 solid', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
           <div data-layer="Back page button" className="BackPageButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
             <div data-svg-wrapper data-layer="Chewron left" className="ChewronLeft" style={{left: 31, top: 32, position: 'absolute'}}>
@@ -264,7 +149,7 @@ const Statements = ({ onCreateApplication, onLogout }) => {
             </div>
           </div>
           <div data-layer="Page" className="Page" style={{flex: '1 1 0', height: 85, paddingLeft: 20, paddingRight: 20, paddingTop: 33, paddingBottom: 33, background: '#FBF9F9', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
-            <div data-layer="Label" className="Label" style={{flex: '1 1 0', textAlign: 'center', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>10 из 100</div>
+            <div data-layer="Label" className="Label" style={{flex: '1 1 0', textAlign: 'center', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>0 из 0</div>
           </div>
           <div data-layer="Next page button" className="NextPageButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
             <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>

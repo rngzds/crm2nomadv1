@@ -1,17 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Policyholder from './Policyholder';
-import Insured from './Insured';
+import Insured from './Insured/Insured';
 import Beneficiary from './Beneficiary';
 import Terms from './Terms';
 import Questionary from './Questionary';
 import History from './History';
+import { loadApplicationHistory, loadApplicationBeneficiary } from '../../services/storageService';
 
-const Application = ({ selectedProduct, onBack }) => {
+const Application = ({ selectedProduct, applicationId, onBack }) => {
   const [currentView, setCurrentView] = useState('main');
   const [policyholderData, setPolicyholderData] = useState(null);
   const [insuredData, setInsuredData] = useState(null);
   const [termsData, setTermsData] = useState(null);
   const [questionaryData, setQuestionaryData] = useState(null);
+  const [historyData, setHistoryData] = useState(null);
+  const [beneficiaryData, setBeneficiaryData] = useState(null);
+
+  // Загружаем данные истории и выгодоприобретателя при монтировании
+  useEffect(() => {
+    if (applicationId) {
+      const loadedHistory = loadApplicationHistory(applicationId);
+      if (loadedHistory) {
+        setHistoryData(loadedHistory);
+      } else {
+        // Инициализируем пустыми данными
+        setHistoryData({ dateTime: '', status: '' });
+      }
+      const loadedBeneficiary = loadApplicationBeneficiary(applicationId);
+      if (loadedBeneficiary) {
+        setBeneficiaryData(loadedBeneficiary);
+      } else {
+        // Инициализируем пустыми данными
+        setBeneficiaryData({ name: '', residencyType: '' });
+      }
+    }
+  }, [applicationId]);
 
   const handleBackToMain = () => setCurrentView('main');
   
@@ -56,27 +79,27 @@ const Application = ({ selectedProduct, onBack }) => {
   };
 
   if (currentView === 'history') {
-    return <History onBack={handleBackToMain} />;
+    return <History onBack={handleBackToMain} applicationId={applicationId} />;
   }
 
   if (currentView === 'policyholder') {
-    return <Policyholder onBack={handleBackToMain} onSave={handlePolicyholderSave} />;
+    return <Policyholder onBack={handleBackToMain} onSave={handlePolicyholderSave} applicationId={applicationId} />;
   }
 
   if (currentView === 'insured') {
-    return <Insured onBack={handleBackToMain} policyholderData={policyholderData} onSave={handleInsuredSave} />;
+    return <Insured onBack={handleBackToMain} policyholderData={policyholderData} onSave={handleInsuredSave} applicationId={applicationId} />;
   }
 
   if (currentView === 'beneficiary') {
-    return <Beneficiary onBack={handleBackToMain} />;
+    return <Beneficiary onBack={handleBackToMain} applicationId={applicationId} />;
   }
 
   if (currentView === 'terms') {
-    return <Terms onBack={handleBackToMain} onSave={handleTermsSave} />;
+    return <Terms onBack={handleBackToMain} onSave={handleTermsSave} applicationId={applicationId} />;
   }
 
   if (currentView === 'questionary') {
-    return <Questionary onBack={handleBackToMain} onSave={handleQuestionarySave} />;
+    return <Questionary onBack={handleBackToMain} onSave={handleQuestionarySave} applicationId={applicationId} />;
   }
 
   return (
@@ -104,7 +127,7 @@ const Application = ({ selectedProduct, onBack }) => {
   <div data-layer="Statements details" className="StatementsDetails" style={{flex: '1 1 0', alignSelf: 'stretch', overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
     <div data-layer="SubHeader" data-type="OrderHeader" className="Subheader" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex', flexWrap: 'wrap', alignContent: 'flex-start'}}>
       <div data-layer="Frame 1321316873" className="Frame1321316873" style={{flex: '1 1 0', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
-        <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 0', height: 12, textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Заявление №</div>
+        <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 0', height: 12, textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Заявление № {applicationId ? applicationId.substring(0, 8) : ''}</div>
       </div>
       <div data-layer="Button Container" className="ButtonContainer" style={{width: 777, height: 85, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', justifyContent: 'flex-end', alignItems: 'center', display: 'flex'}}>
         <div data-layer="Reject button" data-state="pressed" className="RejectButton" style={{width: 388.50, height: 85, overflow: 'hidden', justifyContent: 'space-between', alignItems: 'center', display: 'flex'}}>
@@ -132,13 +155,13 @@ const Application = ({ selectedProduct, onBack }) => {
         <div data-layer="Info container" data-state="pressed" className="InfoContainer" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
           <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
             <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Дата и время</div>
-            <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>11.11.2025 10:45</div>
+            <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{historyData?.dateTime || ''}</div>
           </div>
         </div>
         <div data-layer="Input Field" data-state="pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
           <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
             <div data-layer="LabelDefault" className="Labeldefault" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Статус</div>
-            <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Новая заявка</div>
+            <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{historyData?.status || ''}</div>
           </div>
         </div>
       </div>
@@ -255,13 +278,13 @@ const Application = ({ selectedProduct, onBack }) => {
         <div data-layer="Info container" data-state="pressed" className="InfoContainer" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
           <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
             <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Наименование </div>
-            <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Ассистаес Маданес</div>
+            <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{beneficiaryData?.name || ''}</div>
           </div>
         </div>
         <div data-layer="Input Field" data-state="pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
           <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
             <div data-layer="LabelDefault" className="Labeldefault" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Тип резидентства</div>
-            <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Нерезидент</div>
+            <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{beneficiaryData?.residencyType || ''}</div>
           </div>
         </div>
       </div>

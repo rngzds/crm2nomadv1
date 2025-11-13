@@ -5,11 +5,12 @@ import Statements from './Statements';
 import Products from './Products';
 import GonsApplication from './senim/application/Application';
 import SenimApplication from './pensan/application/Application';
-import { clearAllData } from './services/storageService';
+import { clearAllData, generateApplicationId, setCurrentApplicationId } from './services/storageService';
 
 function App() {
   const [currentView, setCurrentView] = useState('auth');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [currentApplicationId, setCurrentApplicationIdState] = useState(null);
 
   const handleLogin = () => {
     setCurrentView('main');
@@ -20,9 +21,18 @@ function App() {
     clearAllData();
     setCurrentView('auth');
     setSelectedProduct(null);
+    setCurrentApplicationIdState(null);
   };
 
   const handleCreateApplication = () => {
+    // Генерируем новый ID заявки
+    const newApplicationId = generateApplicationId();
+    setCurrentApplicationId(newApplicationId);
+    setCurrentApplicationIdState(newApplicationId);
+    // Очищаем все данные для новой заявки
+    clearAllData();
+    // Сохраняем новый ID после очистки
+    setCurrentApplicationId(newApplicationId);
     setCurrentView('product');
   };
 
@@ -42,12 +52,12 @@ function App() {
 
   const getApplicationComponent = () => {
     if (selectedProduct === 'Сенiм') {
-      return <GonsApplication selectedProduct={selectedProduct} onBack={handleBackToProduct} />;
+      return <GonsApplication selectedProduct={selectedProduct} applicationId={currentApplicationId} onBack={handleBackToProduct} />;
     } else if (selectedProduct === 'ГОНС' || selectedProduct === 'Пенсионный Аннуитет') {
-      return <SenimApplication selectedProduct={selectedProduct} onBack={handleBackToProduct} />;
+      return <SenimApplication selectedProduct={selectedProduct} applicationId={currentApplicationId} onBack={handleBackToProduct} />;
     }
     // Fallback to GonsApplication if product is not recognized
-    return <GonsApplication selectedProduct={selectedProduct} onBack={handleBackToProduct} />;
+    return <GonsApplication selectedProduct={selectedProduct} applicationId={currentApplicationId} onBack={handleBackToProduct} />;
   };
 
   const containerStyle = {

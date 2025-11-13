@@ -1,6 +1,21 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { loadApplicationHistory } from '../../services/storageService';
 
-const History = ({ onBack }) => {
+const History = ({ onBack, applicationId }) => {
+  const [historyItems, setHistoryItems] = useState([]);
+
+  // Загружаем данные истории при монтировании
+  useEffect(() => {
+    if (applicationId) {
+      const loaded = loadApplicationHistory(applicationId);
+      if (loaded && loaded.items) {
+        setHistoryItems(loaded.items);
+      } else {
+        // Инициализируем пустым массивом
+        setHistoryItems([]);
+      }
+    }
+  }, [applicationId]);
   return (
     <div data-layer="History application page" className="HistoryApplicationPage" style={{width: 1512, height: 1436, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
       <div data-layer="Menu" data-property-1="Menu one" className="Menu" style={{width: 85, alignSelf: 'stretch', background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
@@ -9,17 +24,6 @@ const History = ({ onBack }) => {
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M15 18L7 10.5L15 3" stroke="black" strokeWidth="2"/>
             </svg>
-          </div>
-        </div>
-        <div data-layer="OpenDocument button" className="OpendocumentButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
-          <div data-layer="File" className="File" style={{width: 22, height: 22, left: 31, top: 32, position: 'absolute'}}>
-            <div data-svg-wrapper data-layer="Frame 1321316875" className="Frame1321316875" style={{left: 3, top: 1, position: 'absolute'}}>
-              <svg width="16" height="20" viewBox="0 0 16 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 0L16.001 6V18.001C16.0009 19.1008 15.1008 20.0008 14.001 20.001H1.99023C0.890252 20.001 0.000107007 19.1009 0 18.001L0.00976562 2C0.00980161 0.900011 0.900014 4.85053e-05 2 0H10ZM2.00293 2V18.001H14.0039V7H9.00293V2H2.00293Z" fill="black"/>
-              <line x1="4" y1="11.2505" x2="12.0004" y2="11.2505" stroke="black" strokeWidth="1.5"/>
-              <line x1="4" y1="15.2507" x2="10.0003" y2="15.2507" stroke="black" strokeWidth="1.5"/>
-              </svg>
-            </div>
           </div>
         </div>
       </div>
@@ -74,25 +78,34 @@ const History = ({ onBack }) => {
               </div>
             </div>
           </div>
-          <div data-layer="TableContainerHistoryApplication" data-state="pressed" className="Tablecontainerhistoryapplication" style={{alignSelf: 'stretch', height: 85, paddingLeft: 40, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 8, display: 'inline-flex'}}>
-            <div data-layer="Container" className="Container" style={{flex: '1 1 0', justifyContent: 'flex-start', alignItems: 'center', gap: 20, display: 'flex'}}>
-              <div data-layer="Text container" className="TextContainer" style={{width: 220, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                <div data-layer="Label" className="Label" style={{width: 300, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страховой агент</div>
-              </div>
-              <div data-layer="Text container" className="TextContainer" style={{width: 220, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                <div data-layer="Label" className="Label" style={{width: 300, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Нурбергенов Нурик</div>
-              </div>
-              <div data-layer="Text container" className="TextContainer" style={{width: 220, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                <div data-layer="Label" className="Label" style={{width: 300, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>08.01.2025 09:00</div>
-              </div>
-              <div data-layer="Text container" className="TextContainer" style={{width: 220, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                <div data-layer="Label" className="Label" style={{width: 300, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Новая заявка</div>
-              </div>
-              <div data-layer="Text container" className="TextContainer" style={{width: 220, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                <div data-layer="Label" className="Label" style={{width: 300, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>-</div>
-              </div>
+          {/* TODO: Список истории будет загружаться из API */}
+          {historyItems.length === 0 ? (
+            <div data-layer="Empty state" className="EmptyState" style={{alignSelf: 'stretch', height: 200, paddingLeft: 40, background: 'white', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', display: 'flex'}}>
+              <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>История пуста</div>
             </div>
-          </div>
+          ) : (
+            historyItems.map((item, index) => (
+              <div key={index} data-layer="TableContainerHistoryApplication" data-state="pressed" className="Tablecontainerhistoryapplication" style={{alignSelf: 'stretch', height: 85, paddingLeft: 40, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 8, display: 'inline-flex'}}>
+                <div data-layer="Container" className="Container" style={{flex: '1 1 0', justifyContent: 'flex-start', alignItems: 'center', gap: 20, display: 'flex'}}>
+                  <div data-layer="Text container" className="TextContainer" style={{width: 220, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                    <div data-layer="Label" className="Label" style={{width: 300, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{item.role || ''}</div>
+                  </div>
+                  <div data-layer="Text container" className="TextContainer" style={{width: 220, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                    <div data-layer="Label" className="Label" style={{width: 300, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{item.executorName || ''}</div>
+                  </div>
+                  <div data-layer="Text container" className="TextContainer" style={{width: 220, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                    <div data-layer="Label" className="Label" style={{width: 300, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{item.executionDate || ''}</div>
+                  </div>
+                  <div data-layer="Text container" className="TextContainer" style={{width: 220, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                    <div data-layer="Label" className="Label" style={{width: 300, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{item.status || ''}</div>
+                  </div>
+                  <div data-layer="Text container" className="TextContainer" style={{width: 220, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                    <div data-layer="Label" className="Label" style={{width: 300, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{item.comment || ''}</div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
