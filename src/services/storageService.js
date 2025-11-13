@@ -15,7 +15,8 @@ const STORAGE_KEYS = {
   APPLICATION_HISTORY: 'applicationHistory',
   APPLICATION_BENEFICIARY: 'applicationBeneficiary',
   INSURED_CURRENT_VIEW_HISTORY: 'insuredCurrentViewHistory',
-  GLOBAL_APPLICATION_DATA: 'globalApplicationData'
+  GLOBAL_APPLICATION_DATA: 'globalApplicationData',
+  APPLICATION_METADATA: 'applicationMetadata'
 };
 
 /**
@@ -24,8 +25,8 @@ const STORAGE_KEYS = {
  */
 export const generateApplicationId = () => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : ((r & 0x3) | 0x8);
     return v.toString(16);
   });
 };
@@ -631,6 +632,133 @@ export const updateGlobalApplicationSection = (section, sectionData, application
     saveGlobalApplicationData(globalData, applicationId || getCurrentApplicationId());
   } catch (error) {
     console.error(`Error updating global application section ${section}:`, error);
+  }
+};
+
+/**
+ * Сохранить метаданные заявки
+ * @param {string} applicationId - ID заявки
+ * @param {Object} metadata - Метаданные заявки (product, createdAt, policyholderIin, status)
+ */
+export const saveApplicationMetadata = (applicationId, metadata) => {
+  if (!applicationId) return;
+  
+  try {
+    const key = getApplicationKey(applicationId, STORAGE_KEYS.APPLICATION_METADATA);
+    const metadataToSave = {
+      applicationId,
+      product: metadata.product || null,
+      createdAt: metadata.createdAt || new Date().toISOString(),
+      policyholderIin: metadata.policyholderIin || '',
+      status: metadata.status || 'Черновик',
+      ...metadata
+    };
+    localStorage.setItem(key, JSON.stringify(metadataToSave));
+    console.log('💾 [APPLICATION METADATA] Сохранено:', metadataToSave);
+  } catch (error) {
+    console.error('Error saving application metadata:', error);
+  }
+};
+
+/**
+ * Загрузить метаданные заявки
+ * @param {string} applicationId - ID заявки
+ * @returns {Object|null} Метаданные заявки или null
+ */
+export const loadApplicationMetadata = (applicationId) => {
+  if (!applicationId) return null;
+  
+  try {
+    const key = getApplicationKey(applicationId, STORAGE_KEYS.APPLICATION_METADATA);
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.error('Error loading application metadata:', error);
+    return null;
+  }
+};
+
+/**
+ * Получить список всех заявок
+ * @returns {Array} Массив объектов с метаданными заявок
+ */
+export const getAllApplications = () => {
+  try {
+    const applications = [];
+    const applicationIds = new Set();
+    
+    // Проходим по всем ключам localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('application_')) {
+        // Извлекаем applicationId из ключа
+        // Формат: application_{applicationId}_{storageKey}
+        // Находим последнее подчеркивание, которое отделяет applicationId от storageKey
+        const lastUnderscoreIndex = key.lastIndexOf('_');
+        if (lastUnderscoreIndex > 12) { // 'application_'.length = 12
+          const applicationId = key.substring(12, lastUnderscoreIndex);
+          if (applicationId) {
+            applicationIds.add(applicationId);
+          }
+        }
+      }
+    }
+    
+    // Загружаем метаданные для каждой заявки
+    applicationIds.forEach(applicationId => {
+      const metadata = loadApplicationMetadata(applicationId);
+      if (metadata) {
+        applications.push(metadata);
+      } else {
+        // Если метаданных нет, создаем базовые
+        applications.push({
+          applicationId,
+          product: null,
+          createdAt: new Date().toISOString(),
+          policyholderIin: '',
+          status: 'Черновик'
+        });
+      }
+    });
+    
+    // Сортируем по дате создания (новые сверху)
+    applications.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0);
+      const dateB = new Date(b.createdAt || 0);
+      return dateB - dateA;
+    });
+    
+    return applications;
+  } catch (error) {
+    console.error('Error getting all applications:', error);
+    return [];
+  }
+};
+
+/**
+ * Удалить заявку и все её данные
+ * @param {string} applicationId - ID заявки
+ */
+export const deleteApplication = (applicationId) => {
+  if (!applicationId) return;
+  
+  try {
+    const keysToRemove = [];
+    
+    // Находим все ключи, связанные с этой заявкой
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(`application_${applicationId}_`)) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    // Удаляем все найденные ключи
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    console.log(`🗑️ [APPLICATION] Удалена заявка ${applicationId}`);
+  } catch (error) {
+    console.error('Error deleting application:', error);
   }
 };
 

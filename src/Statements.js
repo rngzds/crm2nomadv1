@@ -1,6 +1,49 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { getAllApplications } from './services/storageService';
 
-const Statements = ({ onCreateApplication, onLogout }) => {
+const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
+  const [applications, setApplications] = useState([]);
+
+  // Загружаем список заявок при монтировании
+  useEffect(() => {
+    loadApplications();
+  }, []);
+
+  const loadApplications = () => {
+    const apps = getAllApplications();
+    setApplications(apps);
+  };
+
+  // Форматирование даты
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${day}.${month}.${year} ${hours}:${minutes}`;
+    } catch (error) {
+      return '';
+    }
+  };
+
+  // Форматирование номера заявления (первые 8 символов)
+  const formatApplicationId = (applicationId) => {
+    if (!applicationId) return '';
+    return applicationId.substring(0, 8).toUpperCase();
+  };
+
+  const handleApplicationClick = (applicationId) => {
+    if (onOpenApplication) {
+      onOpenApplication(applicationId);
+    }
+  };
+
+  // Константа для отображения прочерка
+  const DASH = '-';
   const handleCreateApplication = () => {
     if (onCreateApplication) {
       onCreateApplication();
@@ -96,7 +139,6 @@ const Statements = ({ onCreateApplication, onLogout }) => {
               </div>
             </div>
           </div>
-          {/* TODO: Список заявок будет загружаться из API */}
           <div data-layer="Table of applications" className="TableOfApplications" style={{alignSelf: 'stretch', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
             <div data-layer="Header" data-state="not_pressed" className="Header" style={{alignSelf: 'stretch', position: 'relative', background: '#F6F6F6', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 16, display: 'inline-flex'}}>
               <div data-layer="Container" className="Container" style={{flex: '1 1 0', justifyContent: 'flex-start', alignItems: 'center', gap: 20, display: 'flex'}}>
@@ -129,7 +171,7 @@ const Statements = ({ onCreateApplication, onLogout }) => {
                   <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Статус</div>
                 </div>
               </div>
-              <div data-layer="Refresh button" className="RefreshButton" style={{width: 85, height: 85, left: 1342, top: 0, position: 'absolute', background: '#FBF9F9', overflow: 'hidden'}}>
+              <div data-layer="Refresh button" className="RefreshButton" onClick={loadApplications} style={{width: 85, height: 85, left: 1342, top: 0, position: 'absolute', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}}>
                 <div data-svg-wrapper data-layer="refresh" className="Refresh" style={{left: 31, top: 32, position: 'absolute'}}>
                   <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M16.1746 5.82067C14.8454 4.4915 13.0213 3.6665 10.9954 3.6665C6.94376 3.6665 3.67126 6.94817 3.67126 10.9998C3.67126 15.0515 6.94376 18.3332 10.9954 18.3332C14.4146 18.3332 17.2654 15.9957 18.0813 12.8332H16.1746C15.4229 14.969 13.3879 16.4998 10.9954 16.4998C7.96126 16.4998 5.49543 14.034 5.49543 10.9998C5.49543 7.96567 7.96126 5.49984 10.9954 5.49984C12.5171 5.49984 13.8738 6.13234 14.8638 7.1315L11.9121 10.0832H18.3288V3.6665L16.1746 5.82067Z" fill="black"/>
@@ -137,6 +179,65 @@ const Statements = ({ onCreateApplication, onLogout }) => {
                 </div>
               </div>
             </div>
+            {applications.length === 0 ? (
+              <div style={{alignSelf: 'stretch', padding: 40, textAlign: 'center', color: '#6B6D80', fontSize: 16, fontFamily: 'Inter'}}>
+                Заявок пока нет. Создайте новую заявку, нажав кнопку "+"
+              </div>
+            ) : (
+              applications.map((app, index) => (
+                <div 
+                  key={app.applicationId} 
+                  onClick={() => handleApplicationClick(app.applicationId)}
+                  style={{
+                    alignSelf: 'stretch', 
+                    height: 85, 
+                    paddingLeft: 20, 
+                    background: 'white', 
+                    overflow: 'hidden', 
+                    borderBottom: '1px #F8E8E8 solid', 
+                    justifyContent: 'flex-start', 
+                    alignItems: 'center', 
+                    gap: 16, 
+                    display: 'inline-flex',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#FBF9F9'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                >
+                  <div data-layer="Container" className="Container" style={{flex: '1 1 0', justifyContent: 'flex-start', alignItems: 'center', gap: 20, display: 'flex'}}>
+                    <div data-layer="Select button" className="SelectButton" style={{width: 85, height: 85, position: 'relative', overflow: 'hidden'}}>
+                      <div data-svg-wrapper data-layer="CheckButton" data-state="not_pressed" className="Checkbutton" style={{left: 32, top: 32, position: 'absolute'}}>
+                        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="1.75064" y="1.75" width="18.5" height="18.5" stroke="black" strokeWidth="1.5"/>
+                        </svg>
+                      </div>
+                    </div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{formatApplicationId(app.applicationId)}</div>
+                    </div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.policyholderIin || DASH}</div>
+                    </div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{formatDate(app.createdAt)}</div>
+                    </div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.product || DASH}</div>
+                    </div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{DASH}</div>
+                    </div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{DASH}</div>
+                    </div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.status || 'Черновик'}</div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
         {/* TODO: Пагинация будет работать с данными из API */}
@@ -149,7 +250,7 @@ const Statements = ({ onCreateApplication, onLogout }) => {
             </div>
           </div>
           <div data-layer="Page" className="Page" style={{flex: '1 1 0', height: 85, paddingLeft: 20, paddingRight: 20, paddingTop: 33, paddingBottom: 33, background: '#FBF9F9', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
-            <div data-layer="Label" className="Label" style={{flex: '1 1 0', textAlign: 'center', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>0 из 0</div>
+            <div data-layer="Label" className="Label" style={{flex: '1 1 0', textAlign: 'center', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{applications.length} из {applications.length}</div>
           </div>
           <div data-layer="Next page button" className="NextPageButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
             <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>

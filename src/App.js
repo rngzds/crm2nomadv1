@@ -5,7 +5,7 @@ import Statements from './Statements';
 import Products from './Products';
 import GonsApplication from './senim/application/Application';
 import SenimApplication from './pensan/application/Application';
-import { clearAllData, generateApplicationId, setCurrentApplicationId } from './services/storageService';
+import { clearAllData, generateApplicationId, setCurrentApplicationId, saveApplicationMetadata, loadApplicationMetadata } from './services/storageService';
 
 function App() {
   const [currentView, setCurrentView] = useState('auth');
@@ -29,16 +29,40 @@ function App() {
     const newApplicationId = generateApplicationId();
     setCurrentApplicationId(newApplicationId);
     setCurrentApplicationIdState(newApplicationId);
-    // Очищаем все данные для новой заявки
-    clearAllData();
-    // Сохраняем новый ID после очистки
-    setCurrentApplicationId(newApplicationId);
+    // Сохраняем метаданные новой заявки
+    saveApplicationMetadata(newApplicationId, {
+      product: null,
+      createdAt: new Date().toISOString(),
+      policyholderIin: '',
+      status: 'Черновик'
+    });
     setCurrentView('product');
   };
 
   const handleSelectProduct = (productName) => {
     setSelectedProduct(productName);
+    // Обновляем метаданные заявки с выбранным продуктом
+    if (currentApplicationId) {
+      const existingMetadata = loadApplicationMetadata(currentApplicationId) || {};
+      saveApplicationMetadata(currentApplicationId, {
+        ...existingMetadata,
+        product: productName
+      });
+    }
     setCurrentView('application');
+  };
+
+  const handleOpenApplication = (applicationId) => {
+    if (!applicationId) return;
+    
+    // Загружаем метаданные заявки
+    const metadata = loadApplicationMetadata(applicationId);
+    if (metadata) {
+      setCurrentApplicationId(applicationId);
+      setCurrentApplicationIdState(applicationId);
+      setSelectedProduct(metadata.product);
+      setCurrentView('application');
+    }
   };
 
   const handleBackToMain = () => {
@@ -80,7 +104,7 @@ function App() {
   if (currentView === 'main') {
     return (
       <div style={containerStyle}>
-        <Statements onCreateApplication={handleCreateApplication} onLogout={handleLogout} />
+        <Statements onCreateApplication={handleCreateApplication} onLogout={handleLogout} onOpenApplication={handleOpenApplication} />
       </div>
     );
   }

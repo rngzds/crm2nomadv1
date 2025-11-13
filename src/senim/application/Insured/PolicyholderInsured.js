@@ -3,14 +3,13 @@ import Gender from '../../dictionary/Gender';
 import SectorCode from '../../dictionary/SectorCode';
 import Country from '../../dictionary/Country';
 import Region from '../../dictionary/Region';
-import SettlementType from '../../dictionary/SettlementType';
-import City from '../../dictionary/City';
 import DocType from '../../dictionary/DocType';
 import IssuedBy from '../../dictionary/IssuedBy';
 import { renderInputField, renderDictionaryButton, renderCalendarField, renderToggleButton } from './InsuredFormFields';
 
 const PolicyholderInsured = ({ onBack, policyholderData, onSave, applicationId, savedData, onOpenTypes }) => {
   // Основной currentView для переключения между этапами
+  // eslint-disable-next-line no-unused-vars
   const [currentView, setCurrentView] = useState('main');
   // Для справочников внутри 'main' view
   const [dictionaryView, setDictionaryView] = useState('main');
@@ -93,15 +92,7 @@ const PolicyholderInsured = ({ onBack, policyholderData, onSave, applicationId, 
     setDictionaryView('region');
   };
 
-  const handleOpenSettlementType = () => {
-    setPreviousDictionaryView(dictionaryView);
-    setDictionaryView('settlementType');
-  };
 
-  const handleOpenCity = () => {
-    setPreviousDictionaryView(dictionaryView);
-    setDictionaryView('city');
-  };
 
   const handleOpenDocType = () => {
     setPreviousDictionaryView(dictionaryView);
@@ -158,13 +149,7 @@ const PolicyholderInsured = ({ onBack, policyholderData, onSave, applicationId, 
     return <Country onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('country', value)} />;
   }
   if (dictionaryView === 'region') {
-    return <Region onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('region', value)} />;
-  }
-  if (dictionaryView === 'settlementType') {
-    return <SettlementType onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('settlementType', value)} />;
-  }
-  if (dictionaryView === 'city') {
-    return <City onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('city', value)} />;
+    return <Region onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('district_nameru', value)} />;
   }
   if (dictionaryView === 'docType') {
     return <DocType onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('docType', value)} />;
@@ -251,11 +236,9 @@ const PolicyholderInsured = ({ onBack, policyholderData, onSave, applicationId, 
               {renderDictionaryButton('gender', 'Пол', getDictionaryDisplayValue(policyholderData.gender), handleOpenGender, !!policyholderData.gender)}
               {renderDictionaryButton('economSecId', 'Код сектора экономики', getDictionaryDisplayValue(policyholderData.economSecId), handleOpenSectorCode, !!policyholderData.economSecId)}
               {renderDictionaryButton('countryId', 'Страна', getDictionaryDisplayValue(policyholderData.countryId), handleOpenCountry, !!policyholderData.countryId)}
-              {renderDictionaryButton('region_id', 'Область', getDictionaryDisplayValue(policyholderData.region_id), handleOpenRegion, !!policyholderData.region_id)}
-              {renderDictionaryButton('settlementType', 'Вид населенного пункта', getDictionaryDisplayValue(policyholderData.settlementType), handleOpenSettlementType, !!policyholderData.settlementType)}
-              {renderDictionaryButton('city', 'Город', getDictionaryDisplayValue(policyholderData.city), handleOpenCity, !!policyholderData.city)}
+              {renderDictionaryButton('district_nameru', 'Область', getDictionaryDisplayValue(policyholderData.district_nameru), handleOpenRegion, !!policyholderData.district_nameru)}
+              {renderInputField('settlementName', 'Название населенного пункта', policyholderData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
               {renderInputField('street', 'Улица', policyholderData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
-              {renderInputField('microdistrict', 'Микрорайон', policyholderData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
               {renderInputField('houseNumber', '№ дома', policyholderData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
               {renderInputField('apartmentNumber', '№ квартиры', policyholderData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
               {renderDictionaryButton('vidDocId', 'Тип документа', getDictionaryDisplayValue(policyholderData.vidDocId), handleOpenDocType, !!policyholderData.vidDocId)}

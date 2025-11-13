@@ -65,12 +65,38 @@ export const formatGender = (genderCode) => {
 };
 
 /**
+ * Удалить слово "Улица" из начала строки улицы
+ * @param {string} street - Название улицы
+ * @returns {string} Название улицы без слова "Улица"
+ */
+const removeStreetPrefix = (street) => {
+  if (!street) return '';
+  // Убираем "Улица" и "УЛИЦА" из начала строки, с учетом пробелов
+  return street.replace(/^УЛИЦА\s+/i, '').trim();
+};
+
+/**
+ * Проверить, начинается ли номер документа с цифры
+ * @param {string} documentNumber - Номер документа
+ * @returns {boolean} true, если номер начинается с цифры
+ */
+const isDocumentNumberStartingWithDigit = (documentNumber) => {
+  if (!documentNumber) return false;
+  return /^\d/.test(documentNumber.trim());
+};
+
+/**
  * Маппинг данных из API ответа в формат формы с правильными названиями полей
  * @param {Object} apiData - Данные из API
  * @returns {Object} Данные в формате формы с правильными названиями полей
  */
 export const mapApiDataToForm = (apiData) => {
   if (!apiData) return {};
+
+  // Определяем тип документа: если номер начинается с цифры, то это удостоверение личности
+  const vidDocId = isDocumentNumberStartingWithDigit(apiData.document_number) 
+    ? 'Удостоверение личности' 
+    : '';
 
   return {
     iin: apiData.iin || '',
@@ -81,15 +107,17 @@ export const mapApiDataToForm = (apiData) => {
     birthDate: formatDate(apiData.birthdate),
     gender: formatGender(apiData.gender), // Строка (название), не ID
     countryId: apiData.country_nameru || '', // Строка (название), не ID
-    region_id: apiData.region_nameru || '', // Строка (название), не ID
-    city: apiData.district_nameru || '',
-    street: apiData.street || '',
+    district_nameru: apiData.district_nameru || '', // Область
+    settlementName: apiData.region_nameru || '', // Название населенного пункта (район и город)
+    street: removeStreetPrefix(apiData.street || ''), // Убираем "Улица" из начала
     houseNumber: apiData.building || '',
-    apartmentNumber: apiData.flat || '',
+    apartmentNumber: apiData.flat !== null && apiData.flat !== undefined ? apiData.flat : '', // Обрабатываем null как пустую строку
     docNumber: apiData.document_number || '',
     issueDate: formatDate(apiData.begin_date),
     expiryDate: formatDate(apiData.enddate),
-    issuedBy: apiData.issueorganization_nameru || ''
+    issuedBy: apiData.issueorganization_nameru || '',
+    economSecId: '9', // Код сектора по умолчанию
+    vidDocId: vidDocId // Тип документа
   };
 };
 

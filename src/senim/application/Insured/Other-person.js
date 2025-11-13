@@ -3,16 +3,14 @@ import Gender from '../../dictionary/Gender';
 import SectorCode from '../../dictionary/SectorCode';
 import Country from '../../dictionary/Country';
 import Region from '../../dictionary/Region';
-import SettlementType from '../../dictionary/SettlementType';
-import City from '../../dictionary/City';
 import DocType from '../../dictionary/DocType';
 import IssuedBy from '../../dictionary/IssuedBy';
-import ClientType from '../../dictionary/ClientType';
 import { getPerson, mapApiDataToForm } from '../../../services/personService';
 import { renderInputField, renderDictionaryButton, renderCalendarField, renderAttachField, renderToggleButton } from './InsuredFormFields';
 
 const OtherPerson = ({ onBack, onSave, applicationId, savedData, onOpenTypes }) => {
   // Основной currentView
+  // eslint-disable-next-line no-unused-vars
   const [currentView, setCurrentView] = useState('main');
   // Для справочников
   const [dictionaryView, setDictionaryView] = useState('main');
@@ -31,7 +29,6 @@ const OtherPerson = ({ onBack, onSave, applicationId, savedData, onOpenTypes }) 
     surname: '',
     patronymic: '',
     street: '',
-    microdistrict: '',
     houseNumber: '',
     apartmentNumber: '',
     docNumber: '',
@@ -42,13 +39,11 @@ const OtherPerson = ({ onBack, onSave, applicationId, savedData, onOpenTypes }) 
     gender: '',
     economSecId: '',
     countryId: '',
-    region_id: '',
-    settlementType: '',
-    city: '',
+    district_nameru: '',
+    settlementName: '',
     vidDocId: '',
     issuedBy: '',
-    residency: 'Резидент',
-    clientType: ''
+    residency: 'Резидент'
   });
 
   // Toggle состояния
@@ -114,6 +109,7 @@ const OtherPerson = ({ onBack, onSave, applicationId, savedData, onOpenTypes }) 
     return value;
   };
 
+
   // Обработчики справочников
   const handleDictionaryValueSelect = (fieldName, value) => {
     setInsuredData(prev => ({
@@ -143,15 +139,6 @@ const OtherPerson = ({ onBack, onSave, applicationId, savedData, onOpenTypes }) 
     setDictionaryView('region');
   };
 
-  const handleOpenSettlementType = () => {
-    setPreviousDictionaryView(dictionaryView);
-    setDictionaryView('settlementType');
-  };
-
-  const handleOpenCity = () => {
-    setPreviousDictionaryView(dictionaryView);
-    setDictionaryView('city');
-  };
 
   const handleOpenDocType = () => {
     setPreviousDictionaryView(dictionaryView);
@@ -163,10 +150,6 @@ const OtherPerson = ({ onBack, onSave, applicationId, savedData, onOpenTypes }) 
     setDictionaryView('issuedBy');
   };
 
-  const handleOpenClientType = () => {
-    setPreviousDictionaryView(dictionaryView);
-    setDictionaryView('clientType');
-  };
 
   const handleTogglePDL = () => {
     setToggleStates(prev => ({
@@ -188,7 +171,6 @@ const OtherPerson = ({ onBack, onSave, applicationId, savedData, onOpenTypes }) 
         surname: '',
         patronymic: '',
         street: '',
-        microdistrict: '',
         houseNumber: '',
         apartmentNumber: '',
         docNumber: '',
@@ -199,13 +181,11 @@ const OtherPerson = ({ onBack, onSave, applicationId, savedData, onOpenTypes }) 
         gender: '',
         economSecId: '',
         countryId: '',
-        region_id: '',
-        settlementType: '',
-        city: '',
+        district_nameru: '',
+        settlementName: '',
         vidDocId: '',
         issuedBy: '',
-        residency: 'Резидент',
-        clientType: ''
+        residency: 'Резидент'
       });
       setAutoModeState('initial');
     }
@@ -254,25 +234,30 @@ const OtherPerson = ({ onBack, onSave, applicationId, savedData, onOpenTypes }) 
     const currentTelephone = insuredData.telephone;
     
     // Обновляем поля формы, используя данные из API
+    // Для остальных полей используем значения из API (даже если они пустые), чтобы перезаписать старые данные
     setInsuredData(prev => ({
       ...prev,
+      // ИИН и телефон сохраняем, если они уже были введены
       iin: currentIin || mappedData.iin || prev.iin || '',
       telephone: currentTelephone || mappedData.telephone || prev.telephone || '',
-      name: mappedData.name || prev.name || '',
-      surname: mappedData.surname || prev.surname || '',
-      patronymic: mappedData.patronymic || prev.patronymic || '',
-      street: mappedData.street || prev.street || '',
-      houseNumber: mappedData.houseNumber || prev.houseNumber || '',
-      apartmentNumber: mappedData.apartmentNumber || prev.apartmentNumber || '',
-      docNumber: mappedData.docNumber || prev.docNumber || '',
-      birthDate: mappedData.birthDate || prev.birthDate || '',
-      issueDate: mappedData.issueDate || prev.issueDate || '',
-      expiryDate: mappedData.expiryDate || prev.expiryDate || '',
-      gender: mappedData.gender || prev.gender || '',
-      countryId: mappedData.countryId || prev.countryId || '',
-      region_id: mappedData.region_id || prev.region_id || '',
-      city: mappedData.city || prev.city || '',
-      issuedBy: mappedData.issuedBy || prev.issuedBy || ''
+      // Остальные поля перезаписываем значениями из API (включая пустые строки)
+      name: mappedData.name !== undefined ? mappedData.name : prev.name,
+      surname: mappedData.surname !== undefined ? mappedData.surname : prev.surname,
+      patronymic: mappedData.patronymic !== undefined ? mappedData.patronymic : prev.patronymic,
+      street: mappedData.street !== undefined ? mappedData.street : prev.street,
+      houseNumber: mappedData.houseNumber !== undefined ? mappedData.houseNumber : prev.houseNumber,
+      apartmentNumber: mappedData.apartmentNumber !== undefined ? mappedData.apartmentNumber : prev.apartmentNumber,
+      docNumber: mappedData.docNumber !== undefined ? mappedData.docNumber : prev.docNumber,
+      birthDate: mappedData.birthDate !== undefined ? mappedData.birthDate : prev.birthDate,
+      issueDate: mappedData.issueDate !== undefined ? mappedData.issueDate : prev.issueDate,
+      expiryDate: mappedData.expiryDate !== undefined ? mappedData.expiryDate : prev.expiryDate,
+      gender: mappedData.gender !== undefined ? mappedData.gender : prev.gender,
+      countryId: mappedData.countryId !== undefined ? mappedData.countryId : prev.countryId,
+      district_nameru: mappedData.district_nameru !== undefined ? mappedData.district_nameru : prev.district_nameru,
+      settlementName: mappedData.settlementName !== undefined ? mappedData.settlementName : prev.settlementName,
+      economSecId: mappedData.economSecId !== undefined ? mappedData.economSecId : prev.economSecId,
+      vidDocId: mappedData.vidDocId !== undefined ? mappedData.vidDocId : prev.vidDocId,
+      issuedBy: mappedData.issuedBy !== undefined ? mappedData.issuedBy : prev.issuedBy
     }));
     
     // Переход в состояние data_loaded
@@ -368,22 +353,13 @@ const OtherPerson = ({ onBack, onSave, applicationId, savedData, onOpenTypes }) 
     return <Country onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('countryId', value)} />;
   }
   if (dictionaryView === 'region') {
-    return <Region onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('region_id', value)} />;
-  }
-  if (dictionaryView === 'settlementType') {
-    return <SettlementType onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('settlementType', value)} />;
-  }
-  if (dictionaryView === 'city') {
-    return <City onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('city', value)} />;
+    return <Region onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('district_nameru', value)} />;
   }
   if (dictionaryView === 'docType') {
     return <DocType onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('vidDocId', value)} />;
   }
   if (dictionaryView === 'issuedBy') {
     return <IssuedBy onBack={() => setDictionaryView(previousDictionaryView)} onSelect={(value) => handleDictionaryValueSelect('issuedBy', value)} />;
-  }
-  if (dictionaryView === 'clientType') {
-    return <ClientType onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('clientType', value)} />;
   }
 
   // Рендеринг меню
@@ -478,11 +454,9 @@ const OtherPerson = ({ onBack, onSave, applicationId, savedData, onOpenTypes }) 
               {renderDictionaryButton('gender', 'Пол', getDictionaryDisplayValue(insuredData.gender), handleOpenGender, !!insuredData.gender)}
               {renderDictionaryButton('economSecId', 'Код сектора экономики', getDictionaryDisplayValue(insuredData.economSecId), handleOpenSectorCode, !!insuredData.economSecId)}
               {renderDictionaryButton('countryId', 'Страна', getDictionaryDisplayValue(insuredData.countryId), handleOpenCountry, !!insuredData.countryId)}
-              {renderDictionaryButton('region_id', 'Область', getDictionaryDisplayValue(insuredData.region_id), handleOpenRegion, !!insuredData.region_id)}
-              {renderDictionaryButton('settlementType', 'Вид населенного пункта', getDictionaryDisplayValue(insuredData.settlementType), handleOpenSettlementType, !!insuredData.settlementType)}
-              {renderDictionaryButton('city', 'Город', getDictionaryDisplayValue(insuredData.city), handleOpenCity, !!insuredData.city)}
+              {renderDictionaryButton('district_nameru', 'Область', getDictionaryDisplayValue(insuredData.district_nameru), handleOpenRegion, !!insuredData.district_nameru)}
+              {renderInputField('settlementName', 'Название населенного пункта', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
               {renderInputField('street', 'Улица', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
-              {renderInputField('microdistrict', 'Микрорайон', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
               {renderInputField('houseNumber', '№ дома', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
               {renderInputField('apartmentNumber', '№ квартиры', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
               {renderAttachField('documentFile', 'Документ подтверждающий личность', insuredData.documentFile)}
@@ -492,7 +466,6 @@ const OtherPerson = ({ onBack, onSave, applicationId, savedData, onOpenTypes }) 
               {renderCalendarField('issueDate', 'Выдан от', insuredData.issueDate)}
               {renderCalendarField('expiryDate', 'Действует до', insuredData.expiryDate)}
               {renderToggleButton('Признак ПДЛ', toggleStates.pdl, handleTogglePDL)}
-              {renderDictionaryButton('clientType', 'Тип клиента', getDictionaryDisplayValue(insuredData.clientType), handleOpenClientType, !!insuredData.clientType)}
             </>
           )}
         </div>
