@@ -324,7 +324,15 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
       savePolicyholderData(saveData, applicationId);
       
       if (onSave) {
-        onSave(dataToSave);
+        // Преобразуем данные для отображения в Application.js
+        const displayData = {
+          firstName: policyholderData.name || '',
+          lastName: policyholderData.surname || '',
+          middleName: policyholderData.patronymic || '',
+          iin: policyholderData.iin || '',
+          ...dataToSave
+        };
+        onSave(displayData);
       }
       if (onBack) {
         onBack();
@@ -363,7 +371,15 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
       savePolicyholderData(saveData, applicationId);
       
       if (onSave) {
-        onSave(dataToSave);
+        // Преобразуем данные для отображения в Application.js
+        const displayData = {
+          firstName: policyholderData.name || '',
+          lastName: policyholderData.surname || '',
+          middleName: policyholderData.patronymic || '',
+          iin: policyholderData.iin || '',
+          ...dataToSave
+        };
+        onSave(displayData);
       }
       if (onBack) {
         onBack();

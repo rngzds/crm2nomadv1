@@ -9,40 +9,36 @@ import DocType from '../../dictionary/DocType';
 import IssuedBy from '../../dictionary/IssuedBy';
 import ClientType from '../../dictionary/ClientType';
 import { getPerson, mapApiDataToForm } from '../../../services/personService';
-import { saveInsuredOtherPersonData, loadInsuredOtherPersonData, loadGlobalApplicationData, updateGlobalApplicationSection } from '../../../services/storageService';
 import { renderInputField, renderDictionaryButton, renderCalendarField, renderAttachField, renderToggleButton } from './InsuredFormFields';
 
-const OtherPerson = ({ onBack, onSave, applicationId, onOpenTypes }) => {
+const OtherPerson = ({ onBack, onSave, applicationId, savedData, onOpenTypes }) => {
+  // Основной currentView
   const [currentView, setCurrentView] = useState('main');
-  const [previousView, setPreviousView] = useState('main');
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // Для справочников
+  const [dictionaryView, setDictionaryView] = useState('main');
+  const [previousDictionaryView, setPreviousDictionaryView] = useState('main');
 
   // Состояния для автоматического режима
   const [manualInput, setManualInput] = useState(false);
   const [autoModeState, setAutoModeState] = useState('initial'); // 'initial', 'request_sent', 'response_received', 'data_loaded'
   const [apiResponseData, setApiResponseData] = useState(null);
 
-  // Единый объект состояния с правильными названиями полей
+  // Данные застрахованного
   const [insuredData, setInsuredData] = useState({
-    // Основные поля
     iin: '',
     telephone: '',
     name: '',
     surname: '',
     patronymic: '',
-    // Адрес (отдельные поля)
     street: '',
     microdistrict: '',
     houseNumber: '',
     apartmentNumber: '',
-    // Документ
     docNumber: '',
     documentFile: '',
-    // Даты
     birthDate: '',
     issueDate: '',
     expiryDate: '',
-    // Справочники (как строки)
     gender: '',
     economSecId: '',
     countryId: '',
@@ -63,191 +59,113 @@ const OtherPerson = ({ onBack, onSave, applicationId, onOpenTypes }) => {
   // Активное поле
   const [activeField, setActiveField] = useState(null);
 
-  // Маппинг старых названий полей справочников на новые
-  const getDictionaryFieldName = (oldName) => {
-    const mapping = {
-      'sectorCode': 'economSecId',
-      'country': 'countryId',
-      'region': 'region_id',
-      'docType': 'vidDocId'
-    };
-    return mapping[oldName] || oldName;
-  };
-
-  // Маппинг старых названий полей на новые
-  const getFieldName = (oldName) => {
-    const mapping = {
-      'phone': 'telephone',
-      'firstName': 'name',
-      'lastName': 'surname',
-      'middleName': 'patronymic',
-      'documentNumber': 'docNumber'
-    };
-    return mapping[oldName] || oldName;
-  };
-
-  // Загрузка данных из глобального хранилища или localStorage при монтировании
+  // Восстановление сохраненных данных при монтировании
   useEffect(() => {
-    // Сначала проверяем глобальное хранилище
-    const globalData = loadGlobalApplicationData(applicationId);
-    let savedData = null;
-    
-    if (globalData && globalData.Insured && globalData.Insured['other-person']) {
-      savedData = globalData.Insured['other-person'];
-      console.log('📖 [ЗАСТРАХОВАННЫЙ - Иное лицо] Загружено из глобального хранилища:', JSON.parse(JSON.stringify(savedData)));
-    } else {
-      // Если в глобальном хранилище нет, загружаем из старого хранилища
-      savedData = loadInsuredOtherPersonData(applicationId);
-      if (savedData) {
-        console.log('📖 [ЗАСТРАХОВАННЫЙ - Иное лицо] Загружено из старого хранилища:', JSON.parse(JSON.stringify(savedData)));
+    if (savedData && savedData.fullData) {
+      const restored = savedData.fullData;
+      
+      // Восстанавливаем данные
+      if (restored.insuredData) {
+        setInsuredData(restored.insuredData);
+      }
+      
+      // Восстанавливаем состояния тогглов
+      if (restored.manualInput !== undefined) {
+        setManualInput(restored.manualInput);
+      }
+      if (restored.toggleStates) {
+        setToggleStates(restored.toggleStates);
+      }
+      if (restored.autoModeState) {
+        setAutoModeState(restored.autoModeState);
+      }
+      
+      // Восстанавливаем view
+      if (restored.currentView) {
+        setCurrentView(restored.currentView);
       }
     }
-    
-    if (savedData) {
-      let migratedData = null;
-      
-      // Миграция старых данных в новую структуру
-      if (savedData.fieldValues || savedData.dateValues || savedData.dictionaryValues) {
-        migratedData = {
-          // Миграция основных полей
-          iin: savedData.fieldValues?.iin || savedData.iin || '',
-          telephone: savedData.fieldValues?.phone || savedData.telephone || '',
-          name: savedData.fieldValues?.firstName || savedData.name || '',
-          surname: savedData.fieldValues?.lastName || savedData.surname || '',
-          patronymic: savedData.fieldValues?.middleName || savedData.patronymic || '',
-          // Миграция адреса
-          street: savedData.fieldValues?.street || savedData.street || '',
-          microdistrict: savedData.fieldValues?.microdistrict || savedData.microdistrict || '',
-          houseNumber: savedData.fieldValues?.houseNumber || savedData.houseNumber || '',
-          apartmentNumber: savedData.fieldValues?.apartmentNumber || savedData.apartmentNumber || '',
-          // Миграция документа
-          docNumber: savedData.fieldValues?.documentNumber || savedData.docNumber || '',
-          documentFile: savedData.fieldValues?.documentFile || savedData.documentFile || '',
-          // Миграция дат
-          birthDate: savedData.dateValues?.birthDate || savedData.birthDate || '',
-          issueDate: savedData.dateValues?.issueDate || savedData.issueDate || '',
-          expiryDate: savedData.dateValues?.expiryDate || savedData.expiryDate || '',
-          // Миграция справочников
-          gender: savedData.dictionaryValues?.gender || savedData.gender || '',
-          economSecId: savedData.dictionaryValues?.sectorCode || savedData.economSecId || '',
-          countryId: savedData.dictionaryValues?.country || savedData.countryId || '',
-          region_id: savedData.dictionaryValues?.region || savedData.region_id || '',
-          settlementType: savedData.dictionaryValues?.settlementType || savedData.settlementType || '',
-          city: savedData.dictionaryValues?.city || savedData.city || '',
-          vidDocId: savedData.dictionaryValues?.docType || savedData.vidDocId || '',
-          issuedBy: savedData.dictionaryValues?.issuedBy || savedData.issuedBy || '',
-          residency: savedData.dictionaryValues?.residency || savedData.residency || 'Резидент',
-          clientType: savedData.dictionaryValues?.clientType || savedData.clientType || ''
-        };
-        setInsuredData(migratedData);
-      } else if (savedData.iin || savedData.name) {
-        // Если данные уже в новом формате
-        setInsuredData(prev => ({ ...prev, ...savedData }));
-      }
-      if (savedData.toggleStates) {
-        setToggleStates(savedData.toggleStates);
-      }
-      if (savedData.manualInput !== undefined) {
-        setManualInput(savedData.manualInput);
-      }
-      
-      // Восстанавливаем autoModeState из сохраненных данных
-      if (savedData.autoModeState) {
-        setAutoModeState(savedData.autoModeState);
-      }
-      
-      // ВАЖНО: Если данные уже загружены через сервис, сразу устанавливаем состояние 'data_loaded'
-      // чтобы не показывать форму отправки запроса, а сразу показывать все поля с данными
-      // Проверяем наличие данных (включая справочники, так как они тоже являются данными)
-      const hasData = migratedData 
-        ? (migratedData.name || migratedData.surname || migratedData.iin || migratedData.gender || migratedData.city || migratedData.countryId) 
-        : (savedData.name || savedData.surname || savedData.iin || savedData.gender || savedData.city || savedData.countryId || 
-           savedData.fieldValues?.firstName || savedData.fieldValues?.lastName || savedData.fieldValues?.iin ||
-           savedData.dictionaryValues?.gender || savedData.dictionaryValues?.city || savedData.dictionaryValues?.country);
-      
-      // Если есть данные и режим не ручной, значит данные были загружены через сервис
-      // В этом случае устанавливаем состояние 'data_loaded', чтобы сразу показывать все поля
-      if (hasData && savedData.manualInput === false && savedData.autoModeState !== 'data_loaded') {
-        setAutoModeState('data_loaded');
-      }
-      
-      // При восстановлении состояния устанавливаем currentView в 'main' (основной вид формы)
-      setCurrentView('main');
-    }
-    // После загрузки данных помечаем, что начальная загрузка завершена
-    setIsInitialLoad(false);
-  }, [applicationId]);
+  }, [savedData]);
 
-  // Обработчик для сохранения выбранных значений из справочников
-  const handleDictionaryValueSelect = (fieldName, value) => {
-    const newFieldName = getDictionaryFieldName(fieldName);
-    console.log('🔵 [DICTIONARY SELECT] Поле:', fieldName, '→', newFieldName, 'Значение:', value);
-    setInsuredData(prev => {
-      const updated = {
-        ...prev,
-        [newFieldName]: value
-      };
-      console.log('🔵 [DICTIONARY SELECT] Обновленные данные:', updated);
-      return updated;
-    });
-    setCurrentView(previousView);
-  };
-
-  const handleOpenGender = () => {
-    setPreviousView(currentView);
-    setCurrentView('gender');
-  };
-  const handleOpenSectorCode = () => {
-    setPreviousView(currentView);
-    setCurrentView('sectorCode');
-  };
-  const handleOpenCountry = () => {
-    setPreviousView(currentView);
-    setCurrentView('country');
-  };
-  const handleOpenRegion = () => {
-    setPreviousView(currentView);
-    setCurrentView('region');
-  };
-  const handleOpenSettlementType = () => {
-    setPreviousView(currentView);
-    setCurrentView('settlementType');
-  };
-  const handleOpenCity = () => {
-    setPreviousView(currentView);
-    setCurrentView('city');
-  };
-  const handleOpenDocType = () => {
-    setPreviousView(currentView);
-    setCurrentView('docType');
-  };
-  const handleOpenIssuedBy = () => {
-    setPreviousView(currentView);
-    setCurrentView('issuedBy');
-  };
-  const handleOpenClientType = () => {
-    setPreviousView(currentView);
-    setCurrentView('clientType');
-  };
-
-  // Обработчики полей
+  // Обработчики для формы
   const handleFieldClick = (fieldName) => {
     setActiveField(fieldName);
   };
 
   const handleFieldChange = (fieldName, value) => {
-    const newFieldName = getFieldName(fieldName);
     setInsuredData(prev => ({
       ...prev,
-      [newFieldName]: value
+      [fieldName]: value
     }));
   };
 
   const handleFieldBlur = (fieldName) => {
-    const newFieldName = getFieldName(fieldName);
-    if (!insuredData[newFieldName]) {
+    if (activeField === fieldName) {
       setActiveField(null);
     }
+  };
+
+  // Функция для получения текстового представления справочника
+  const getDictionaryDisplayValue = (value) => {
+    if (!value) return '';
+    if (typeof value === 'object') {
+      return value.name_ru || value.name || value.title || '';
+    }
+    return value;
+  };
+
+  // Обработчики справочников
+  const handleDictionaryValueSelect = (fieldName, value) => {
+    setInsuredData(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+    setDictionaryView(previousDictionaryView);
+  };
+
+  const handleOpenGender = () => {
+    setPreviousDictionaryView(dictionaryView);
+    setDictionaryView('gender');
+  };
+
+  const handleOpenSectorCode = () => {
+    setPreviousDictionaryView(dictionaryView);
+    setDictionaryView('sectorCode');
+  };
+
+  const handleOpenCountry = () => {
+    setPreviousDictionaryView(dictionaryView);
+    setDictionaryView('country');
+  };
+
+  const handleOpenRegion = () => {
+    setPreviousDictionaryView(dictionaryView);
+    setDictionaryView('region');
+  };
+
+  const handleOpenSettlementType = () => {
+    setPreviousDictionaryView(dictionaryView);
+    setDictionaryView('settlementType');
+  };
+
+  const handleOpenCity = () => {
+    setPreviousDictionaryView(dictionaryView);
+    setDictionaryView('city');
+  };
+
+  const handleOpenDocType = () => {
+    setPreviousDictionaryView(dictionaryView);
+    setDictionaryView('docType');
+  };
+
+  const handleOpenIssuedBy = () => {
+    setPreviousDictionaryView(dictionaryView);
+    setDictionaryView('issuedBy');
+  };
+
+  const handleOpenClientType = () => {
+    setPreviousDictionaryView(dictionaryView);
+    setDictionaryView('clientType');
   };
 
   const handleTogglePDL = () => {
@@ -259,8 +177,9 @@ const OtherPerson = ({ onBack, onSave, applicationId, onOpenTypes }) => {
 
   // Обработчики для автоматического режима
   const handleToggleManualInput = () => {
-    setManualInput(!manualInput);
-    if (!manualInput) {
+    const newValue = !manualInput;
+    setManualInput(newValue);
+    if (newValue) {
       // Очищаем данные при включении ручного ввода
       setInsuredData({
         iin: '',
@@ -304,8 +223,8 @@ const OtherPerson = ({ onBack, onSave, applicationId, onOpenTypes }) => {
     
     try {
       // Отправляем запрос на сервер
-      const phone = insuredData.telephone.replace(/\D/g, ''); // Убираем все нецифровые символы
-      const iin = insuredData.iin.replace(/\D/g, ''); // Убираем все нецифровые символы
+      const phone = insuredData.telephone.replace(/\D/g, '');
+      const iin = insuredData.iin.replace(/\D/g, '');
       
       const apiData = await getPerson(phone, iin);
       
@@ -330,12 +249,15 @@ const OtherPerson = ({ onBack, onSave, applicationId, onOpenTypes }) => {
     // Маппинг данных из API ответа в формат формы
     const mappedData = mapApiDataToForm(apiResponseData);
     
-    // Обновляем поля формы, используя данные из API в приоритете
-    // Сохраняем только ИИН и телефон, которые были введены пользователем
+    // Сохраняем ИИН и телефон, которые были введены пользователем
+    const currentIin = insuredData.iin;
+    const currentTelephone = insuredData.telephone;
+    
+    // Обновляем поля формы, используя данные из API
     setInsuredData(prev => ({
       ...prev,
-      iin: prev.iin || mappedData.iin || '',
-      telephone: prev.telephone || mappedData.telephone || '',
+      iin: currentIin || mappedData.iin || prev.iin || '',
+      telephone: currentTelephone || mappedData.telephone || prev.telephone || '',
       name: mappedData.name || prev.name || '',
       surname: mappedData.surname || prev.surname || '',
       patronymic: mappedData.patronymic || prev.patronymic || '',
@@ -353,190 +275,120 @@ const OtherPerson = ({ onBack, onSave, applicationId, onOpenTypes }) => {
       issuedBy: mappedData.issuedBy || prev.issuedBy || ''
     }));
     
+    // Переход в состояние data_loaded
     setAutoModeState('data_loaded');
   };
 
-
+  // Определение текста кнопки в заголовке
   const getHeaderButtonText = () => {
-    if (manualInput) return 'Сохранить';
-    if (autoModeState === 'initial' || autoModeState === 'request_sent') return 'Отправить запрос';
-    if (autoModeState === 'response_received') return 'Обновить';
-    if (autoModeState === 'data_loaded') return 'Сохранить';
+    // Если ручной ввод включен - кнопка всегда "Сохранить"
+    if (manualInput) {
+      return 'Сохранить';
+    }
+    
+    // Если ручной ввод выключен - кнопка зависит от состояния автоматического режима
+    if (autoModeState === 'initial' || autoModeState === 'request_sent') {
+      return 'Запросить данные';
+    }
+    
+    if (autoModeState === 'response_received') {
+      return 'Обновить';
+    }
+    
+    if (autoModeState === 'data_loaded') {
+      return 'Сохранить';
+    }
+    
     return 'Сохранить';
   };
 
+  // Определение действия кнопки в заголовке
   const handleHeaderButtonClick = () => {
+    // Если ручной ввод включен - сохраняем данные
     if (manualInput) {
-      // Сохранение данных при ручном вводе
+      handleFinalSave();
+      return;
+    }
+    
+    // Если ручной ввод выключен - действия зависят от состояния автоматического режима
+    if (autoModeState === 'initial' || autoModeState === 'request_sent') {
+      handleSendRequest();
+      return;
+    }
+    
+    if (autoModeState === 'response_received') {
+      handleUpdate();
+      return;
+    }
+    
+    if (autoModeState === 'data_loaded') {
+      handleFinalSave();
+      return;
+    }
+  };
+
+  const handleFinalSave = () => {
+    if (onSave) {
+      // Сохраняем все данные для восстановления
       const dataToSave = {
-        ...insuredData,
+        insuredType: 'other-person', // Указываем тип застрахованного
+        insuredData,
         toggleStates,
-        autoModeState,
         manualInput,
+        autoModeState,
         currentView: 'main'
       };
-      console.log('💾 [ЗАСТРАХОВАННЫЙ - Иное лицо] Сохранение по кнопке (ручной ввод):', JSON.parse(JSON.stringify(dataToSave)));
       
-      // Сохраняем в глобальное хранилище
-      const globalInsuredData = loadGlobalApplicationData(applicationId)?.Insured || {};
-      globalInsuredData['type-insured'] = 'other-person';
-      globalInsuredData['other-person'] = dataToSave;
-      updateGlobalApplicationSection('Insured', globalInsuredData, applicationId);
-      
-      // Также сохраняем в старое хранилище для обратной совместимости
-      const oldFormatData = {
-        selectedInsuredType: 'other-person',
-        fieldValues: {
-          iin: insuredData.iin,
-          phone: insuredData.telephone,
-          lastName: insuredData.surname,
-          firstName: insuredData.name,
-          middleName: insuredData.patronymic,
-          street: insuredData.street,
-          microdistrict: insuredData.microdistrict,
-          houseNumber: insuredData.houseNumber,
-          apartmentNumber: insuredData.apartmentNumber,
-          documentNumber: insuredData.docNumber,
-          documentFile: insuredData.documentFile
-        },
-        dateValues: {
-          birthDate: insuredData.birthDate,
-          issueDate: insuredData.issueDate,
-          expiryDate: insuredData.expiryDate
-        },
-        dictionaryValues: {
-          gender: insuredData.gender,
-          sectorCode: insuredData.economSecId,
-          country: insuredData.countryId,
-          region: insuredData.region_id,
-          settlementType: insuredData.settlementType,
-          city: insuredData.city,
-          docType: insuredData.vidDocId,
-          issuedBy: insuredData.issuedBy,
-          residency: insuredData.residency,
-          clientType: insuredData.clientType
-        },
-        toggleStates,
-        autoModeState,
-        manualInput,
-        currentView: 'main'
+      // Преобразуем insuredData для отображения в Application.js
+      const displayData = {
+        lastName: insuredData.surname || '',
+        firstName: insuredData.name || '',
+        middleName: insuredData.patronymic || '',
+        iin: insuredData.iin || '',
+        // Сохраняем полные данные для восстановления
+        fullData: dataToSave
       };
-      saveInsuredOtherPersonData(oldFormatData, applicationId);
       
-      if (onSave) {
-        onSave({
-          selectedInsuredType: 'other-person',
-          ...insuredData,
-          ...toggleStates
-        });
-      }
-      if (onBack) onBack();
-    } else {
-      if (autoModeState === 'initial' || autoModeState === 'request_sent') {
-        handleSendRequest();
-      } else if (autoModeState === 'response_received') {
-        handleUpdate();
-      } else if (autoModeState === 'data_loaded') {
-        // Сохранение данных при авторежиме
-        const dataToSave = {
-          ...insuredData,
-          toggleStates,
-          autoModeState,
-          manualInput,
-          currentView: 'main'
-        };
-        console.log('💾 [ЗАСТРАХОВАННЫЙ - Иное лицо] Сохранение по кнопке (авторежим):', JSON.parse(JSON.stringify(dataToSave)));
-        
-        // Сохраняем в глобальное хранилище
-        const globalInsuredData = loadGlobalApplicationData(applicationId)?.Insured || {};
-        globalInsuredData['type-insured'] = 'other-person';
-        globalInsuredData['other-person'] = dataToSave;
-        updateGlobalApplicationSection('Insured', globalInsuredData, applicationId);
-        
-        // Также сохраняем в старое хранилище для обратной совместимости
-        const oldFormatData = {
-          selectedInsuredType: 'other-person',
-          fieldValues: {
-            iin: insuredData.iin,
-            phone: insuredData.telephone,
-            lastName: insuredData.surname,
-            firstName: insuredData.name,
-            middleName: insuredData.patronymic,
-            street: insuredData.street,
-            microdistrict: insuredData.microdistrict,
-            houseNumber: insuredData.houseNumber,
-            apartmentNumber: insuredData.apartmentNumber,
-            documentNumber: insuredData.docNumber,
-            documentFile: insuredData.documentFile
-          },
-          dateValues: {
-            birthDate: insuredData.birthDate,
-            issueDate: insuredData.issueDate,
-            expiryDate: insuredData.expiryDate
-          },
-          dictionaryValues: {
-            gender: insuredData.gender,
-            sectorCode: insuredData.economSecId,
-            country: insuredData.countryId,
-            region: insuredData.region_id,
-            settlementType: insuredData.settlementType,
-            city: insuredData.city,
-            docType: insuredData.vidDocId,
-            issuedBy: insuredData.issuedBy,
-            residency: insuredData.residency,
-            clientType: insuredData.clientType
-          },
-          toggleStates,
-          autoModeState,
-          manualInput,
-          currentView: 'main'
-        };
-        saveInsuredOtherPersonData(oldFormatData, applicationId);
-        
-        if (onSave) {
-          onSave({
-            selectedInsuredType: 'other-person',
-            ...insuredData,
-            ...toggleStates
-          });
-        }
-        if (onBack) onBack();
-      }
+      onSave(displayData);
+    }
+    // Возвращаемся в Application.js
+    if (onBack) {
+      onBack();
     }
   };
 
   // Рендеринг справочников
-  if (currentView === 'gender') {
-    return <Gender onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('gender', value)} />;
+  if (dictionaryView === 'gender') {
+    return <Gender onBack={() => setDictionaryView(previousDictionaryView)} onSelect={(value) => handleDictionaryValueSelect('gender', value)} />;
   }
-  if (currentView === 'sectorCode') {
-    return <SectorCode onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('sectorCode', value)} />;
+  if (dictionaryView === 'sectorCode') {
+    return <SectorCode onBack={() => setDictionaryView(previousDictionaryView)} onSelect={(value) => handleDictionaryValueSelect('economSecId', value)} />;
   }
-  if (currentView === 'country') {
-    return <Country onBack={() => setCurrentView(previousView)} onSave={(value) => handleDictionaryValueSelect('country', value)} />;
+  if (dictionaryView === 'country') {
+    return <Country onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('countryId', value)} />;
   }
-  if (currentView === 'region') {
-    return <Region onBack={() => setCurrentView(previousView)} onSave={(value) => handleDictionaryValueSelect('region', value)} />;
+  if (dictionaryView === 'region') {
+    return <Region onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('region_id', value)} />;
   }
-  if (currentView === 'settlementType') {
-    return <SettlementType onBack={() => setCurrentView(previousView)} onSave={(value) => handleDictionaryValueSelect('settlementType', value)} />;
+  if (dictionaryView === 'settlementType') {
+    return <SettlementType onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('settlementType', value)} />;
   }
-  if (currentView === 'city') {
-    return <City onBack={() => setCurrentView(previousView)} onSave={(value) => handleDictionaryValueSelect('city', value)} />;
+  if (dictionaryView === 'city') {
+    return <City onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('city', value)} />;
   }
-  if (currentView === 'docType') {
-    return <DocType onBack={() => setCurrentView(previousView)} onSave={(value) => handleDictionaryValueSelect('docType', value)} />;
+  if (dictionaryView === 'docType') {
+    return <DocType onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('vidDocId', value)} />;
   }
-  if (currentView === 'issuedBy') {
-    return <IssuedBy onBack={() => setCurrentView(previousView)} onSelect={(value) => handleDictionaryValueSelect('issuedBy', value)} />;
+  if (dictionaryView === 'issuedBy') {
+    return <IssuedBy onBack={() => setDictionaryView(previousDictionaryView)} onSelect={(value) => handleDictionaryValueSelect('issuedBy', value)} />;
   }
-  if (currentView === 'clientType') {
-    return <ClientType onBack={() => setCurrentView(previousView)} onSave={(value) => handleDictionaryValueSelect('clientType', value)} />;
+  if (dictionaryView === 'clientType') {
+    return <ClientType onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('clientType', value)} />;
   }
 
   // Рендеринг меню
   const renderMenu = () => (
-    <div data-layer="Menu" data-property-1="Menu one" className="Menu" style={{width: 85, height: 982, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+    <div data-layer="Menu" data-property-1="Menu one" className="Menu" style={{width: 85, alignSelf: 'stretch', background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
       <div data-layer="Back button" className="BackButton" onClick={onBack} style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', cursor: 'pointer'}}>
         <div data-svg-wrapper data-layer="Chewron left" className="ChewronLeft" style={{left: 32, top: 32, position: 'absolute'}}>
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -576,6 +428,7 @@ const OtherPerson = ({ onBack, onSave, applicationId, onOpenTypes }) => {
     </div>
   );
 
+  // Основной вид
   return (
     <div data-layer="Insured data page" className="InsuredDataPage" style={{width: 1512, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
       {renderMenu()}
@@ -606,70 +459,40 @@ const OtherPerson = ({ onBack, onSave, applicationId, onOpenTypes }) => {
           </div>
         )}
         <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
-          {renderDictionaryButton('insuredType', 'Тип Застрахованного', 'Иное лицо', onOpenTypes, true)}
           {renderToggleButton('Ручной ввод данных', manualInput, handleToggleManualInput)}
           {!manualInput && (
             <>
-              {renderInputField('iin', 'ИИН', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, activeField === 'iin', !!insuredData.iin)}
-              {renderInputField('phone', 'Номер телефона', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, activeField === 'phone', !!insuredData.telephone)}
+              {renderInputField('iin', 'ИИН', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
+              {renderInputField('telephone', 'Номер телефона', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
             </>
           )}
-          {manualInput && (
+          {(manualInput || autoModeState === 'data_loaded') && (
             <>
-              {renderDictionaryButton('residency', 'Признак резидентства', insuredData.residency, () => {}, !!insuredData.residency)}
-              {renderInputField('iin', 'ИИН', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, false, !!insuredData.iin)}
-              {renderInputField('phone', 'Номер телефона', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, false, !!insuredData.telephone)}
-              {renderInputField('lastName', 'Фамилия', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, false, !!insuredData.surname)}
-              {renderInputField('firstName', 'Имя', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, false, !!insuredData.name)}
-              {renderInputField('middleName', 'Отчество', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, false, !!insuredData.patronymic)}
+              {renderDictionaryButton('residency', 'Признак резидентства', getDictionaryDisplayValue(insuredData.residency), () => {}, !!insuredData.residency)}
+              {renderInputField('iin', 'ИИН', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
+              {renderInputField('telephone', 'Номер телефона', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
+              {renderInputField('surname', 'Фамилия', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
+              {renderInputField('name', 'Имя', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
+              {renderInputField('patronymic', 'Отчество', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
               {renderCalendarField('birthDate', 'Дата рождения', insuredData.birthDate)}
-              {renderDictionaryButton('gender', 'Пол', insuredData.gender, handleOpenGender, !!insuredData.gender)}
-              {renderDictionaryButton('sectorCode', 'Код сектора экономики', insuredData.economSecId, handleOpenSectorCode, !!insuredData.economSecId)}
-              {renderDictionaryButton('country', 'Страна', insuredData.countryId, handleOpenCountry, !!insuredData.countryId)}
-              {renderDictionaryButton('region', 'Область', insuredData.region_id, handleOpenRegion, !!insuredData.region_id)}
-              {renderDictionaryButton('settlementType', 'Вид населенного пункта', insuredData.settlementType, handleOpenSettlementType, !!insuredData.settlementType)}
-              {renderDictionaryButton('city', 'Город', insuredData.city, handleOpenCity, !!insuredData.city)}
-              {renderInputField('street', 'Улица', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, false, !!insuredData.street)}
-              {renderInputField('microdistrict', 'Микрорайон', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, false, !!insuredData.microdistrict)}
-              {renderInputField('houseNumber', '№ дома', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, false, !!insuredData.houseNumber)}
-              {renderInputField('apartmentNumber', '№ квартиры', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, false, !!insuredData.apartmentNumber)}
+              {renderDictionaryButton('gender', 'Пол', getDictionaryDisplayValue(insuredData.gender), handleOpenGender, !!insuredData.gender)}
+              {renderDictionaryButton('economSecId', 'Код сектора экономики', getDictionaryDisplayValue(insuredData.economSecId), handleOpenSectorCode, !!insuredData.economSecId)}
+              {renderDictionaryButton('countryId', 'Страна', getDictionaryDisplayValue(insuredData.countryId), handleOpenCountry, !!insuredData.countryId)}
+              {renderDictionaryButton('region_id', 'Область', getDictionaryDisplayValue(insuredData.region_id), handleOpenRegion, !!insuredData.region_id)}
+              {renderDictionaryButton('settlementType', 'Вид населенного пункта', getDictionaryDisplayValue(insuredData.settlementType), handleOpenSettlementType, !!insuredData.settlementType)}
+              {renderDictionaryButton('city', 'Город', getDictionaryDisplayValue(insuredData.city), handleOpenCity, !!insuredData.city)}
+              {renderInputField('street', 'Улица', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
+              {renderInputField('microdistrict', 'Микрорайон', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
+              {renderInputField('houseNumber', '№ дома', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
+              {renderInputField('apartmentNumber', '№ квартиры', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
               {renderAttachField('documentFile', 'Документ подтверждающий личность', insuredData.documentFile)}
-              {renderDictionaryButton('docType', 'Тип документа', insuredData.vidDocId, handleOpenDocType, !!insuredData.vidDocId)}
-              {renderInputField('documentNumber', 'Номер документа', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, false, !!insuredData.docNumber)}
-              {renderDictionaryButton('issuedBy', 'Кем выдано', insuredData.issuedBy, handleOpenIssuedBy, !!insuredData.issuedBy)}
+              {renderDictionaryButton('vidDocId', 'Тип документа', getDictionaryDisplayValue(insuredData.vidDocId), handleOpenDocType, !!insuredData.vidDocId)}
+              {renderInputField('docNumber', 'Номер документа', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur)}
+              {renderDictionaryButton('issuedBy', 'Кем выдано', getDictionaryDisplayValue(insuredData.issuedBy), handleOpenIssuedBy, !!insuredData.issuedBy)}
               {renderCalendarField('issueDate', 'Выдан от', insuredData.issueDate)}
               {renderCalendarField('expiryDate', 'Действует до', insuredData.expiryDate)}
               {renderToggleButton('Признак ПДЛ', toggleStates.pdl, handleTogglePDL)}
-              {renderDictionaryButton('clientType', 'Тип клиента', insuredData.clientType, handleOpenClientType, !!insuredData.clientType)}
-            </>
-          )}
-          {!manualInput && autoModeState === 'data_loaded' && (
-            <>
-              {renderDictionaryButton('residency', 'Признак резидентства', insuredData.residency, () => {}, !!insuredData.residency)}
-              {renderInputField('iin', 'ИИН', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, activeField === 'iin', !!insuredData.iin)}
-              {renderInputField('phone', 'Номер телефона', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, activeField === 'phone', !!insuredData.telephone)}
-              {renderInputField('lastName', 'Фамилия', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, activeField === 'lastName', !!insuredData.surname)}
-              {renderInputField('firstName', 'Имя', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, activeField === 'firstName', !!insuredData.name)}
-              {renderInputField('middleName', 'Отчество', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, activeField === 'middleName', !!insuredData.patronymic)}
-              {renderCalendarField('birthDate', 'Дата рождения', insuredData.birthDate)}
-              {renderDictionaryButton('gender', 'Пол', insuredData.gender, handleOpenGender, !!insuredData.gender)}
-              {renderDictionaryButton('sectorCode', 'Код сектора экономики', insuredData.economSecId, handleOpenSectorCode, !!insuredData.economSecId)}
-              {renderDictionaryButton('country', 'Страна', insuredData.countryId, handleOpenCountry, !!insuredData.countryId)}
-              {renderDictionaryButton('region', 'Область', insuredData.region_id, handleOpenRegion, !!insuredData.region_id)}
-              {renderDictionaryButton('settlementType', 'Вид населенного пункта', insuredData.settlementType, handleOpenSettlementType, !!insuredData.settlementType)}
-              {renderDictionaryButton('city', 'Город', insuredData.city, handleOpenCity, !!insuredData.city)}
-              {renderInputField('street', 'Улица', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, activeField === 'street', !!insuredData.street)}
-              {renderInputField('microdistrict', 'Микрорайон', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, activeField === 'microdistrict', !!insuredData.microdistrict)}
-              {renderInputField('houseNumber', '№ дома', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, activeField === 'houseNumber', !!insuredData.houseNumber)}
-              {renderInputField('apartmentNumber', '№ квартиры', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, activeField === 'apartmentNumber', !!insuredData.apartmentNumber)}
-              {renderAttachField('documentFile', 'Документ подтверждающий личность', insuredData.documentFile)}
-              {renderDictionaryButton('docType', 'Тип документа', insuredData.vidDocId, handleOpenDocType, !!insuredData.vidDocId)}
-              {renderInputField('documentNumber', 'Номер документа', insuredData, activeField, handleFieldChange, handleFieldClick, handleFieldBlur, activeField === 'documentNumber', !!insuredData.docNumber)}
-              {renderDictionaryButton('issuedBy', 'Кем выдано', insuredData.issuedBy, handleOpenIssuedBy, !!insuredData.issuedBy)}
-              {renderCalendarField('issueDate', 'Выдан от', insuredData.issueDate)}
-              {renderCalendarField('expiryDate', 'Действует до', insuredData.expiryDate)}
-              {renderToggleButton('Признак ПДЛ', toggleStates.pdl, handleTogglePDL)}
-              {renderDictionaryButton('clientType', 'Тип клиента', insuredData.clientType, handleOpenClientType, !!insuredData.clientType)}
+              {renderDictionaryButton('clientType', 'Тип клиента', getDictionaryDisplayValue(insuredData.clientType), handleOpenClientType, !!insuredData.clientType)}
             </>
           )}
         </div>
@@ -679,4 +502,3 @@ const OtherPerson = ({ onBack, onSave, applicationId, onOpenTypes }) => {
 };
 
 export default OtherPerson;
-

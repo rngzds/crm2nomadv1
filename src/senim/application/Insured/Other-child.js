@@ -11,7 +11,7 @@ import { getPerson, mapApiDataToForm } from '../../../services/personService';
 import { getChildren, getChildFullName, formatDate as formatChildDate } from '../../../services/childService';
 import { renderInputField, renderDictionaryButton, renderCalendarField, renderAttachField, renderToggleButton } from './InsuredFormFields';
 
-const OtherChild = ({ onBack, onSave, applicationId, policyholderData }) => {
+const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData }) => {
   // Основной currentView для переключения между этапами: 'parent', 'choose-child', 'filled'
   const [currentView, setCurrentView] = useState('parent');
   // Для справочников внутри 'filled' view (ребенок)
@@ -102,6 +102,45 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData }) => {
   const [activeChildField, setActiveChildField] = useState(null);
   const [childSectionCollapsed, setChildSectionCollapsed] = useState(false);
 
+  // Восстановление сохраненных данных при монтировании
+  useEffect(() => {
+    if (savedData && savedData.fullData) {
+      const restored = savedData.fullData;
+      
+      // Восстанавливаем данные родителя и ребенка
+      if (restored.parentData) {
+        setParentData(restored.parentData);
+      }
+      if (restored.childData) {
+        setChildData(restored.childData);
+      }
+      if (restored.selectedChild) {
+        setSelectedChild(restored.selectedChild);
+      }
+      
+      // Восстанавливаем состояния тогглов
+      if (restored.manualInput !== undefined) {
+        setManualInput(restored.manualInput);
+      }
+      if (restored.manualChildInput !== undefined) {
+        setManualChildInput(restored.manualChildInput);
+      }
+      if (restored.addressMatchesParent !== undefined) {
+        setAddressMatchesParent(restored.addressMatchesParent);
+      }
+      if (restored.toggleStates) {
+        setToggleStates(restored.toggleStates);
+      }
+      if (restored.autoModeState) {
+        setAutoModeState(restored.autoModeState);
+      }
+      
+      // Восстанавливаем view
+      if (restored.currentView) {
+        setCurrentView(restored.currentView);
+      }
+    }
+  }, [savedData]);
 
   // Загрузка детей при переходе на экран выбора
   useEffect(() => {
@@ -278,8 +317,8 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData }) => {
   };
 
   const handleToggleManualChildInput = () => {
-    // Ручной ввод ребенка доступен только когда включен ручной ввод родителя
-    if (!manualInput) {
+    // Ручной ввод ребенка доступен когда включен ручной ввод родителя ИЛИ данные получены через сервис
+    if (!manualInput && autoModeState !== 'data_loaded') {
       return;
     }
     const newValue = !manualChildInput;
@@ -382,15 +421,15 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData }) => {
   };
 
   const handleSelectChild = () => {
-    // Если ручной ввод родителя не включен, ничего не делаем
-    if (!manualInput) {
+    // Если ручной ввод родителя не включен И данные не получены через сервис, ничего не делаем
+    if (!manualInput && autoModeState !== 'data_loaded') {
       return;
     }
     // Если включен ручной ввод ребенка, ничего не делаем
     if (manualChildInput) {
       return;
     }
-    // Если ручной ввод не включен, переходим на экран выбора
+    // Переходим на экран выбора
     setCurrentView('choose-child');
   };
 
@@ -534,11 +573,35 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData }) => {
 
   const handleFinalSave = () => {
     if (onSave) {
-      onSave({
+      // Сохраняем все данные для восстановления
+      const dataToSave = {
+        insuredType: 'other-child', // Указываем тип застрахованного
         parentData,
         childData,
-        selectedChild
-      });
+        selectedChild,
+        toggleStates,
+        addressMatchesParent,
+        manualInput,
+        manualChildInput,
+        autoModeState,
+        currentView: currentView === 'filled' ? 'filled' : 'parent'
+      };
+      
+      // Преобразуем childData для отображения в Application.js
+      const displayData = {
+        lastName: childData.surname || '',
+        firstName: childData.name || '',
+        middleName: childData.patronymic || '',
+        iin: childData.iin || '',
+        // Сохраняем полные данные для восстановления
+        fullData: dataToSave
+      };
+      
+      onSave(displayData);
+    }
+    // Возвращаемся в Application.js
+    if (onBack) {
+      onBack();
     }
   };
 
@@ -770,13 +833,13 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData }) => {
             {!parentSectionCollapsed && parentData && (
               <>
                 {renderToggleButton('Ручной ввод данных', manualInput, handleToggleManualInput)}
-                {renderInputField('iin', 'ИИН', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.iin, parentData.iin)}
-                {renderInputField('telephone', 'Номер телефона', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.telephone, parentData.telephone)}
+                {renderInputField('iin', 'ИИН', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
+                {renderInputField('telephone', 'Номер телефона', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                 {(manualInput || autoModeState === 'data_loaded') && (
                   <>
-                    {renderInputField('surname', 'Фамилия', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.surname, parentData.surname)}
-                    {renderInputField('name', 'Имя', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.name, parentData.name)}
-                    {renderInputField('patronymic', 'Отчество', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.patronymic, parentData.patronymic)}
+                    {renderInputField('surname', 'Фамилия', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
+                    {renderInputField('name', 'Имя', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
+                    {renderInputField('patronymic', 'Отчество', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                     {renderCalendarField('birthDate', 'Дата рождения', parentData.birthDate)}
                     {renderDictionaryButton('gender', 'Пол', getDictionaryDisplayValue(parentData.gender), handleParentOpenGender, !!parentData.gender)}
                     {renderDictionaryButton('economSecId', 'Код сектора экономики', getDictionaryDisplayValue(parentData.economSecId), handleParentOpenSectorCode, !!parentData.economSecId)}
@@ -784,12 +847,12 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData }) => {
                     {renderDictionaryButton('region_id', 'Область', getDictionaryDisplayValue(parentData.region_id), handleParentOpenRegion, !!parentData.region_id)}
                     {renderDictionaryButton('settlementType', 'Вид населенного пункта', getDictionaryDisplayValue(parentData.settlementType), handleParentOpenSettlementType, !!parentData.settlementType)}
                     {renderDictionaryButton('city', 'Город', getDictionaryDisplayValue(parentData.city), handleParentOpenCity, !!parentData.city)}
-                    {renderInputField('street', 'Улица', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.street, parentData.street)}
-                    {renderInputField('microdistrict', 'Микрорайон', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.microdistrict, parentData.microdistrict)}
-                    {renderInputField('houseNumber', '№ дома', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.houseNumber, parentData.houseNumber)}
-                    {renderInputField('apartmentNumber', '№ квартиры', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.apartmentNumber, parentData.apartmentNumber)}
+                    {renderInputField('street', 'Улица', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
+                    {renderInputField('microdistrict', 'Микрорайон', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
+                    {renderInputField('houseNumber', '№ дома', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
+                    {renderInputField('apartmentNumber', '№ квартиры', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                     {renderDictionaryButton('vidDocId', 'Тип документа', getDictionaryDisplayValue(parentData.vidDocId), handleParentOpenDocType, !!parentData.vidDocId)}
-                    {renderInputField('docNumber', 'Номер документа', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.docNumber, parentData.docNumber)}
+                    {renderInputField('docNumber', 'Номер документа', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                     {renderDictionaryButton('issuedBy', 'Кем выдано', getDictionaryDisplayValue(parentData.issuedBy), handleParentOpenIssuedBy, !!parentData.issuedBy)}
                     {renderCalendarField('issueDate', 'Выдан от', parentData.issueDate)}
                     {renderCalendarField('expiryDate', 'Действует до', parentData.expiryDate)}
@@ -813,12 +876,12 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData }) => {
               <>
                 {renderDictionaryButton('selectChild', 'Выбрать ребенка', getSelectedChildDisplay(), handleSelectChild, !!getSelectedChildDisplay())}
                 {renderToggleButton('Ручной ввод данных', manualChildInput, handleToggleManualChildInput)}
-                {manualInput && (manualChildInput || selectedChild) && (
+                {(manualInput || autoModeState === 'data_loaded') && (manualChildInput || selectedChild) && (
                   <>
-                    {renderInputField('iin', 'ИИН', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur, false, !!childData.iin, childData.iin)}
-                    {renderInputField('surname', 'Фамилия', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur, false, !!childData.surname, childData.surname)}
-                    {renderInputField('name', 'Имя', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur, false, !!childData.name, childData.name)}
-                    {renderInputField('patronymic', 'Отчество', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur, false, !!childData.patronymic, childData.patronymic)}
+                    {renderInputField('iin', 'ИИН', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
+                    {renderInputField('surname', 'Фамилия', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
+                    {renderInputField('name', 'Имя', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
+                    {renderInputField('patronymic', 'Отчество', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
                     {renderCalendarField('birthDate', 'Дата рождения', childData.birthDate)}
                     {renderDictionaryButton('gender', 'Пол', getDictionaryDisplayValue(childData.gender), handleOpenGender, !!childData.gender)}
                     {renderDictionaryButton('economSecId', 'Код сектора экономики', getDictionaryDisplayValue(childData.economSecId), handleOpenSectorCode, !!childData.economSecId)}
@@ -827,12 +890,12 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData }) => {
                     {renderDictionaryButton('region_id', 'Область', getDictionaryDisplayValue(childData.region_id), handleOpenRegion, !!childData.region_id)}
                     {renderDictionaryButton('settlementType', 'Вид населенного пункта', getDictionaryDisplayValue(childData.settlementType), handleOpenSettlementType, !!childData.settlementType)}
                     {renderDictionaryButton('city', 'Город', getDictionaryDisplayValue(childData.city), handleOpenCity, !!childData.city)}
-                    {renderInputField('street', 'Улица', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur, false, !!childData.street, childData.street)}
-                    {renderInputField('microdistrict', 'Микрорайон', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur, false, !!childData.microdistrict, childData.microdistrict)}
-                    {renderInputField('houseNumber', '№ дома', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur, false, !!childData.houseNumber, childData.houseNumber)}
-                    {renderInputField('apartmentNumber', '№ квартиры', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur, false, !!childData.apartmentNumber, childData.apartmentNumber)}
+                    {renderInputField('street', 'Улица', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
+                    {renderInputField('microdistrict', 'Микрорайон', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
+                    {renderInputField('houseNumber', '№ дома', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
+                    {renderInputField('apartmentNumber', '№ квартиры', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
                     {renderDictionaryButton('vidDocId', 'Тип документа', getDictionaryDisplayValue(childData.vidDocId), handleOpenDocType, !!childData.vidDocId)}
-                    {renderInputField('docNumber', 'Номер документа', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur, false, !!childData.docNumber, childData.docNumber)}
+                    {renderInputField('docNumber', 'Номер документа', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
                     {renderDictionaryButton('issuedBy', 'Кем выдано', getDictionaryDisplayValue(childData.issuedBy), handleOpenIssuedBy, !!childData.issuedBy)}
                     {renderCalendarField('issueDate', 'Выдан от', childData.issueDate)}
                     {renderCalendarField('expiryDate', 'Действует до', childData.expiryDate)}
@@ -855,8 +918,8 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData }) => {
 
   // Основной вид - форма родителя
   const showAllParentFields = manualInput || autoModeState === 'data_loaded';
-  // Ребенок доступен только когда включен ручной ввод родителя
-  const canSelectChild = manualInput;
+  // Ребенок доступен когда включен ручной ввод родителя ИЛИ данные получены через сервис
+  const canSelectChild = manualInput || autoModeState === 'data_loaded';
 
   return (
     <div data-layer="Insured data page" className="InsuredDataPage" style={{width: 1512, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
@@ -934,13 +997,13 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData }) => {
           {!parentSectionCollapsed && (
             <>
               {renderToggleButton('Ручной ввод данных', manualInput, handleToggleManualInput)}
-              {renderInputField('iin', 'ИИН', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.iin, parentData.iin)}
-              {renderInputField('telephone', 'Номер телефона', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.telephone, parentData.telephone)}
+              {renderInputField('iin', 'ИИН', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
+              {renderInputField('telephone', 'Номер телефона', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
               {showAllParentFields && (
                 <>
-                  {renderInputField('surname', 'Фамилия', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.surname, parentData.surname)}
-                  {renderInputField('name', 'Имя', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.name, parentData.name)}
-                  {renderInputField('patronymic', 'Отчество', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.patronymic, parentData.patronymic)}
+                  {renderInputField('surname', 'Фамилия', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
+                  {renderInputField('name', 'Имя', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
+                  {renderInputField('patronymic', 'Отчество', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                   {renderCalendarField('birthDate', 'Дата рождения', parentData.birthDate)}
                   {renderDictionaryButton('gender', 'Пол', getDictionaryDisplayValue(parentData.gender), handleParentOpenGender, !!parentData.gender)}
                   {renderDictionaryButton('economSecId', 'Код сектора экономики', getDictionaryDisplayValue(parentData.economSecId), handleParentOpenSectorCode, !!parentData.economSecId)}
@@ -948,12 +1011,12 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData }) => {
                   {renderDictionaryButton('region_id', 'Область', getDictionaryDisplayValue(parentData.region_id), handleParentOpenRegion, !!parentData.region_id)}
                   {renderDictionaryButton('settlementType', 'Вид населенного пункта', getDictionaryDisplayValue(parentData.settlementType), handleParentOpenSettlementType, !!parentData.settlementType)}
                   {renderDictionaryButton('city', 'Город', getDictionaryDisplayValue(parentData.city), handleParentOpenCity, !!parentData.city)}
-                  {renderInputField('street', 'Улица', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.street, parentData.street)}
-                  {renderInputField('microdistrict', 'Микрорайон', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.microdistrict, parentData.microdistrict)}
-                  {renderInputField('houseNumber', '№ дома', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.houseNumber, parentData.houseNumber)}
-                  {renderInputField('apartmentNumber', '№ квартиры', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.apartmentNumber, parentData.apartmentNumber)}
+                  {renderInputField('street', 'Улица', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
+                  {renderInputField('microdistrict', 'Микрорайон', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
+                  {renderInputField('houseNumber', '№ дома', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
+                  {renderInputField('apartmentNumber', '№ квартиры', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                   {renderDictionaryButton('vidDocId', 'Тип документа', getDictionaryDisplayValue(parentData.vidDocId), handleParentOpenDocType, !!parentData.vidDocId)}
-                  {renderInputField('docNumber', 'Номер документа', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur, false, !!parentData.docNumber, parentData.docNumber)}
+                  {renderInputField('docNumber', 'Номер документа', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                   {renderDictionaryButton('issuedBy', 'Кем выдано', getDictionaryDisplayValue(parentData.issuedBy), handleParentOpenIssuedBy, !!parentData.issuedBy)}
                   {renderCalendarField('issueDate', 'Выдан от', parentData.issueDate)}
                   {renderCalendarField('expiryDate', 'Действует до', parentData.expiryDate)}

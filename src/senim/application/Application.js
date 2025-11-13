@@ -50,6 +50,7 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
   const handleViewFullHistory = () => setCurrentView('history');
 
   const handleInsuredSave = (data) => {
+    // Сохраняем все данные (включая fullData для восстановления)
     setInsuredData(data);
   };
 
@@ -87,7 +88,7 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
   }
 
   if (currentView === 'insured') {
-    return <Insured onBack={handleBackToMain} policyholderData={policyholderData} onSave={handleInsuredSave} applicationId={applicationId} />;
+    return <Insured onBack={handleBackToMain} policyholderData={policyholderData} onSave={handleInsuredSave} applicationId={applicationId} savedInsuredData={insuredData} />;
   }
 
   if (currentView === 'beneficiary') {
