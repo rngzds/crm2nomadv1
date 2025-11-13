@@ -3,8 +3,6 @@ import Gender from '../../dictionary/Gender';
 import SectorCode from '../../dictionary/SectorCode';
 import Country from '../../dictionary/Country';
 import Region from '../../dictionary/Region';
-import SettlementType from '../../dictionary/SettlementType';
-import City from '../../dictionary/City';
 import DocType from '../../dictionary/DocType';
 import IssuedBy from '../../dictionary/IssuedBy';
 import { getPerson, mapApiDataToForm } from '../../../services/personService';
@@ -44,11 +42,9 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
     gender: '',
     economSecId: '',
     countryId: '',
-    region_id: '',
-    settlementType: '',
-    city: '',
+    district_nameru: '',
+    settlementName: '',
     street: '',
-    microdistrict: '',
     houseNumber: '',
     apartmentNumber: '',
     vidDocId: '',
@@ -73,30 +69,27 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
     surname: '',
     patronymic: '',
     street: '',
-    microdistrict: '',
     houseNumber: '',
     apartmentNumber: '',
     docNumber: '',
     documentFile: '',
     birthDate: '',
     issueDate: '',
-    expiryDate: '',
     gender: '',
     economSecId: '',
     countryId: '',
-    region_id: '',
-    settlementType: '',
-    city: '',
+    district_nameru: '',
+    settlementName: '',
     vidDocId: '',
     issuedBy: '',
-    residency: 'Резидент',
-    clientType: ''
+    residency: 'Резидент'
   });
 
   const [toggleStates, setToggleStates] = useState({
     pdl: false
   });
 
+  // eslint-disable-next-line no-unused-vars
   const [activeField, setActiveField] = useState(null);
   const [activeParentField, setActiveParentField] = useState(null);
   const [activeChildField, setActiveChildField] = useState(null);
@@ -177,21 +170,18 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
         microdistrict: '',
         houseNumber: '',
         apartmentNumber: '',
-        docNumber: '',
+        docNumber: selectedChild.act_number || '',
         documentFile: '',
         birthDate: formatChildDate(selectedChild.child_birth_date) || '',
         issueDate: formatChildDate(selectedChild.act_date) || '',
-        expiryDate: '',
         gender: '',
         economSecId: '',
         countryId: '',
-        region_id: '',
-        settlementType: '',
-        city: '',
-        vidDocId: '',
+        district_nameru: '',
+        settlementName: '',
+        vidDocId: 'Свидетельство о рождении',
         issuedBy: selectedChild.zags_name_ru || '',
-        residency: 'Резидент',
-        clientType: ''
+        residency: 'Резидент'
       });
     } else if (currentView === 'filled' && manualChildInput && !selectedChild) {
       // Очищаем данные для ручного ввода нового ребенка
@@ -202,24 +192,20 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
         surname: '',
         patronymic: '',
         street: '',
-        microdistrict: '',
         houseNumber: '',
         apartmentNumber: '',
         docNumber: '',
         documentFile: '',
         birthDate: '',
         issueDate: '',
-        expiryDate: '',
         gender: '',
         economSecId: '',
         countryId: '',
-        region_id: '',
-        settlementType: '',
-        city: '',
-        vidDocId: '',
+        district_nameru: '',
+        settlementName: '',
+        vidDocId: 'Свидетельство о рождении',
         issuedBy: '',
-        residency: 'Резидент',
-        clientType: ''
+        residency: 'Резидент'
       });
     }
   }, [currentView, selectedChild, manualChildInput]);
@@ -230,16 +216,14 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
       setChildData(prev => ({
         ...prev,
         countryId: parentData.countryId || prev.countryId,
-        region_id: parentData.region_id || prev.region_id,
-        settlementType: parentData.settlementType || prev.settlementType,
-        city: parentData.city || prev.city,
+        district_nameru: parentData.district_nameru || prev.district_nameru,
+        settlementName: parentData.settlementName || prev.settlementName,
         street: parentData.street || prev.street,
-        microdistrict: parentData.microdistrict || prev.microdistrict,
         houseNumber: parentData.houseNumber || prev.houseNumber,
         apartmentNumber: parentData.apartmentNumber || prev.apartmentNumber
       }));
     }
-  }, [addressMatchesParent, parentData.countryId, parentData.region_id, parentData.settlementType, parentData.city, parentData.street, parentData.microdistrict, parentData.houseNumber, parentData.apartmentNumber, currentView]);
+  }, [addressMatchesParent, parentData.countryId, parentData.district_nameru, parentData.settlementName, parentData.street, parentData.houseNumber, parentData.apartmentNumber, currentView]);
 
 
   // Обработчики для формы родителя
@@ -285,14 +269,6 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
     setPreviousParentDictionaryView(parentDictionaryView);
     setParentDictionaryView('region');
   };
-  const handleParentOpenSettlementType = () => {
-    setPreviousParentDictionaryView(parentDictionaryView);
-    setParentDictionaryView('settlementType');
-  };
-  const handleParentOpenCity = () => {
-    setPreviousParentDictionaryView(parentDictionaryView);
-    setParentDictionaryView('city');
-  };
   const handleParentOpenDocType = () => {
     setPreviousParentDictionaryView(parentDictionaryView);
     setParentDictionaryView('docType');
@@ -337,11 +313,9 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
       setChildData(prev => ({
         ...prev,
         countryId: parentData.countryId || prev.countryId,
-        region_id: parentData.region_id || prev.region_id,
-        settlementType: parentData.settlementType || prev.settlementType,
-        city: parentData.city || prev.city,
+        district_nameru: parentData.district_nameru || prev.district_nameru,
+        settlementName: parentData.settlementName || prev.settlementName,
         street: parentData.street || prev.street,
-        microdistrict: parentData.microdistrict || prev.microdistrict,
         houseNumber: parentData.houseNumber || prev.houseNumber,
         apartmentNumber: parentData.apartmentNumber || prev.apartmentNumber
       }));
@@ -386,25 +360,30 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
     const mappedData = mapApiDataToForm(apiResponseData);
     
     // Обновляем поля формы, сохраняя уже введенные ИИН и телефон
+    // Для остальных полей используем значения из API (даже если они пустые), чтобы перезаписать старые данные
     setParentData(prev => ({
       ...prev,
+      // ИИН и телефон сохраняем, если они уже были введены
       iin: prev.iin || mappedData.iin || '',
       telephone: prev.telephone || mappedData.telephone || '',
-      name: mappedData.name || prev.name || '',
-      surname: mappedData.surname || prev.surname || '',
-      patronymic: mappedData.patronymic || prev.patronymic || '',
-      street: mappedData.street || prev.street || '',
-      houseNumber: mappedData.houseNumber || prev.houseNumber || '',
-      apartmentNumber: mappedData.apartmentNumber || prev.apartmentNumber || '',
-      docNumber: mappedData.docNumber || prev.docNumber || '',
-      birthDate: mappedData.birthDate || prev.birthDate || '',
-      issueDate: mappedData.issueDate || prev.issueDate || '',
-      expiryDate: mappedData.expiryDate || prev.expiryDate || '',
-      gender: mappedData.gender || prev.gender || '',
-      countryId: mappedData.countryId || prev.countryId || '',
-      region_id: mappedData.region_id || prev.region_id || '',
-      city: mappedData.city || prev.city || '',
-      issuedBy: mappedData.issuedBy || prev.issuedBy || ''
+      // Остальные поля перезаписываем значениями из API (включая пустые строки)
+      name: mappedData.name !== undefined ? mappedData.name : prev.name,
+      surname: mappedData.surname !== undefined ? mappedData.surname : prev.surname,
+      patronymic: mappedData.patronymic !== undefined ? mappedData.patronymic : prev.patronymic,
+      street: mappedData.street !== undefined ? mappedData.street : prev.street,
+      houseNumber: mappedData.houseNumber !== undefined ? mappedData.houseNumber : prev.houseNumber,
+      apartmentNumber: mappedData.apartmentNumber !== undefined ? mappedData.apartmentNumber : prev.apartmentNumber,
+      docNumber: mappedData.docNumber !== undefined ? mappedData.docNumber : prev.docNumber,
+      birthDate: mappedData.birthDate !== undefined ? mappedData.birthDate : prev.birthDate,
+      issueDate: mappedData.issueDate !== undefined ? mappedData.issueDate : prev.issueDate,
+      expiryDate: mappedData.expiryDate !== undefined ? mappedData.expiryDate : prev.expiryDate,
+      gender: mappedData.gender !== undefined ? mappedData.gender : prev.gender,
+      countryId: mappedData.countryId !== undefined ? mappedData.countryId : prev.countryId,
+      district_nameru: mappedData.district_nameru !== undefined ? mappedData.district_nameru : prev.district_nameru,
+      settlementName: mappedData.settlementName !== undefined ? mappedData.settlementName : prev.settlementName,
+      economSecId: mappedData.economSecId !== undefined ? mappedData.economSecId : prev.economSecId,
+      vidDocId: mappedData.vidDocId !== undefined ? mappedData.vidDocId : prev.vidDocId,
+      issuedBy: mappedData.issuedBy !== undefined ? mappedData.issuedBy : prev.issuedBy
     }));
     
     // Переход в состояние data_loaded
@@ -471,14 +450,6 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
   const handleOpenRegion = () => {
     setPreviousDictionaryView(dictionaryView);
     setDictionaryView('region');
-  };
-  const handleOpenSettlementType = () => {
-    setPreviousDictionaryView(dictionaryView);
-    setDictionaryView('settlementType');
-  };
-  const handleOpenCity = () => {
-    setPreviousDictionaryView(dictionaryView);
-    setDictionaryView('city');
   };
   const handleOpenDocType = () => {
     setPreviousDictionaryView(dictionaryView);
@@ -627,13 +598,7 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
       return <Country onBack={() => setParentDictionaryView(previousParentDictionaryView)} onSave={(value) => handleParentDictionaryValueSelect('countryId', value)} />;
     }
     if (parentDictionaryView === 'region') {
-      return <Region onBack={() => setParentDictionaryView(previousParentDictionaryView)} onSave={(value) => handleParentDictionaryValueSelect('region_id', value)} />;
-    }
-    if (parentDictionaryView === 'settlementType') {
-      return <SettlementType onBack={() => setParentDictionaryView(previousParentDictionaryView)} onSave={(value) => handleParentDictionaryValueSelect('settlementType', value)} />;
-    }
-    if (parentDictionaryView === 'city') {
-      return <City onBack={() => setParentDictionaryView(previousParentDictionaryView)} onSave={(value) => handleParentDictionaryValueSelect('city', value)} />;
+      return <Region onBack={() => setParentDictionaryView(previousParentDictionaryView)} onSave={(value) => handleParentDictionaryValueSelect('district_nameru', value)} />;
     }
     if (parentDictionaryView === 'docType') {
       return <DocType onBack={() => setParentDictionaryView(previousParentDictionaryView)} onSave={(value) => handleParentDictionaryValueSelect('vidDocId', value)} />;
@@ -655,13 +620,7 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
       return <Country onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('countryId', value)} />;
     }
     if (dictionaryView === 'region') {
-      return <Region onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('region_id', value)} />;
-    }
-    if (dictionaryView === 'settlementType') {
-      return <SettlementType onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('settlementType', value)} />;
-    }
-    if (dictionaryView === 'city') {
-      return <City onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('city', value)} />;
+      return <Region onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('district_nameru', value)} />;
     }
     if (dictionaryView === 'docType') {
       return <DocType onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('vidDocId', value)} />;
@@ -844,11 +803,9 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
                     {renderDictionaryButton('gender', 'Пол', getDictionaryDisplayValue(parentData.gender), handleParentOpenGender, !!parentData.gender)}
                     {renderDictionaryButton('economSecId', 'Код сектора экономики', getDictionaryDisplayValue(parentData.economSecId), handleParentOpenSectorCode, !!parentData.economSecId)}
                     {renderDictionaryButton('countryId', 'Страна', getDictionaryDisplayValue(parentData.countryId), handleParentOpenCountry, !!parentData.countryId)}
-                    {renderDictionaryButton('region_id', 'Область', getDictionaryDisplayValue(parentData.region_id), handleParentOpenRegion, !!parentData.region_id)}
-                    {renderDictionaryButton('settlementType', 'Вид населенного пункта', getDictionaryDisplayValue(parentData.settlementType), handleParentOpenSettlementType, !!parentData.settlementType)}
-                    {renderDictionaryButton('city', 'Город', getDictionaryDisplayValue(parentData.city), handleParentOpenCity, !!parentData.city)}
+                    {renderDictionaryButton('district_nameru', 'Область', getDictionaryDisplayValue(parentData.district_nameru), handleParentOpenRegion, !!parentData.district_nameru)}
+                    {renderInputField('settlementName', 'Название населенного пункта', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                     {renderInputField('street', 'Улица', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
-                    {renderInputField('microdistrict', 'Микрорайон', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                     {renderInputField('houseNumber', '№ дома', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                     {renderInputField('apartmentNumber', '№ квартиры', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                     {renderDictionaryButton('vidDocId', 'Тип документа', getDictionaryDisplayValue(parentData.vidDocId), handleParentOpenDocType, !!parentData.vidDocId)}
@@ -887,18 +844,15 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
                     {renderDictionaryButton('economSecId', 'Код сектора экономики', getDictionaryDisplayValue(childData.economSecId), handleOpenSectorCode, !!childData.economSecId)}
                     {renderToggleButton('Адрес проживания совпадает с адресом родителя', addressMatchesParent, handleToggleAddressMatchesParent)}
                     {renderDictionaryButton('countryId', 'Страна', getDictionaryDisplayValue(childData.countryId), handleOpenCountry, !!childData.countryId)}
-                    {renderDictionaryButton('region_id', 'Область', getDictionaryDisplayValue(childData.region_id), handleOpenRegion, !!childData.region_id)}
-                    {renderDictionaryButton('settlementType', 'Вид населенного пункта', getDictionaryDisplayValue(childData.settlementType), handleOpenSettlementType, !!childData.settlementType)}
-                    {renderDictionaryButton('city', 'Город', getDictionaryDisplayValue(childData.city), handleOpenCity, !!childData.city)}
+                    {renderDictionaryButton('district_nameru', 'Область', getDictionaryDisplayValue(childData.district_nameru), handleOpenRegion, !!childData.district_nameru)}
+                    {renderInputField('settlementName', 'Название населенного пункта', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
                     {renderInputField('street', 'Улица', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
-                    {renderInputField('microdistrict', 'Микрорайон', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
                     {renderInputField('houseNumber', '№ дома', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
                     {renderInputField('apartmentNumber', '№ квартиры', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
                     {renderDictionaryButton('vidDocId', 'Тип документа', getDictionaryDisplayValue(childData.vidDocId), handleOpenDocType, !!childData.vidDocId)}
                     {renderInputField('docNumber', 'Номер документа', childData, activeChildField, handleChildFieldChange, handleChildFieldClick, handleChildFieldBlur)}
                     {renderDictionaryButton('issuedBy', 'Кем выдано', getDictionaryDisplayValue(childData.issuedBy), handleOpenIssuedBy, !!childData.issuedBy)}
                     {renderCalendarField('issueDate', 'Выдан от', childData.issueDate)}
-                    {renderCalendarField('expiryDate', 'Действует до', childData.expiryDate)}
                     {renderToggleButton('Признак ПДЛ', toggleStates.pdl, handleTogglePDL)}
                     {manualChildInput && (
                       <>
@@ -1008,11 +962,9 @@ const OtherChild = ({ onBack, onSave, applicationId, policyholderData, savedData
                   {renderDictionaryButton('gender', 'Пол', getDictionaryDisplayValue(parentData.gender), handleParentOpenGender, !!parentData.gender)}
                   {renderDictionaryButton('economSecId', 'Код сектора экономики', getDictionaryDisplayValue(parentData.economSecId), handleParentOpenSectorCode, !!parentData.economSecId)}
                   {renderDictionaryButton('countryId', 'Страна', getDictionaryDisplayValue(parentData.countryId), handleParentOpenCountry, !!parentData.countryId)}
-                  {renderDictionaryButton('region_id', 'Область', getDictionaryDisplayValue(parentData.region_id), handleParentOpenRegion, !!parentData.region_id)}
-                  {renderDictionaryButton('settlementType', 'Вид населенного пункта', getDictionaryDisplayValue(parentData.settlementType), handleParentOpenSettlementType, !!parentData.settlementType)}
-                  {renderDictionaryButton('city', 'Город', getDictionaryDisplayValue(parentData.city), handleParentOpenCity, !!parentData.city)}
+                  {renderDictionaryButton('district_nameru', 'Область', getDictionaryDisplayValue(parentData.district_nameru), handleParentOpenRegion, !!parentData.district_nameru)}
+                  {renderInputField('settlementName', 'Название населенного пункта', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                   {renderInputField('street', 'Улица', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
-                  {renderInputField('microdistrict', 'Микрорайон', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                   {renderInputField('houseNumber', '№ дома', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                   {renderInputField('apartmentNumber', '№ квартиры', parentData, activeParentField, handleParentFieldChange, handleParentFieldClick, handleParentFieldBlur)}
                   {renderDictionaryButton('vidDocId', 'Тип документа', getDictionaryDisplayValue(parentData.vidDocId), handleParentOpenDocType, !!parentData.vidDocId)}

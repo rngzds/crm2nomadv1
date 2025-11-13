@@ -3,13 +3,11 @@ import Gender from '../dictionary/Gender';
 import SectorCode from '../dictionary/SectorCode';
 import Country from '../dictionary/Country';
 import Region from '../dictionary/Region';
-import SettlementType from '../dictionary/SettlementType';
-import City from '../dictionary/City';
 import DocType from '../dictionary/DocType';
 import IssuedBy from '../dictionary/IssuedBy';
 import ClientType from '../dictionary/ClientType';
 import { getPerson, mapApiDataToForm } from '../../services/personService';
-import { savePolicyholderData, loadPolicyholderData, loadGlobalApplicationData, updateGlobalApplicationSection } from '../../services/storageService';
+import { savePolicyholderData, loadPolicyholderData, loadGlobalApplicationData, updateGlobalApplicationSection, saveApplicationMetadata, loadApplicationMetadata } from '../../services/storageService';
 
 const Policyholder = ({ onBack, onSave, applicationId }) => {
   const [currentView, setCurrentView] = useState('main');
@@ -24,7 +22,6 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
     patronymic: '',
     // Адрес (отдельные поля)
     street: '',
-    microdistrict: '',
     houseNumber: '',
     apartmentNumber: '',
     // Документ
@@ -37,9 +34,8 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
     gender: '',
     economSecId: '',
     countryId: '',
-    region_id: '',
-    settlementType: '',
-    city: '',
+    district_nameru: '',
+    settlementName: '',
     vidDocId: '',
     issuedBy: '',
     clientType: ''
@@ -94,7 +90,6 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
           patronymic: savedData.fieldValues?.middleName || savedData.patronymic || '',
           // Миграция адреса
           street: savedData.fieldValues?.street || savedData.street || '',
-          microdistrict: savedData.fieldValues?.microdistrict || savedData.microdistrict || '',
           houseNumber: savedData.fieldValues?.houseNumber || savedData.houseNumber || '',
           apartmentNumber: savedData.fieldValues?.apartmentNumber || savedData.apartmentNumber || '',
           // Миграция документа
@@ -107,9 +102,8 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
           gender: savedData.dictionaryValues?.gender || savedData.gender || '',
           economSecId: savedData.dictionaryValues?.sectorCode || savedData.economSecId || '',
           countryId: savedData.dictionaryValues?.country || savedData.countryId || '',
-          region_id: savedData.dictionaryValues?.region || savedData.region_id || '',
-          settlementType: savedData.dictionaryValues?.settlementType || savedData.settlementType || '',
-          city: savedData.dictionaryValues?.city || savedData.city || '',
+          district_nameru: savedData.district_nameru || '',
+          settlementName: savedData.settlementName || savedData.dictionaryValues?.region || savedData.region_id || '',
           vidDocId: savedData.dictionaryValues?.docType || savedData.vidDocId || '',
           issuedBy: savedData.dictionaryValues?.issuedBy || savedData.issuedBy || '',
           clientType: savedData.dictionaryValues?.clientType || savedData.clientType || ''
@@ -130,15 +124,39 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
     setIsInitialLoad(false);
   }, [applicationId]);
 
+  // Автоматическое обновление метаданных при изменении ИИН
+  useEffect(() => {
+    if (applicationId && policyholderData.iin && !isInitialLoad) {
+      const existingMetadata = loadApplicationMetadata(applicationId) || {};
+      if (existingMetadata.policyholderIin !== policyholderData.iin) {
+        saveApplicationMetadata(applicationId, {
+          ...existingMetadata,
+          policyholderIin: policyholderData.iin
+        });
+      }
+    }
+  }, [policyholderData.iin, applicationId, isInitialLoad]);
+
   // Маппинг старых названий полей справочников на новые
   const getDictionaryFieldName = (oldName) => {
     const mapping = {
       'sectorCode': 'economSecId',
       'country': 'countryId',
-      'region': 'region_id',
+      'region': 'district_nameru',
       'docType': 'vidDocId'
     };
     return mapping[oldName] || oldName;
+  };
+
+  // Преобразование кодов типа клиента в названия (для обратной совместимости)
+  const getClientTypeDisplayValue = (value) => {
+    if (!value) return '';
+    const mapping = {
+      'other': 'Иные лица',
+      'worker': 'Работник',
+      'family': 'Член семьи'
+    };
+    return mapping[value] || value;
   };
 
   // Обработчик для сохранения выбранных значений из справочников
@@ -161,8 +179,6 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
   const handleOpenSectorCode = () => setCurrentView('sectorCode');
   const handleOpenCountry = () => setCurrentView('country');
   const handleOpenRegion = () => setCurrentView('region');
-  const handleOpenSettlementType = () => setCurrentView('settlementType');
-  const handleOpenCity = () => setCurrentView('city');
   const handleOpenDocType = () => setCurrentView('docType');
   const handleOpenIssuedBy = () => setCurrentView('issuedBy');
   const handleOpenClientType = () => setCurrentView('clientType');
@@ -253,27 +269,51 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
     // Маппинг данных из API ответа в формат формы
     const mappedData = mapApiDataToForm(apiResponseData);
     
+    console.log('🔵 [HANDLE UPDATE] API Response:', apiResponseData);
+    console.log('🔵 [HANDLE UPDATE] Mapped Data:', mappedData);
+    console.log('🔵 [HANDLE UPDATE] district_nameru from API:', apiResponseData.district_nameru);
+    console.log('🔵 [HANDLE UPDATE] region_nameru from API:', apiResponseData.region_nameru);
+    console.log('🔵 [HANDLE UPDATE] mapped district_nameru:', mappedData.district_nameru);
+    console.log('🔵 [HANDLE UPDATE] mapped settlementName:', mappedData.settlementName);
+    
     // Обновляем поля формы, сохраняя уже введенные ИИН и телефон
-    setPolicyholderData(prev => ({
-      ...prev,
-      iin: prev.iin || mappedData.iin || '',
-      telephone: prev.telephone || mappedData.telephone || '',
-      name: mappedData.name || prev.name || '',
-      surname: mappedData.surname || prev.surname || '',
-      patronymic: mappedData.patronymic || prev.patronymic || '',
-      street: mappedData.street || prev.street || '',
-      houseNumber: mappedData.houseNumber || prev.houseNumber || '',
-      apartmentNumber: mappedData.apartmentNumber || prev.apartmentNumber || '',
-      docNumber: mappedData.docNumber || prev.docNumber || '',
-      birthDate: mappedData.birthDate || prev.birthDate || '',
-      issueDate: mappedData.issueDate || prev.issueDate || '',
-      expiryDate: mappedData.expiryDate || prev.expiryDate || '',
-      gender: mappedData.gender || prev.gender || '',
-      countryId: mappedData.countryId || prev.countryId || '',
-      region_id: mappedData.region_id || prev.region_id || '',
-      city: mappedData.city || prev.city || '',
-      issuedBy: mappedData.issuedBy || prev.issuedBy || ''
-    }));
+    // Для остальных полей используем значения из API (даже если они пустые), чтобы перезаписать старые данные
+    setPolicyholderData(prev => {
+      const updated = {
+        ...prev,
+        // ИИН и телефон сохраняем, если они уже были введены
+        iin: prev.iin || mappedData.iin || '',
+        telephone: prev.telephone || mappedData.telephone || '',
+        // Остальные поля перезаписываем значениями из API (включая пустые строки)
+        name: mappedData.name !== undefined ? mappedData.name : prev.name,
+        surname: mappedData.surname !== undefined ? mappedData.surname : prev.surname,
+        patronymic: mappedData.patronymic !== undefined ? mappedData.patronymic : prev.patronymic,
+        street: mappedData.street !== undefined ? mappedData.street : prev.street,
+        houseNumber: mappedData.houseNumber !== undefined ? mappedData.houseNumber : prev.houseNumber,
+        apartmentNumber: mappedData.apartmentNumber !== undefined ? mappedData.apartmentNumber : prev.apartmentNumber,
+        docNumber: mappedData.docNumber !== undefined ? mappedData.docNumber : prev.docNumber,
+        birthDate: mappedData.birthDate !== undefined ? mappedData.birthDate : prev.birthDate,
+        issueDate: mappedData.issueDate !== undefined ? mappedData.issueDate : prev.issueDate,
+        expiryDate: mappedData.expiryDate !== undefined ? mappedData.expiryDate : prev.expiryDate,
+        gender: mappedData.gender !== undefined ? mappedData.gender : prev.gender,
+        countryId: mappedData.countryId !== undefined ? mappedData.countryId : prev.countryId,
+        district_nameru: mappedData.district_nameru !== undefined ? mappedData.district_nameru : prev.district_nameru,
+        settlementName: mappedData.settlementName !== undefined ? mappedData.settlementName : prev.settlementName,
+        economSecId: mappedData.economSecId !== undefined ? mappedData.economSecId : prev.economSecId,
+        vidDocId: mappedData.vidDocId !== undefined ? mappedData.vidDocId : prev.vidDocId,
+        issuedBy: mappedData.issuedBy !== undefined ? mappedData.issuedBy : prev.issuedBy
+      };
+      console.log('🔵 [HANDLE UPDATE] Updated policyholderData:', updated);
+      // Обновляем метаданные заявки с ИИН страхователя
+      if (applicationId && updated.iin) {
+        const existingMetadata = loadApplicationMetadata(applicationId) || {};
+        saveApplicationMetadata(applicationId, {
+          ...existingMetadata,
+          policyholderIin: updated.iin
+        });
+      }
+      return updated;
+    });
     
     // Переход в состояние data_loaded
     setAutoModeState('data_loaded');
@@ -322,6 +362,14 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
       updateGlobalApplicationSection('Policyholder', saveData, applicationId);
       // Также сохраняем в старое хранилище для обратной совместимости
       savePolicyholderData(saveData, applicationId);
+      // Обновляем метаданные заявки с ИИН страхователя
+      if (applicationId && policyholderData.iin) {
+        const existingMetadata = loadApplicationMetadata(applicationId) || {};
+        saveApplicationMetadata(applicationId, {
+          ...existingMetadata,
+          policyholderIin: policyholderData.iin
+        });
+      }
       
       if (onSave) {
         // Преобразуем данные для отображения в Application.js
@@ -369,6 +417,14 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
       updateGlobalApplicationSection('Policyholder', saveData, applicationId);
       // Также сохраняем в старое хранилище для обратной совместимости
       savePolicyholderData(saveData, applicationId);
+      // Обновляем метаданные заявки с ИИН страхователя
+      if (applicationId && policyholderData.iin) {
+        const existingMetadata = loadApplicationMetadata(applicationId) || {};
+        saveApplicationMetadata(applicationId, {
+          ...existingMetadata,
+          policyholderIin: policyholderData.iin
+        });
+      }
       
       if (onSave) {
         // Преобразуем данные для отображения в Application.js
@@ -391,12 +447,16 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
   // Функция для рендеринга кнопок справочника
   const renderDictionaryButton = (fieldName, label, onClickHandler, hasValue) => {
     const newFieldName = getDictionaryFieldName(fieldName);
+    // Для типа клиента используем специальную функцию для отображения
+    const displayValue = fieldName === 'clientType' 
+      ? getClientTypeDisplayValue(policyholderData[newFieldName])
+      : policyholderData[newFieldName];
     if (hasValue) {
       return (
         <div data-layer={`Input '${label}'`} data-state="pressed" className="Input" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
           <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
             <div data-layer="Label" className="Label" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{label}</div>
-            <div data-layer="Input text" className="InputText" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{policyholderData[newFieldName]}</div>
+            <div data-layer="Input text" className="InputText" style={{alignSelf: 'stretch', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{displayValue}</div>
           </div>
           <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={onClickHandler}>
             <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
@@ -559,13 +619,6 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
     return <Region onBack={handleBackToMain} onSave={(value) => handleDictionaryValueSelect('region', value)} />;
   }
 
-  if (currentView === 'settlementType') {
-    return <SettlementType onBack={handleBackToMain} onSave={(value) => handleDictionaryValueSelect('settlementType', value)} />;
-  }
-
-  if (currentView === 'city') {
-    return <City onBack={handleBackToMain} onSave={(value) => handleDictionaryValueSelect('city', value)} />;
-  }
 
   if (currentView === 'docType') {
     return <DocType onBack={handleBackToMain} onSave={(value) => handleDictionaryValueSelect('docType', value)} />;
@@ -668,11 +721,9 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
           {renderDictionaryButton('gender', 'Пол', handleOpenGender, !!policyholderData.gender)}
           {renderDictionaryButton('sectorCode', 'Код сектора экономики', handleOpenSectorCode, !!policyholderData.economSecId)}
           {renderDictionaryButton('country', 'Страна', handleOpenCountry, !!policyholderData.countryId)}
-          {renderDictionaryButton('region', 'Область', handleOpenRegion, !!policyholderData.region_id)}
-          {renderDictionaryButton('settlementType', 'Вид населенного пункта', handleOpenSettlementType, !!policyholderData.settlementType)}
-          {renderDictionaryButton('city', 'Город', handleOpenCity, !!policyholderData.city)}
+          {renderDictionaryButton('region', 'Область', handleOpenRegion, !!policyholderData.district_nameru)}
+          {renderInputField('settlementName', 'Название населенного пункта')}
           {renderInputField('street', 'Улица')}
-          {renderInputField('microdistrict', 'Микрорайон')}
           {renderInputField('houseNumber', '№ дома')}
           {renderInputField('apartmentNumber', '№ квартиры')}
           {renderDictionaryButton('docType', 'Тип документа', handleOpenDocType, !!policyholderData.vidDocId)}
@@ -710,11 +761,9 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
               {renderDictionaryButton('gender', 'Пол', handleOpenGender, !!policyholderData.gender)}
               {renderDictionaryButton('sectorCode', 'Код сектора экономики', handleOpenSectorCode, !!policyholderData.economSecId)}
               {renderDictionaryButton('country', 'Страна', handleOpenCountry, !!policyholderData.countryId)}
-              {renderDictionaryButton('region', 'Область', handleOpenRegion, !!policyholderData.region_id)}
-              {renderDictionaryButton('settlementType', 'Вид населенного пункта', handleOpenSettlementType, !!policyholderData.settlementType)}
-              {renderDictionaryButton('city', 'Город', handleOpenCity, !!policyholderData.city)}
+              {renderDictionaryButton('region', 'Область', handleOpenRegion, !!policyholderData.district_nameru)}
+              {renderInputField('settlementName', 'Название населенного пункта')}
               {renderInputField('street', 'Улица')}
-              {renderInputField('microdistrict', 'Микрорайон')}
               {renderInputField('houseNumber', '№ дома')}
               {renderInputField('apartmentNumber', '№ квартиры')}
               {renderDictionaryButton('docType', 'Тип документа', handleOpenDocType, !!policyholderData.vidDocId)}

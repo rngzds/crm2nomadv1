@@ -5,7 +5,7 @@ import Beneficiary from './Beneficiary';
 import Terms from './Terms';
 import Questionary from './Questionary';
 import History from './History';
-import { loadApplicationHistory, loadApplicationBeneficiary } from '../../services/storageService';
+import { loadApplicationHistory, loadApplicationBeneficiary, loadApplicationMetadata, saveApplicationMetadata, loadGlobalApplicationData, loadPolicyholderData, loadInsuredData, updateGlobalApplicationSection } from '../../services/storageService';
 
 const Application = ({ selectedProduct, applicationId, onBack }) => {
   const [currentView, setCurrentView] = useState('main');
@@ -19,6 +19,23 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
   // Загружаем данные истории и выгодоприобретателя при монтировании
   useEffect(() => {
     if (applicationId) {
+      // Автоматически создаем метаданные, если их нет
+      const existingMetadata = loadApplicationMetadata(applicationId);
+      if (!existingMetadata) {
+        saveApplicationMetadata(applicationId, {
+          product: selectedProduct || null,
+          createdAt: new Date().toISOString(),
+          policyholderIin: '',
+          status: 'Черновик'
+        });
+      } else if (selectedProduct && existingMetadata.product !== selectedProduct) {
+        // Обновляем продукт в метаданных, если он изменился
+        saveApplicationMetadata(applicationId, {
+          ...existingMetadata,
+          product: selectedProduct
+        });
+      }
+
       const loadedHistory = loadApplicationHistory(applicationId);
       if (loadedHistory) {
         setHistoryData(loadedHistory);
@@ -33,10 +50,77 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
         // Инициализируем пустыми данными
         setBeneficiaryData({ name: '', residencyType: '' });
       }
-    }
-  }, [applicationId]);
 
-  const handleBackToMain = () => setCurrentView('main');
+      // Загружаем данные Policyholder
+      const globalData = loadGlobalApplicationData(applicationId);
+      let loadedPolicyholder = null;
+      
+      if (globalData && globalData.Policyholder) {
+        loadedPolicyholder = globalData.Policyholder;
+      } else {
+        // Если в глобальном хранилище нет, загружаем из старого хранилища
+        loadedPolicyholder = loadPolicyholderData(applicationId);
+      }
+      
+      if (loadedPolicyholder) {
+        // Проверяем, есть ли данные (хотя бы одно поле заполнено)
+        if (loadedPolicyholder.iin || loadedPolicyholder.name || loadedPolicyholder.surname) {
+          setPolicyholderData(loadedPolicyholder);
+        }
+      }
+
+      // Загружаем данные Insured
+      let loadedInsured = null;
+      
+      if (globalData && globalData.Insured) {
+        loadedInsured = globalData.Insured;
+      } else {
+        // Если в глобальном хранилище нет, загружаем из старого хранилища
+        loadedInsured = loadInsuredData(applicationId);
+      }
+      
+      if (loadedInsured) {
+        // Insured сохраняется в формате {lastName, firstName, middleName, iin, fullData}
+        // Проверяем, есть ли данные для отображения (lastName, firstName, middleName, iin)
+        if (loadedInsured.iin || loadedInsured.lastName || loadedInsured.firstName || loadedInsured.middleName || 
+            loadedInsured.surname || loadedInsured.name || loadedInsured.patronymic) {
+          // Используем данные для отображения (lastName, firstName, middleName) или (surname, name, patronymic)
+          setInsuredData(loadedInsured);
+        }
+      }
+    }
+  }, [applicationId, selectedProduct]);
+
+  const handleBackToMain = () => {
+    setCurrentView('main');
+    // Перезагружаем данные при возврате на главный экран
+    if (applicationId) {
+      const globalData = loadGlobalApplicationData(applicationId);
+      let loadedPolicyholder = null;
+      
+      if (globalData && globalData.Policyholder) {
+        loadedPolicyholder = globalData.Policyholder;
+      } else {
+        loadedPolicyholder = loadPolicyholderData(applicationId);
+      }
+      
+      if (loadedPolicyholder && (loadedPolicyholder.iin || loadedPolicyholder.name || loadedPolicyholder.surname)) {
+        setPolicyholderData(loadedPolicyholder);
+      }
+
+      let loadedInsured = null;
+      if (globalData && globalData.Insured) {
+        loadedInsured = globalData.Insured;
+      } else {
+        loadedInsured = loadInsuredData(applicationId);
+      }
+      
+      if (loadedInsured && (loadedInsured.iin || loadedInsured.lastName || loadedInsured.firstName || loadedInsured.middleName || 
+          loadedInsured.surname || loadedInsured.name || loadedInsured.patronymic)) {
+        setInsuredData(loadedInsured);
+      }
+    }
+  };
   
   const handleBackToProduct = () => {
     if (onBack) {
@@ -52,10 +136,18 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
   const handleInsuredSave = (data) => {
     // Сохраняем все данные (включая fullData для восстановления)
     setInsuredData(data);
+    // Сохраняем в глобальное хранилище
+    if (applicationId) {
+      updateGlobalApplicationSection('Insured', data, applicationId);
+    }
   };
 
   const handlePolicyholderSave = (data) => {
     setPolicyholderData(data);
+    // Сохраняем в глобальное хранилище
+    if (applicationId) {
+      updateGlobalApplicationSection('Policyholder', data, applicationId);
+    }
   };
 
   const handleTermsSave = (data) => {
@@ -185,7 +277,7 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
               <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
                 <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>ФИО</div>
                 <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
-                  {[policyholderData.lastName, policyholderData.firstName, policyholderData.middleName].filter(Boolean).join(' ') || ''}
+                  {[policyholderData.surname || policyholderData.lastName, policyholderData.name || policyholderData.firstName, policyholderData.patronymic || policyholderData.middleName].filter(Boolean).join(' ') || ''}
                 </div>
               </div>
             </div>
@@ -237,7 +329,7 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
               <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
                 <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>ФИО</div>
                 <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
-                  {[insuredData.lastName, insuredData.firstName, insuredData.middleName].filter(Boolean).join(' ') || ''}
+                  {[insuredData.surname || insuredData.lastName, insuredData.name || insuredData.firstName, insuredData.patronymic || insuredData.middleName].filter(Boolean).join(' ') || ''}
                 </div>
               </div>
             </div>
