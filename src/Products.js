@@ -1,15 +1,95 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getAccessToken } from './services/storageService';
 
 const Products = ({ onSelectProduct, onBack }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleProductSelect = (productName) => {
-    setSelectedProduct(productName);
+  // Загружаем доступные продукты из API с кэшированием
+  useEffect(() => {
+    const loadProducts = async () => {
+      // Проверяем кэш (продукты редко меняются, кэшируем на 10 минут)
+      const cachedProducts = localStorage.getItem('cached_products');
+      const cacheTimestamp = localStorage.getItem('cached_products_timestamp');
+      if (cachedProducts && cacheTimestamp) {
+        const cacheAge = Date.now() - parseInt(cacheTimestamp, 10);
+        const CACHE_DURATION = 10 * 60 * 1000; // 10 минут
+        if (cacheAge < CACHE_DURATION) {
+          console.log('Используем кэшированные продукты');
+          const productsData = JSON.parse(cachedProducts);
+          setProducts(productsData);
+          return;
+        }
+      }
+
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const token = getAccessToken();
+        if (!token) {
+          throw new Error('Токен авторизации не найден');
+        }
+
+        console.log('Загружаем доступные продукты...');
+        
+        const response = await fetch('https://crm-arm.onrender.com/api/Statement/GetAvailableProducts', {
+          method: 'POST',
+          mode: 'cors',
+          headers: {
+            'accept': '*/*',
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            productOperationTypeCode: 'New'
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Ошибка загрузки продуктов: ${response.status}`);
+        }
+
+        const productsData = await response.json();
+        console.log('Получены продукты:', productsData);
+        
+        if (Array.isArray(productsData)) {
+          // Кэшируем продукты
+          localStorage.setItem('cached_products', JSON.stringify(productsData));
+          localStorage.setItem('cached_products_timestamp', Date.now().toString());
+          setProducts(productsData);
+        } else {
+          throw new Error('Неверный формат данных продуктов');
+        }
+      } catch (err) {
+        console.error('Ошибка загрузки продуктов:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, []);
+
+  const handleProductSelect = (product) => {
+    setSelectedProduct(product);
   };
 
-  const handleCreate = () => {
-    if (selectedProduct && onSelectProduct) {
-      onSelectProduct(selectedProduct);
+  const handleCreate = async () => {
+    if (selectedProduct && onSelectProduct && !creating) {
+      setCreating(true);
+      try {
+        // Передаем объект продукта, а не только название
+        await onSelectProduct(selectedProduct);
+      } catch (error) {
+        console.error('Ошибка при создании заявки:', error);
+      } finally {
+        setCreating(false);
+      }
     }
   };
 
@@ -34,8 +114,28 @@ const Products = ({ onSelectProduct, onBack }) => {
         <div data-layer="SubHeader" data-type="Creating an order" className="Subheader" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'space-between', alignItems: 'center', display: 'inline-flex'}}>
           <div data-layer="Title" className="Title" style={{flex: '1 1 0', height: 85, paddingLeft: 20, justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
             <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Выберите продукт</div>
-            <div data-layer="ActionButtonWithoutRounding" data-state="pressed" className="Actionbuttonwithoutrounding" style={{width: 388, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: 'pointer'}} onClick={handleCreate}>
-              <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Создать</div>
+            <div 
+              data-layer="ActionButtonWithoutRounding" 
+              data-state="pressed" 
+              className="Actionbuttonwithoutrounding" 
+              style={{
+                width: 388, 
+                height: 85, 
+                background: (creating || !selectedProduct) ? '#666' : 'black', 
+                overflow: 'hidden', 
+                justifyContent: 'flex-start', 
+                alignItems: 'center', 
+                gap: 8.98, 
+                display: 'flex', 
+                cursor: (creating || !selectedProduct) ? 'not-allowed' : 'pointer',
+                opacity: (creating || !selectedProduct) ? 0.7 : 1,
+                transition: 'all 0.2s'
+              }} 
+              onClick={handleCreate}
+            >
+              <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
+                {creating ? 'Создание...' : 'Создать'}
+              </div>
             </div>
           </div>
         </div>
@@ -53,80 +153,61 @@ const Products = ({ onSelectProduct, onBack }) => {
             </div>
           </div>
           <div data-layer="Fields products" className="FieldsProducts" style={{alignSelf: 'stretch', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
-            <div 
-              data-layer="Product selection" 
-              className="ProductSelection" 
-              style={{
-                alignSelf: 'stretch', 
-                height: 85, 
-                paddingLeft: 20, 
-                background: 'white', 
-                overflow: 'hidden', 
-                borderBottom: '1px #F8E8E8 solid', 
-                justifyContent: 'flex-start', 
-                alignItems: 'center', 
-                gap: 10, 
-                display: 'inline-flex',
-                cursor: 'pointer'
-              }}
-              onClick={() => handleProductSelect('Пенсионный Аннуитет')}
-            >
-              <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-                <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Пенсионный аннуитет</div>
+            {loading ? (
+              <div style={{alignSelf: 'stretch', padding: 40, textAlign: 'center', color: '#6B6D80', fontSize: 16, fontFamily: 'Inter'}}>
+                Загрузка продуктов...
               </div>
-              <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-                {selectedProduct === 'Пенсионный Аннуитет' ? (
-                  <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
-                    </svg>
-                  </div>
-                ) : (
-                  <div data-svg-wrapper data-layer="Ellipse-off" className="EllipseOff" style={{left: 35, top: 36, position: 'absolute'}}>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="7" cy="7" r="6.5" stroke="black"/>
-                    </svg>
-                  </div>
-                )}
+            ) : error ? (
+              <div style={{alignSelf: 'stretch', padding: 40, textAlign: 'center', color: '#d32f2f', fontSize: 16, fontFamily: 'Inter'}}>
+                Ошибка загрузки продуктов: {error}
               </div>
-            </div>
-            <div 
-              data-layer="Product selection" 
-              className="ProductSelection" 
-              style={{
-                alignSelf: 'stretch', 
-                height: 85, 
-                paddingLeft: 20, 
-                background: 'white', 
-                overflow: 'hidden', 
-                borderBottom: '1px #F8E8E8 solid', 
-                justifyContent: 'flex-start', 
-                alignItems: 'center', 
-                gap: 10, 
-                display: 'inline-flex',
-                cursor: 'pointer'
-              }}
-              onClick={() => handleProductSelect('Сенiм')}
-            >
-              <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-                <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Сенім</div>
+            ) : products.length === 0 ? (
+              <div style={{alignSelf: 'stretch', padding: 40, textAlign: 'center', color: '#6B6D80', fontSize: 16, fontFamily: 'Inter'}}>
+                Продукты не найдены
               </div>
-              <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-                {selectedProduct === 'Сенiм' ? (
-                  <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
-                    </svg>
+            ) : (
+              products.map((product) => (
+                <div 
+                  key={product.code}
+                  data-layer="Product selection" 
+                  className="ProductSelection" 
+                  style={{
+                    alignSelf: 'stretch', 
+                    height: 85, 
+                    paddingLeft: 20, 
+                    background: selectedProduct?.code === product.code ? '#FBF9F9' : 'white', 
+                    overflow: 'hidden', 
+                    borderBottom: '1px #F8E8E8 solid', 
+                    justifyContent: 'flex-start', 
+                    alignItems: 'center', 
+                    gap: 10, 
+                    display: 'inline-flex',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onClick={() => handleProductSelect(product)}
+                >
+                  <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+                    <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{product.nameRu || product.nameKz || product.code}</div>
                   </div>
-                ) : (
-                  <div data-svg-wrapper data-layer="Ellipse-off" className="EllipseOff" style={{left: 35, top: 36, position: 'absolute'}}>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="7" cy="7" r="6.5" stroke="black"/>
-                    </svg>
+                  <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+                    {selectedProduct?.code === product.code ? (
+                      <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
+                        </svg>
+                      </div>
+                    ) : (
+                      <div data-svg-wrapper data-layer="Ellipse-off" className="EllipseOff" style={{left: 35, top: 36, position: 'absolute'}}>
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="7" cy="7" r="6.5" stroke="black"/>
+                        </svg>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
