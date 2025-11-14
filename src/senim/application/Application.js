@@ -5,7 +5,7 @@ import Beneficiary from './Beneficiary';
 import Terms from './Terms';
 import Questionary from './Questionary';
 import History from './History';
-import { loadApplicationHistory, loadApplicationBeneficiary, loadApplicationMetadata, saveApplicationMetadata, loadGlobalApplicationData, loadPolicyholderData, loadInsuredData, updateGlobalApplicationSection } from '../../services/storageService';
+import { loadApplicationHistory, loadApplicationBeneficiary, loadApplicationMetadata, saveApplicationMetadata, loadGlobalApplicationData, loadPolicyholderData, loadInsuredData, updateGlobalApplicationSection, getAccessToken, saveGlobalApplicationData } from '../../services/storageService';
 
 const Application = ({ selectedProduct, applicationId, onBack }) => {
   const [currentView, setCurrentView] = useState('main');
@@ -15,80 +15,156 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
   const [questionaryData, setQuestionaryData] = useState(null);
   const [historyData, setHistoryData] = useState(null);
   const [beneficiaryData, setBeneficiaryData] = useState(null);
+  const [applicationNumber, setApplicationNumber] = useState(null);
+
+  // Функция для загрузки данных заявки из API
+  const loadApplicationFromAPI = async () => {
+    if (!applicationId) return;
+    
+    try {
+      const token = getAccessToken();
+      if (!token) {
+        console.log('Токен не найден, пропускаем загрузку из API');
+        return;
+      }
+
+      console.log('Загружаем данные заявки из API:', applicationId);
+      
+      // Пытаемся загрузить данные заявки из API
+      // Обычно используется endpoint типа /api/Statement/{id} или /api/Statement/Get/{id}
+      const response = await fetch(`https://crm-arm.onrender.com/api/Statement/${applicationId}`, {
+        method: 'GET',
+        mode: 'cors',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const apiData = await response.json();
+        console.log('Данные заявки получены из API:', apiData);
+        
+        // Обновляем номер заявления, если он есть в данных API
+        if (apiData.number) {
+          setApplicationNumber(apiData.number);
+          // Обновляем метаданные с номером
+          const existingMetadata = loadApplicationMetadata(applicationId) || {};
+          saveApplicationMetadata(applicationId, {
+            ...existingMetadata,
+            number: apiData.number
+          });
+        }
+        
+        // Преобразуем данные из API в формат приложения
+        // Предполагаем, что API возвращает структуру с данными заявки
+        if (apiData) {
+          // Сохраняем данные в глобальное хранилище
+          const globalData = {
+            Policyholder: apiData.policyholder || apiData.policyholderData || null,
+            Insured: apiData.insured || apiData.insuredData || null,
+            Terms: apiData.terms || apiData.termsData || null,
+            Questionary: apiData.questionary || apiData.questionaryData || null,
+            Beneficiary: apiData.beneficiary || apiData.beneficiaryData || null,
+            History: apiData.history || apiData.historyData || null,
+          };
+          
+          saveGlobalApplicationData(globalData, applicationId);
+          
+          // Обновляем локальные состояния
+          if (globalData.Policyholder) {
+            setPolicyholderData(globalData.Policyholder);
+          }
+          if (globalData.Insured) {
+            setInsuredData(globalData.Insured);
+          }
+          if (globalData.Terms) {
+            setTermsData(globalData.Terms);
+          }
+          if (globalData.Questionary) {
+            setQuestionaryData(globalData.Questionary);
+          }
+          if (globalData.Beneficiary) {
+            setBeneficiaryData(globalData.Beneficiary);
+          }
+          if (globalData.History) {
+            setHistoryData(globalData.History);
+          }
+        }
+      } else {
+        console.log('Заявка не найдена в API или нет доступа, используем локальные данные');
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки данных заявки из API:', error);
+      // Продолжаем с локальными данными
+    }
+  };
 
   // Загружаем данные истории и выгодоприобретателя при монтировании
   useEffect(() => {
     if (applicationId) {
-      // Автоматически создаем метаданные, если их нет
-      const existingMetadata = loadApplicationMetadata(applicationId);
-      if (!existingMetadata) {
-        saveApplicationMetadata(applicationId, {
-          product: selectedProduct || null,
-          createdAt: new Date().toISOString(),
-          policyholderIin: '',
-          status: 'Черновик'
-        });
-      } else if (selectedProduct && existingMetadata.product !== selectedProduct) {
-        // Обновляем продукт в метаданных, если он изменился
-        saveApplicationMetadata(applicationId, {
-          ...existingMetadata,
-          product: selectedProduct
-        });
-      }
+      // Загружаем данные из API и localStorage параллельно для оптимизации
+      const loadData = async () => {
+        // Загружаем метаданные синхронно (быстро)
+        const existingMetadata = loadApplicationMetadata(applicationId);
+        if (!existingMetadata) {
+          saveApplicationMetadata(applicationId, {
+            product: selectedProduct || null,
+            createdAt: new Date().toISOString(),
+            policyholderIin: '',
+            status: 'Черновик'
+          });
+        } else {
+          // Загружаем номер заявления из метаданных
+          if (existingMetadata.number) {
+            setApplicationNumber(existingMetadata.number);
+          }
+          
+          if (selectedProduct && existingMetadata.product !== selectedProduct) {
+            // Обновляем продукт в метаданных, если он изменился
+            saveApplicationMetadata(applicationId, {
+              ...existingMetadata,
+              product: selectedProduct
+            });
+          }
+        }
 
-      const loadedHistory = loadApplicationHistory(applicationId);
-      if (loadedHistory) {
-        setHistoryData(loadedHistory);
-      } else {
-        // Инициализируем пустыми данными
-        setHistoryData({ dateTime: '', status: '' });
-      }
-      const loadedBeneficiary = loadApplicationBeneficiary(applicationId);
-      if (loadedBeneficiary) {
-        setBeneficiaryData(loadedBeneficiary);
-      } else {
-        // Инициализируем пустыми данными
-        setBeneficiaryData({ name: '', residencyType: '' });
-      }
+        // Загружаем локальные данные синхронно (быстро, без await)
+        const globalData = loadGlobalApplicationData(applicationId);
+        const loadedHistory = loadApplicationHistory(applicationId);
+        const loadedBeneficiary = loadApplicationBeneficiary(applicationId);
+        const loadedPolicyholder = globalData?.Policyholder || loadPolicyholderData(applicationId);
+        const loadedInsured = globalData?.Insured || loadInsuredData(applicationId);
 
-      // Загружаем данные Policyholder
-      const globalData = loadGlobalApplicationData(applicationId);
-      let loadedPolicyholder = null;
-      
-      if (globalData && globalData.Policyholder) {
-        loadedPolicyholder = globalData.Policyholder;
-      } else {
-        // Если в глобальном хранилище нет, загружаем из старого хранилища
-        loadedPolicyholder = loadPolicyholderData(applicationId);
-      }
-      
-      if (loadedPolicyholder) {
-        // Проверяем, есть ли данные (хотя бы одно поле заполнено)
-        if (loadedPolicyholder.iin || loadedPolicyholder.name || loadedPolicyholder.surname) {
+        // Устанавливаем данные из localStorage сразу
+        if (loadedHistory) {
+          setHistoryData(loadedHistory);
+        } else {
+          setHistoryData({ dateTime: '', status: '' });
+        }
+        
+        if (loadedBeneficiary) {
+          setBeneficiaryData(loadedBeneficiary);
+        } else {
+          setBeneficiaryData({ name: '', residencyType: '' });
+        }
+        
+        if (loadedPolicyholder && (loadedPolicyholder.iin || loadedPolicyholder.name || loadedPolicyholder.surname)) {
           setPolicyholderData(loadedPolicyholder);
         }
-      }
-
-      // Загружаем данные Insured
-      let loadedInsured = null;
-      
-      if (globalData && globalData.Insured) {
-        loadedInsured = globalData.Insured;
-      } else {
-        // Если в глобальном хранилище нет, загружаем из старого хранилища
-        loadedInsured = loadInsuredData(applicationId);
-      }
-      
-      if (loadedInsured) {
-        // Insured сохраняется в формате {lastName, firstName, middleName, iin, fullData}
-        // Проверяем, есть ли данные для отображения (lastName, firstName, middleName, iin)
-        if (loadedInsured.iin || loadedInsured.lastName || loadedInsured.firstName || loadedInsured.middleName || 
-            loadedInsured.surname || loadedInsured.name || loadedInsured.patronymic) {
-          // Используем данные для отображения (lastName, firstName, middleName) или (surname, name, patronymic)
+        
+        if (loadedInsured && (loadedInsured.iin || loadedInsured.lastName || loadedInsured.firstName || loadedInsured.middleName || 
+            loadedInsured.surname || loadedInsured.name || loadedInsured.patronymic)) {
           setInsuredData(loadedInsured);
         }
-      }
+
+        // Загружаем данные из API асинхронно (может быть медленнее)
+        loadApplicationFromAPI();
+      };
+
+      loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId, selectedProduct]);
 
   const handleBackToMain = () => {
@@ -133,12 +209,56 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
   const handleOpenQuestionary = () => setCurrentView('questionary');
   const handleViewFullHistory = () => setCurrentView('history');
 
+  // Функция для сохранения данных заявки в API
+  const saveApplicationToAPI = async (section, data) => {
+    if (!applicationId) return;
+    
+    try {
+      const token = getAccessToken();
+      if (!token) {
+        console.log('Токен не найден, сохраняем только локально');
+        return;
+      }
+
+      console.log('Сохраняем данные заявки в API:', section, applicationId);
+      
+      // Загружаем текущие глобальные данные
+      const globalData = loadGlobalApplicationData(applicationId) || {};
+      
+      // Обновляем секцию
+      globalData[section] = data;
+      
+      // Сохраняем в API
+      // Обычно используется PUT или PATCH запрос
+      const response = await fetch(`https://crm-arm.onrender.com/api/Statement/${applicationId}`, {
+        method: 'PUT',
+        mode: 'cors',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(globalData),
+      });
+
+      if (response.ok) {
+        console.log('Данные заявки успешно сохранены в API');
+      } else {
+        console.error('Ошибка сохранения данных заявки в API:', response.status);
+      }
+    } catch (error) {
+      console.error('Ошибка сохранения данных заявки в API:', error);
+      // Продолжаем работу, данные сохранены локально
+    }
+  };
+
   const handleInsuredSave = (data) => {
     // Сохраняем все данные (включая fullData для восстановления)
     setInsuredData(data);
     // Сохраняем в глобальное хранилище
     if (applicationId) {
       updateGlobalApplicationSection('Insured', data, applicationId);
+      // Сохраняем в API
+      saveApplicationToAPI('Insured', data);
     }
   };
 
@@ -147,15 +267,40 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
     // Сохраняем в глобальное хранилище
     if (applicationId) {
       updateGlobalApplicationSection('Policyholder', data, applicationId);
+      
+      // Обновляем метаданные заявки с ИИН страхователя
+      const existingMetadata = loadApplicationMetadata(applicationId) || {};
+      if (data.iin && existingMetadata.policyholderIin !== data.iin) {
+        saveApplicationMetadata(applicationId, {
+          ...existingMetadata,
+          policyholderIin: data.iin
+        });
+        console.log('ИИН страхователя сохранен в метаданные:', data.iin);
+      }
+      
+      // Сохраняем в API
+      saveApplicationToAPI('Policyholder', data);
     }
   };
 
   const handleTermsSave = (data) => {
     setTermsData(data);
+    // Сохраняем в глобальное хранилище
+    if (applicationId) {
+      updateGlobalApplicationSection('Terms', data, applicationId);
+      // Сохраняем в API
+      saveApplicationToAPI('Terms', data);
+    }
   };
 
   const handleQuestionarySave = (data) => {
     setQuestionaryData(data);
+    // Сохраняем в глобальное хранилище
+    if (applicationId) {
+      updateGlobalApplicationSection('Questionary', data, applicationId);
+      // Сохраняем в API
+      saveApplicationToAPI('Questionary', data);
+    }
   };
 
   const getInsuranceAmount = (insuranceProduct) => {
@@ -220,7 +365,7 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
   <div data-layer="Statements details" className="StatementsDetails" style={{flex: '1 1 0', alignSelf: 'stretch', overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
     <div data-layer="SubHeader" data-type="OrderHeader" className="Subheader" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex', flexWrap: 'wrap', alignContent: 'flex-start'}}>
       <div data-layer="Frame 1321316873" className="Frame1321316873" style={{flex: '1 1 0', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
-        <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 0', height: 12, textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Заявление № {applicationId ? applicationId.substring(0, 8) : ''}</div>
+        <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 0', height: 12, textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Заявление № {applicationNumber || (applicationId ? applicationId.substring(0, 8) : '')}</div>
       </div>
       <div data-layer="Button Container" className="ButtonContainer" style={{width: 777, height: 85, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', justifyContent: 'flex-end', alignItems: 'center', display: 'flex'}}>
         <div data-layer="Reject button" data-state="pressed" className="RejectButton" style={{width: 388.50, height: 85, overflow: 'hidden', justifyContent: 'space-between', alignItems: 'center', display: 'flex'}}>

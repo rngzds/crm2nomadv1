@@ -16,7 +16,9 @@ const STORAGE_KEYS = {
   APPLICATION_BENEFICIARY: 'applicationBeneficiary',
   INSURED_CURRENT_VIEW_HISTORY: 'insuredCurrentViewHistory',
   GLOBAL_APPLICATION_DATA: 'globalApplicationData',
-  APPLICATION_METADATA: 'applicationMetadata'
+  APPLICATION_METADATA: 'applicationMetadata',
+  ACCESS_TOKEN: 'accessToken',
+  REFRESH_TOKEN: 'refreshToken'
 };
 
 /**
@@ -438,7 +440,7 @@ export const clearInsuredOtherChildChildData = (applicationId = null) => {
  */
 export const clearAllData = () => {
   try {
-    // Удаляем все ключи из STORAGE_KEYS
+    // Удаляем все ключи из STORAGE_KEYS (включая токены)
     Object.values(STORAGE_KEYS).forEach(key => {
       localStorage.removeItem(key);
     });
@@ -759,6 +761,71 @@ export const deleteApplication = (applicationId) => {
     console.log(`🗑️ [APPLICATION] Удалена заявка ${applicationId}`);
   } catch (error) {
     console.error('Error deleting application:', error);
+  }
+};
+
+/**
+ * Сохранить access token в localStorage
+ * @param {string} token - Access token
+ */
+export const saveAccessToken = (token) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token);
+    console.log('💾 [AUTH] Access token сохранен');
+  } catch (error) {
+    console.error('Error saving access token:', error);
+  }
+};
+
+/**
+ * Получить access token из localStorage
+ * @returns {string|null} Access token или null
+ */
+export const getAccessToken = () => {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+  } catch (error) {
+    console.error('Error getting access token:', error);
+    return null;
+  }
+};
+
+/**
+ * Сохранить refresh token в localStorage
+ * @param {string} token - Refresh token
+ */
+export const saveRefreshToken = (token) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, token);
+    console.log('💾 [AUTH] Refresh token сохранен');
+  } catch (error) {
+    console.error('Error saving refresh token:', error);
+  }
+};
+
+/**
+ * Получить refresh token из localStorage
+ * @returns {string|null} Refresh token или null
+ */
+export const getRefreshToken = () => {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+  } catch (error) {
+    console.error('Error getting refresh token:', error);
+    return null;
+  }
+};
+
+/**
+ * Очистить токены из localStorage
+ */
+export const clearTokens = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+    console.log('🗑️ [AUTH] Токены очищены');
+  } catch (error) {
+    console.error('Error clearing tokens:', error);
   }
 };
 

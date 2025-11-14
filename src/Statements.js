@@ -1,21 +1,264 @@
-import React, { useState, useEffect } from 'react';
-import { getAllApplications } from './services/storageService';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getAllApplications, getAccessToken, loadApplicationMetadata } from './services/storageService';
 
 const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
   const [applications, setApplications] = useState([]);
+  const [folders, setFolders] = useState([]);
+  const [selectedFolder, setSelectedFolder] = useState(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [loadingFolders, setLoadingFolders] = useState(false);
+  const [loadingApplications, setLoadingApplications] = useState(false);
 
-  // Загружаем список заявок при монтировании
+  // Загружаем список папок при монтировании
   useEffect(() => {
-    loadApplications();
+    loadFolders();
+    // Не загружаем заявления здесь, они загрузятся после установки selectedFolder
   }, []);
 
-  const loadApplications = () => {
-    const apps = getAllApplications();
-    setApplications(apps);
+  // Загружаем заявления при изменении выбранной папки
+  useEffect(() => {
+    console.log('useEffect selectedFolder изменился:', selectedFolder);
+    if (selectedFolder) {
+      console.log('Загружаем заявления для папки:', selectedFolder.code);
+      loadApplications();
+    } else {
+      console.log('selectedFolder еще не установлен');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFolder]);
+
+  // Закрываем выпадающий список при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isDropdownOpen && !event.target.closest('.Sectionsdropdown')) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
+
+  // Загружаем папки из API с кэшированием
+  const loadFolders = async (forceRefresh = false) => {
+    // Проверяем кэш (папки редко меняются, кэшируем на 5 минут)
+    if (!forceRefresh) {
+      const cachedFolders = localStorage.getItem('cached_folders');
+      const cacheTimestamp = localStorage.getItem('cached_folders_timestamp');
+      if (cachedFolders && cacheTimestamp) {
+        const cacheAge = Date.now() - parseInt(cacheTimestamp, 10);
+        const CACHE_DURATION = 5 * 60 * 1000; // 5 минут
+        if (cacheAge < CACHE_DURATION) {
+          console.log('Используем кэшированные папки');
+          const foldersData = JSON.parse(cachedFolders);
+          setFolders(foldersData);
+          const statementFolder = foldersData.find(f => f.code === 'Statement') || foldersData[0];
+          if (statementFolder) {
+            setSelectedFolder(statementFolder);
+          }
+          return;
+        }
+      }
+    }
+
+    setLoadingFolders(true);
+    try {
+      const token = getAccessToken();
+      console.log('loadFolders: Токен получен:', token ? 'Да (первые 20 символов: ' + token.substring(0, 20) + '...)' : 'НЕТ!');
+      
+      if (!token) {
+        console.error('Токен авторизации не найден в loadFolders');
+        throw new Error('Токен авторизации не найден');
+      }
+
+      console.log('Загружаем папки с токеном...');
+      const authHeader = `Bearer ${token}`;
+      
+      const response = await fetch('https://crm-arm.onrender.com/api/Statement/Folders', {
+        method: 'GET',
+        mode: 'cors',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('Ответ от сервера (статус):', response.status);
+
+      if (!response.ok) {
+        throw new Error(`Ошибка загрузки папок: ${response.status}`);
+      }
+
+      const foldersData = await response.json();
+      console.log('Получены папки:', foldersData);
+      
+      if (Array.isArray(foldersData)) {
+        // Кэшируем папки
+        localStorage.setItem('cached_folders', JSON.stringify(foldersData));
+        localStorage.setItem('cached_folders_timestamp', Date.now().toString());
+        
+        setFolders(foldersData);
+        
+        // По умолчанию выбираем "Statement" (Заявление) - все заявки в системе, если есть, иначе первую папку
+        const statementFolder = foldersData.find(f => f.code === 'Statement');
+        if (statementFolder) {
+          console.log('Выбрана папка Statement:', statementFolder);
+          setSelectedFolder(statementFolder);
+        } else if (foldersData.length > 0) {
+          console.log('Выбрана первая папка:', foldersData[0]);
+          setSelectedFolder(foldersData[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки папок:', error);
+      // В случае ошибки устанавливаем дефолтную папку
+      const defaultFolder = { code: 'Statement', name: 'Заявление' };
+      setFolders([defaultFolder]);
+      setSelectedFolder(defaultFolder);
+    } finally {
+      setLoadingFolders(false);
+    }
   };
 
-  // Форматирование даты
-  const formatDate = (dateString) => {
+  // Функция для получения отображаемого названия папки
+  const getFolderDisplayName = (folder) => {
+    if (!folder) return 'Заявление';
+    
+    // Маппинг названий: если от API приходит "Заявки", показываем "Заявление"
+    if (folder.code === 'Statement') {
+      return 'Заявление';
+    }
+    
+    // Для остальных папок используем название от API
+    return folder.name;
+  };
+
+  const handleFolderSelect = (folder) => {
+    setSelectedFolder(folder);
+    setIsDropdownOpen(false);
+    // Загружаем данные для выбранной папки
+    loadApplications();
+  };
+
+  // Обработчик кнопки обновления - принудительно обновляет данные из API
+  const handleRefresh = async () => {
+    console.log('Обновление списка заявлений...');
+    await loadApplications(true);
+  };
+
+  const loadApplications = async (forceRefresh = false) => {
+    setLoadingApplications(true);
+    try {
+      const token = getAccessToken();
+      console.log('loadApplications: Токен получен:', token ? 'Да (первые 20 символов: ' + token.substring(0, 20) + '...)' : 'НЕТ!');
+      
+      if (!token) {
+        console.log('Токен не найден, используем данные из localStorage');
+        // Если нет токена, используем данные из localStorage
+        const apps = getAllApplications();
+        setApplications(apps);
+        setLoadingApplications(false);
+        return;
+      }
+
+      // Загружаем папки, если еще не загружены
+      if (!selectedFolder && folders.length > 0) {
+        const statementFolder = folders.find(f => f.code === 'Statement') || folders[0];
+        if (statementFolder) {
+          setSelectedFolder(statementFolder);
+        }
+      }
+
+      const folderType = selectedFolder?.code || 'Statement';
+      console.log('Загружаем заявления для папки:', folderType);
+
+      // Загружаем заявления из API
+      const authHeader = `Bearer ${token}`;
+      console.log('Заголовок Authorization для заявлений (первые 30 символов):', authHeader.substring(0, 30) + '...');
+      console.log('Принудительное обновление:', forceRefresh ? 'Да' : 'Нет');
+      
+      const response = await fetch('https://crm-arm.onrender.com/api/Statement/List', {
+        method: 'POST',
+        mode: 'cors',
+        cache: forceRefresh ? 'no-cache' : 'default',
+        headers: {
+          'accept': '*/*',
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pageNumber: 1,
+          pageSize: 10,
+          dateFrom: null,
+          dateTo: null,
+          direction: 'asc',
+          folderType: folderType
+        }),
+      });
+      
+      console.log('Ответ от сервера для заявлений (статус):', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Ошибка загрузки заявлений:', response.status, errorText);
+        throw new Error(`Ошибка загрузки заявлений: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Получены данные от API:', data);
+      
+      if (data && data.statements && Array.isArray(data.statements)) {
+        console.log('Найдено заявлений:', data.statements.length);
+        
+        // Оптимизация: загружаем все метаданные одним батчем
+        // Преобразуем формат данных из API в формат, который ожидает компонент
+        const transformedApps = data.statements.map(statement => {
+          // Загружаем метаданные заявки для получения актуального ИИН
+          const metadata = loadApplicationMetadata(statement.id);
+          // Используем ИИН из метаданных, если он есть, иначе из API
+          const policyholderIin = metadata?.policyholderIin || statement.insurerIIN || '';
+          
+          return {
+            applicationId: statement.id,
+            number: statement.number,
+            policyholderIin: policyholderIin,
+            createdAt: statement.date,
+            product: statement.processName || '',
+            status: statement.statusName || 'Черновик',
+            processCode: statement.processCode,
+            processName: statement.processName,
+            userFullName: statement.userFullName,
+            // Сохраняем оригинальные данные для возможного использования
+            originalData: statement
+          };
+        });
+        
+        console.log('Преобразованные заявления:', transformedApps);
+        setApplications(transformedApps);
+        
+        // Сохраняем в localStorage для кэширования (с таймстампом для инвалидации)
+        localStorage.setItem('api_statements', JSON.stringify(data));
+        localStorage.setItem('api_statements_timestamp', Date.now().toString());
+      } else {
+        console.warn('Данные от API в неожиданном формате:', data);
+        // Если нет данных из API, используем данные из localStorage
+        const apps = getAllApplications();
+        setApplications(apps);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки заявлений из API:', error);
+      // В случае ошибки используем данные из localStorage
+      const apps = getAllApplications();
+      setApplications(apps);
+    } finally {
+      setLoadingApplications(false);
+    }
+  };
+
+  // Форматирование даты (вынесено за компонент для оптимизации)
+  const formatDate = useCallback((dateString) => {
     if (!dateString) return '';
     try {
       const date = new Date(dateString);
@@ -28,17 +271,20 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
     } catch (error) {
       return '';
     }
-  };
+  }, []);
 
   // Форматирование номера заявления (первые 8 символов)
-  const formatApplicationId = (applicationId) => {
+  const formatApplicationId = useCallback((applicationId) => {
     if (!applicationId) return '';
     return applicationId.substring(0, 8).toUpperCase();
-  };
+  }, []);
 
   const handleApplicationClick = (applicationId) => {
+    // Находим полные данные заявки
+    const application = applications.find(app => app.applicationId === applicationId);
     if (onOpenApplication) {
-      onOpenApplication(applicationId);
+      // Передаем ID и полные данные заявки
+      onOpenApplication(applicationId, application);
     }
   };
 
@@ -57,7 +303,21 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
   };
 
   return (
-    <div data-layer="Sections applications" className="SectionsApplications" style={{width: 1512, height: 1436, justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+    <>
+      <style>{`
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        .Refresh.rotating {
+          animation: spin 1s linear infinite;
+        }
+      `}</style>
+      <div data-layer="Sections applications" className="SectionsApplications" style={{width: 1512, height: 1436, justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
       <div data-layer="Menu" data-property-1="Menu four" className="Menu" style={{width: 85, height: 1436, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-start', display: 'inline-flex'}}>
         <div data-layer="Sidebar" className="Sidebar" style={{flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
           <div data-layer="Menu button" className="MenuButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
@@ -127,17 +387,133 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
       </div>
       <div data-layer="Application section" className="ApplicationSection" style={{flex: '1 1 0', alignSelf: 'stretch', background: 'white', overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-start', display: 'inline-flex'}}>
         <div data-layer="Container with elements" className="ContainerWithElements" style={{alignSelf: 'stretch', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
-          <div data-layer="SectionsDropdown" data-state="dropdown_selected" className="Sectionsdropdown" style={{width: 1427, height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
-            <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-              <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Заявления</div>
+          <div 
+            data-layer="SectionsDropdown" 
+            data-state={isDropdownOpen ? "dropdown_selected" : "dropdown"} 
+            className="Sectionsdropdown" 
+            style={{
+              width: 1427, 
+              height: 85, 
+              paddingLeft: 20, 
+              background: 'white', 
+              overflow: 'visible', 
+              borderBottom: '1px #F8E8E8 solid', 
+              justifyContent: 'flex-start', 
+              alignItems: 'center', 
+              display: 'inline-flex',
+              position: 'relative',
+              zIndex: 10
+            }}
+          >
+            <div 
+              data-layer="Text container" 
+              className="TextContainer" 
+              style={{
+                flex: '1 1 0', 
+                paddingTop: 20, 
+                paddingBottom: 20, 
+                paddingRight: 16, 
+                overflow: 'hidden', 
+                justifyContent: 'flex-start', 
+                alignItems: 'center', 
+                gap: 10, 
+                display: 'flex',
+                cursor: 'pointer'
+              }}
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            >
+              <div 
+                data-layer="Label" 
+                className="Label" 
+                style={{
+                  justifyContent: 'center', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  color: 'black', 
+                  fontSize: 16, 
+                  fontFamily: 'Inter', 
+                  fontWeight: '500', 
+                  wordWrap: 'break-word'
+                }}
+              >
+                {loadingFolders ? 'Загрузка...' : getFolderDisplayName(selectedFolder)}
+              </div>
             </div>
-            <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-              <div data-svg-wrapper data-layer="Chewron down" className="ChewronDown" style={{left: 31, top: 32, position: 'absolute'}}>
+            <div 
+              data-layer="Open button" 
+              className="OpenButton" 
+              style={{
+                width: 85, 
+                height: 85, 
+                position: 'relative', 
+                background: '#FBF9F9', 
+                overflow: 'hidden',
+                cursor: 'pointer'
+              }}
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            >
+              <div 
+                data-svg-wrapper 
+                data-layer="Chewron down" 
+                className="ChewronDown" 
+                style={{
+                  left: 31, 
+                  top: 32, 
+                  position: 'absolute',
+                  transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s'
+                }}
+              >
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M18.5 7.5L11 15.5L3.5 7.5" stroke="black" strokeWidth="2"/>
                 </svg>
               </div>
             </div>
+            {isDropdownOpen && folders.length > 0 && (
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  background: 'white',
+                  border: '1px #F8E8E8 solid',
+                  borderTop: 'none',
+                  zIndex: 1000,
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                }}
+              >
+                {folders.map((folder) => (
+                  <div
+                    key={folder.code}
+                    onClick={() => handleFolderSelect(folder)}
+                    style={{
+                      padding: '20px',
+                      cursor: 'pointer',
+                      background: selectedFolder?.code === folder.code ? '#FBF9F9' : 'white',
+                      borderBottom: '1px #F8E8E8 solid',
+                      color: 'black',
+                      fontSize: 16,
+                      fontFamily: 'Inter',
+                      fontWeight: selectedFolder?.code === folder.code ? '600' : '500',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (selectedFolder?.code !== folder.code) {
+                        e.currentTarget.style.backgroundColor = '#FBF9F9';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selectedFolder?.code !== folder.code) {
+                        e.currentTarget.style.backgroundColor = 'white';
+                      }
+                    }}
+                  >
+                    {getFolderDisplayName(folder)}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div data-layer="Table of applications" className="TableOfApplications" style={{alignSelf: 'stretch', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
             <div data-layer="Header" data-state="not_pressed" className="Header" style={{alignSelf: 'stretch', position: 'relative', background: '#F6F6F6', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 16, display: 'inline-flex'}}>
@@ -171,17 +547,46 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
                   <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Статус</div>
                 </div>
               </div>
-              <div data-layer="Refresh button" className="RefreshButton" onClick={loadApplications} style={{width: 85, height: 85, left: 1342, top: 0, position: 'absolute', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}}>
-                <div data-svg-wrapper data-layer="refresh" className="Refresh" style={{left: 31, top: 32, position: 'absolute'}}>
+              <div 
+                data-layer="Refresh button" 
+                className="RefreshButton" 
+                onClick={handleRefresh}
+                style={{
+                  width: 85, 
+                  height: 85, 
+                  left: 1342, 
+                  top: 0, 
+                  position: 'absolute', 
+                  background: loadingApplications ? '#E0E0E0' : '#FBF9F9', 
+                  overflow: 'hidden', 
+                  cursor: loadingApplications ? 'wait' : 'pointer',
+                  opacity: loadingApplications ? 0.7 : 1,
+                  transition: 'all 0.2s'
+                }}
+              >
+                <div 
+                  data-svg-wrapper 
+                  data-layer="refresh" 
+                  className={`Refresh ${loadingApplications ? 'rotating' : ''}`}
+                  style={{
+                    left: 31, 
+                    top: 32, 
+                    position: 'absolute'
+                  }}
+                >
                   <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M16.1746 5.82067C14.8454 4.4915 13.0213 3.6665 10.9954 3.6665C6.94376 3.6665 3.67126 6.94817 3.67126 10.9998C3.67126 15.0515 6.94376 18.3332 10.9954 18.3332C14.4146 18.3332 17.2654 15.9957 18.0813 12.8332H16.1746C15.4229 14.969 13.3879 16.4998 10.9954 16.4998C7.96126 16.4998 5.49543 14.034 5.49543 10.9998C5.49543 7.96567 7.96126 5.49984 10.9954 5.49984C12.5171 5.49984 13.8738 6.13234 14.8638 7.1315L11.9121 10.0832H18.3288V3.6665L16.1746 5.82067Z" fill="black"/>
                   </svg>
                 </div>
               </div>
             </div>
-            {applications.length === 0 ? (
+            {loadingApplications ? (
               <div style={{alignSelf: 'stretch', padding: 40, textAlign: 'center', color: '#6B6D80', fontSize: 16, fontFamily: 'Inter'}}>
-                Заявок пока нет. Создайте новую заявку, нажав кнопку "+"
+                Загрузка заявлений...
+              </div>
+            ) : applications.length === 0 ? (
+              <div style={{alignSelf: 'stretch', padding: 40, textAlign: 'center', color: '#6B6D80', fontSize: 16, fontFamily: 'Inter'}}>
+                Заявлений пока нет. Создайте новое заявление, нажав кнопку "+"
               </div>
             ) : (
               applications.map((app, index) => (
@@ -214,7 +619,7 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
                       </div>
                     </div>
                     <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{formatApplicationId(app.applicationId)}</div>
+                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.number || formatApplicationId(app.applicationId)}</div>
                     </div>
                     <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
                       <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.policyholderIin || DASH}</div>
@@ -262,6 +667,7 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
