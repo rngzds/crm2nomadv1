@@ -269,8 +269,8 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
         // ВАЖНО: Список заявок всегда берется из API, данные из localStorage - только дополнение
         const transformedApps = data.statements.map(statement => {
           try {
-            // В Statement/List id равен taskId!
-            const statementTaskId = statement.id;
+            // В Statement/List taskId может быть отдельным полем, а id не всегда равен taskId
+            const statementTaskId = statement.taskId || statement.task_id || statement.id;
             const statementTaskStatusName = statement.taskStatusName || statement.task_status_name || null;
             const statementTaskStatusCode = statement.taskStatusCode || statement.task_status_code || null;
             
