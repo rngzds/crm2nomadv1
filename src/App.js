@@ -44,6 +44,11 @@ function App() {
     };
   };
 
+  // Проверяет, нужно ли получать taskId через API (если taskId отсутствует или равен processInstanceId)
+  const isTaskIdMissingOrProcessId = (taskId, processInstanceId) => {
+    return !taskId || taskId === processInstanceId;
+  };
+
   // Функция для получения статуса при создании новой заявки (повторяет запросы до получения taskId)
   const waitForTaskId = useCallback(
     async (processInstanceId, token, maxRetries = 10, delay = 1000) => {
@@ -86,8 +91,28 @@ function App() {
 
         // Загружаем метаданные, чтобы получить taskId и folderType
         const existingMetadata = loadApplicationMetadata(appId) || {};
-        const taskId = existingMetadata.taskId;
         const folderType = existingMetadata.folderType || 'Statement'; // По умолчанию Statement
+
+        let metadataUpdate = {
+          ...existingMetadata,
+          applicationId: appId,
+          folderType
+        };
+
+        let statusData = null;
+        let taskId = metadataUpdate.taskId || null;
+
+        // Если taskId отсутствует или равен processInstanceId, получаем его через API
+        if (isTaskIdMissingOrProcessId(taskId, appId)) {
+          try {
+            statusData = await getStatementStatus(appId, token);
+            if (statusData?.taskId) {
+              taskId = statusData.taskId;
+            }
+          } catch (error) {
+            console.error('Не удалось получить статус процесса при обновлении:', error);
+          }
+        }
 
         if (!taskId) {
           const fallback = extractProcessStateFromMetadata(existingMetadata);
@@ -100,20 +125,34 @@ function App() {
         // can-claim-task вызываем ТОЛЬКО для папки "Задачи" (Task), не для "Заявления" (Statement)
         let canClaimInfo = null;
         if (folderType === 'Task') {
-          // Для задач вызываем can-claim-task
-          canClaimInfo = await getTaskClaimAvailability(taskId, token);
+          try {
+            canClaimInfo = await getTaskClaimAvailability(taskId, token);
+          } catch (error) {
+            console.error('Не удалось получить canClaim при обновлении:', error);
+          }
         } else {
           // Для заявлений (Statement) не вызываем can-claim-task, считаем что canClaim = false (задача уже наша)
           canClaimInfo = { canClaim: false };
         }
 
-        const metadataUpdate = {
-          ...existingMetadata,
-          applicationId: appId,
-          taskId: taskId, // Явно сохраняем taskId
-          folderType: folderType, // Сохраняем тип папки
+        metadataUpdate = {
+          ...metadataUpdate,
+          taskId,
           canClaim: canClaimInfo?.canClaim ?? existingMetadata.canClaim ?? false
         };
+
+        // Если получили данные из API, обновляем статусы
+        if (statusData) {
+          metadataUpdate = {
+            ...metadataUpdate,
+            statusCode: statusData.statusCode ?? metadataUpdate.statusCode,
+            statusName: statusData.statusName ?? metadataUpdate.statusName,
+            taskStatusCode: statusData.taskStatusCode ?? metadataUpdate.taskStatusCode,
+            taskStatusName: statusData.taskStatusName ?? metadataUpdate.taskStatusName,
+            status: (statusData.statusName ?? metadataUpdate.status) || 'Черновик',
+            processId: statusData.processInstanceId || metadataUpdate.processId || appId
+          };
+        }
 
         saveApplicationMetadata(appId, metadataUpdate);
         const updatedProcessState = extractProcessStateFromMetadata(metadataUpdate);
@@ -329,6 +368,37 @@ function App() {
       const taskStatusCodeFromList = applicationData?.taskStatusCode || applicationData?.originalData?.taskStatusCode || null;
       const folderType = applicationData?.folderType || 'Statement'; // Тип папки: Statement или Task
       
+      let statusData = null;
+      let canClaimInfo = null;
+      let resolvedTaskId = taskIdFromList;
+
+      // Если taskId отсутствует или равен processInstanceId, получаем его через API
+      if (isTaskIdMissingOrProcessId(resolvedTaskId, processInstanceId)) {
+        try {
+          const token = getAccessToken();
+          if (token) {
+            statusData = await getStatementStatus(processInstanceId, token);
+            if (statusData?.taskId) {
+              resolvedTaskId = statusData.taskId;
+            }
+            if (folderType === 'Task' && resolvedTaskId) {
+              canClaimInfo = await getTaskClaimAvailability(resolvedTaskId, token);
+            }
+          }
+        } catch (error) {
+          console.error('Не удалось получить статус заявки при открытии:', error);
+        }
+      } else if (folderType === 'Task' && resolvedTaskId) {
+        try {
+          const token = getAccessToken();
+          if (token) {
+            canClaimInfo = await getTaskClaimAvailability(resolvedTaskId, token);
+          }
+        } catch (error) {
+          console.error('Не удалось получить canClaim при открытии:', error);
+        }
+      }
+      
       // Сохраняем метаданные и по taskId (applicationId из списка), и по processId
       const metadataToSave = {
         applicationId: processInstanceId, // Используем processId как основной ID
@@ -341,7 +411,8 @@ function App() {
         processName: applicationData.processName,
         processId: processInstanceId, // Сохраняем processId для использования в API
         folderType: folderType, // Сохраняем тип папки
-        taskId: taskIdFromList || applicationId // Сохраняем taskId (applicationId из списка)
+        taskId: resolvedTaskId || applicationId, // Сохраняем актуальный taskId
+        canClaim: canClaimInfo?.canClaim ?? false
       };
 
       if (taskStatusNameFromList) {
@@ -350,6 +421,14 @@ function App() {
 
       if (taskStatusCodeFromList) {
         metadataToSave.taskStatusCode = taskStatusCodeFromList;
+      }
+
+      // Если получили данные из API, обновляем статусы
+      if (statusData) {
+        metadataToSave.statusCode = statusData.statusCode ?? metadataToSave.statusCode;
+        metadataToSave.statusName = statusData.statusName ?? metadataToSave.statusName;
+        metadataToSave.taskStatusCode = statusData.taskStatusCode ?? metadataToSave.taskStatusCode;
+        metadataToSave.taskStatusName = statusData.taskStatusName ?? metadataToSave.taskStatusName;
       }
 
       // Сохраняем метаданные по processId (основной ID для данных)

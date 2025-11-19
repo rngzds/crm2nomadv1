@@ -425,6 +425,11 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
       await sendTaskDecision({ taskId: currentTaskId, decision: true, reasonId: null });
       await refreshProcessState();
       alert('Задача отправлена на согласование');
+      
+      // Возвращаемся к списку заявлений после успешной отправки
+      if (onBack) {
+        onBack();
+      }
     } catch (error) {
       console.error('Ошибка отправки задачи:', error);
       setProcessError(error.message || 'Не удалось отправить задачу');
@@ -474,6 +479,11 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
       handleCloseReasonsModal();
       await refreshProcessState();
       alert('Задача отклонена');
+      
+      // Возвращаемся к списку заявлений после успешного отклонения
+      if (onBack) {
+        onBack();
+      }
     } catch (error) {
       console.error('Ошибка при отклонении задачи:', error);
       setProcessError(error.message || 'Не удалось отклонить задачу');
