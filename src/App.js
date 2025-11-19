@@ -1,18 +1,135 @@
 import './App.css';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Authorization from './Authorization';
 import Statements from './Statements';
 import Products from './Products';
 import GonsApplication from './senim/application/Application';
 import SenimApplication from './pensan/application/Application';
-import { clearAllData, setCurrentApplicationId, saveApplicationMetadata, loadApplicationMetadata, getAccessToken } from './services/storageService';
+import {
+  clearAllData,
+  setCurrentApplicationId,
+  saveApplicationMetadata,
+  loadApplicationMetadata,
+  getAccessToken
+} from './services/storageService';
+import {
+  startStatementProcess,
+  getStatementStatus,
+  getTaskClaimAvailability
+} from './services/processService';
 
 function App() {
   const [currentView, setCurrentView] = useState('auth');
+
+  // Прокрутка наверх при изменении view
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentView]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [currentApplicationId, setCurrentApplicationIdState] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isCreatingApplication, setIsCreatingApplication] = useState(false);
+  const [processState, setProcessState] = useState(null);
+
+  const extractProcessStateFromMetadata = (metadata) => {
+    if (!metadata) return null;
+    return {
+      processId: metadata.processId || metadata.applicationId || null,
+      taskId: metadata.taskId || null,
+      statusCode: metadata.statusCode || null,
+      statusName: metadata.statusName || metadata.status || null,
+      taskStatusCode: metadata.taskStatusCode || null,
+      taskStatusName: metadata.taskStatusName || null,
+      canClaim: Boolean(metadata.canClaim)
+    };
+  };
+
+  // Функция для получения статуса при создании новой заявки (повторяет запросы до получения taskId)
+  const waitForTaskId = useCallback(
+    async (processInstanceId, token, maxRetries = 10, delay = 1000) => {
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const statusData = await getStatementStatus(processInstanceId, token);
+          
+          if (statusData?.taskId) {
+            return statusData;
+          }
+          
+          // Если taskId еще нет, ждем перед следующей попыткой
+          if (attempt < maxRetries - 1) {
+            const waitTime = delay * Math.pow(1.5, attempt); // Экспоненциальная задержка
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+          }
+        } catch (error) {
+          console.error(`Ошибка при попытке ${attempt + 1} получения статуса:`, error);
+          if (attempt < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, delay * Math.pow(1.5, attempt)));
+          }
+        }
+      }
+      return null;
+    },
+    []
+  );
+
+  // Функция для обновления статуса существующей заявки (использует только can-claim-task)
+  const refreshProcessState = useCallback(
+    async (targetApplicationId) => {
+      const appId = targetApplicationId || currentApplicationId;
+      if (!appId) return null;
+
+      try {
+        const token = getAccessToken();
+        if (!token) {
+          throw new Error('Токен авторизации не найден');
+        }
+
+        // Загружаем метаданные, чтобы получить taskId и folderType
+        const existingMetadata = loadApplicationMetadata(appId) || {};
+        const taskId = existingMetadata.taskId;
+        const folderType = existingMetadata.folderType || 'Statement'; // По умолчанию Statement
+
+        if (!taskId) {
+          const fallback = extractProcessStateFromMetadata(existingMetadata);
+          if (fallback) {
+            setProcessState(fallback);
+          }
+          return fallback;
+        }
+
+        // can-claim-task вызываем ТОЛЬКО для папки "Задачи" (Task), не для "Заявления" (Statement)
+        let canClaimInfo = null;
+        if (folderType === 'Task') {
+          // Для задач вызываем can-claim-task
+          canClaimInfo = await getTaskClaimAvailability(taskId, token);
+        } else {
+          // Для заявлений (Statement) не вызываем can-claim-task, считаем что canClaim = false (задача уже наша)
+          canClaimInfo = { canClaim: false };
+        }
+
+        const metadataUpdate = {
+          ...existingMetadata,
+          applicationId: appId,
+          taskId: taskId, // Явно сохраняем taskId
+          folderType: folderType, // Сохраняем тип папки
+          canClaim: canClaimInfo?.canClaim ?? existingMetadata.canClaim ?? false
+        };
+
+        saveApplicationMetadata(appId, metadataUpdate);
+        const updatedProcessState = extractProcessStateFromMetadata(metadataUpdate);
+        setProcessState(updatedProcessState);
+        return updatedProcessState;
+      } catch (error) {
+        console.error('Ошибка обновления состояния процесса:', error);
+        const fallback = extractProcessStateFromMetadata(loadApplicationMetadata(appId));
+        if (fallback) {
+          setProcessState(fallback);
+        }
+        return fallback;
+      }
+    },
+    [currentApplicationId]
+  );
 
   const handleLogin = () => {
     setCurrentView('main');
@@ -24,6 +141,7 @@ function App() {
     setCurrentView('auth');
     setSelectedProduct(null);
     setCurrentApplicationIdState(null);
+    setProcessState(null);
   };
 
   const handleCreateApplication = () => {
@@ -44,30 +162,14 @@ function App() {
         throw new Error('Токен авторизации не найден');
       }
 
-      console.log('Создаем заявку для продукта:', product);
-      
       // Вызываем API для создания заявки
-      const response = await fetch('https://crm-process.onrender.com/api/Statement/start', {
-        method: 'POST',
-        mode: 'cors',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+      const result = await startStatementProcess(
+        {
           productCode: product.code,
           operationType: 'New'
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Ошибка создания заявки:', response.status, errorText);
-        throw new Error(`Ошибка создания заявки: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('Заявка создана, processId:', result.processId);
+        },
+        token
+      );
       
       if (!result.processId) {
         throw new Error('processId не получен от сервера');
@@ -158,6 +260,37 @@ function App() {
         processId: result.processId,
         number: applicationNumber // Сохраняем номер заявки
       });
+
+      // При создании новой заявки: повторно запрашиваем GetStatus до получения taskId
+      const statusData = await waitForTaskId(result.processId, token);
+
+      // Получаем canClaim для новой задачи
+      let canClaimInfo = null;
+      if (statusData?.taskId) {
+        canClaimInfo = await getTaskClaimAvailability(statusData.taskId, token);
+      }
+
+      // Обновляем метаданные с полученными данными
+      const metadataUpdate = {
+        applicationId: applicationId,
+        product: mappedProductName,
+        productCode: product.code,
+        createdAt: new Date().toISOString(),
+        policyholderIin: '',
+        status: statusData?.statusName || 'Черновик',
+        processId: result.processId,
+        number: applicationNumber,
+        statusCode: statusData?.statusCode || null,
+        statusName: statusData?.statusName || null,
+        taskStatusCode: statusData?.taskStatusCode || null,
+        taskStatusName: statusData?.taskStatusName || null,
+        taskId: statusData?.taskId || null,
+        canClaim: canClaimInfo?.canClaim ?? false
+      };
+
+      saveApplicationMetadata(applicationId, metadataUpdate);
+      const processState = extractProcessStateFromMetadata(metadataUpdate);
+      setProcessState(processState);
       
       // Переходим к заявлению
       setCurrentView('application');
@@ -172,10 +305,12 @@ function App() {
   const handleOpenApplication = async (applicationId, applicationData) => {
     if (!applicationId) return;
     
-    console.log('Открываем заявку:', applicationId, applicationData);
-    
     // Определяем продукт по processName из данных заявки
     let product = null;
+    // processInstanceId - это основной ID для работы с данными (processId)
+    // applicationId из списка - это taskId, но данные сохраняются по processId
+    let processInstanceId = applicationId;
+    
     if (applicationData) {
       // Маппинг processName на название продукта
       if (applicationData.processName === 'Сеним') {
@@ -187,28 +322,65 @@ function App() {
         product = applicationData.processName || 'Сенiм';
       }
       
-      // Сохраняем метаданные заявки
-      saveApplicationMetadata(applicationId, {
-        applicationId: applicationId,
+      // processInstanceId может быть в applicationData или равен applicationId
+      processInstanceId = applicationData.processInstanceId || applicationId;
+      const taskIdFromList = applicationData?.taskId || applicationData?.originalData?.taskId || null;
+      const taskStatusNameFromList = applicationData?.taskStatusName || applicationData?.originalData?.taskStatusName || null;
+      const taskStatusCodeFromList = applicationData?.taskStatusCode || applicationData?.originalData?.taskStatusCode || null;
+      const folderType = applicationData?.folderType || 'Statement'; // Тип папки: Statement или Task
+      
+      // Сохраняем метаданные и по taskId (applicationId из списка), и по processId
+      const metadataToSave = {
+        applicationId: processInstanceId, // Используем processId как основной ID
         product: product,
         createdAt: applicationData.createdAt || new Date().toISOString(),
         policyholderIin: applicationData.policyholderIin || '',
         status: applicationData.status || 'Черновик',
         number: applicationData.number,
         processCode: applicationData.processCode,
-        processName: applicationData.processName
-      });
+        processName: applicationData.processName,
+        processId: processInstanceId, // Сохраняем processId для использования в API
+        folderType: folderType, // Сохраняем тип папки
+        taskId: taskIdFromList || applicationId // Сохраняем taskId (applicationId из списка)
+      };
+
+      if (taskStatusNameFromList) {
+        metadataToSave.taskStatusName = taskStatusNameFromList;
+      }
+
+      if (taskStatusCodeFromList) {
+        metadataToSave.taskStatusCode = taskStatusCodeFromList;
+      }
+
+      // Сохраняем метаданные по processId (основной ID для данных)
+      saveApplicationMetadata(processInstanceId, metadataToSave);
+      
+      // Также сохраняем метаданные по taskId для быстрого доступа
+      if (applicationId !== processInstanceId) {
+        saveApplicationMetadata(applicationId, {
+          ...metadataToSave,
+          applicationId: applicationId,
+          processId: processInstanceId
+        });
+      }
     } else {
       // Если данных нет, загружаем из localStorage
       const metadata = loadApplicationMetadata(applicationId);
       if (metadata) {
         product = metadata.product;
+        // Если есть processId, используем его
+        if (metadata.processId) {
+          processInstanceId = metadata.processId;
+        }
       }
     }
     
-    setCurrentApplicationId(applicationId);
-    setCurrentApplicationIdState(applicationId);
+    // Используем processId для работы с данными заявки
+    setCurrentApplicationId(processInstanceId);
+    setCurrentApplicationIdState(processInstanceId);
     setSelectedProduct(product || 'Сенiм'); // По умолчанию Сенiм
+
+    await refreshProcessState(processInstanceId);
     setCurrentView('application');
   };
 
@@ -216,13 +388,22 @@ function App() {
     setCurrentView('main');
     setSelectedProduct(null);
     setCurrentApplicationIdState(null);
+    setProcessState(null);
     // Принудительно обновляем список заявлений при возврате
     setRefreshKey(prev => prev + 1);
   };
 
   const getApplicationComponent = () => {
     if (selectedProduct === 'Сенiм') {
-      return <GonsApplication selectedProduct={selectedProduct} applicationId={currentApplicationId} onBack={handleBackToMain} />;
+      return (
+        <GonsApplication
+          selectedProduct={selectedProduct}
+          applicationId={currentApplicationId}
+          onBack={handleBackToMain}
+          processState={processState}
+          onProcessStateRefresh={refreshProcessState}
+        />
+      );
     } else if (selectedProduct === 'ГОНС' || selectedProduct === 'Пенсионный Аннуитет') {
       return <SenimApplication selectedProduct={selectedProduct} applicationId={currentApplicationId} onBack={handleBackToMain} />;
     }

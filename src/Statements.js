@@ -1,13 +1,35 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { getAllApplications, getAccessToken, loadApplicationMetadata } from './services/storageService';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { getAllApplications, getAccessToken, loadApplicationMetadata, saveApplicationMetadata, loadApplicationDataByNumber } from './services/storageService';
+
+const PROCESS_TYPES = ['Все', 'Оформление', 'Изменение', 'Расторжение', 'Выплаты'];
+const PRODUCTS = ['Все', 'Сенiм'];
+const STATUSES = ['Все', 'Новая заявка', 'Отклонено', 'Подписаное'];
 
 const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
   const [applications, setApplications] = useState([]);
+  const [filteredApplications, setFilteredApplications] = useState([]);
   const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [loadingFolders, setLoadingFolders] = useState(false);
   const [loadingApplications, setLoadingApplications] = useState(false);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
+  const [selectedProcessType, setSelectedProcessType] = useState('Все');
+  const [selectedProduct, setSelectedProduct] = useState('Все');
+  const [selectedStatus, setSelectedStatus] = useState('Все');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isProcessTypeDropdownOpen, setIsProcessTypeDropdownOpen] = useState(false);
+  const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const filterPanelRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  const closeAllDropdowns = () => {
+    setIsProcessTypeDropdownOpen(false);
+    setIsProductDropdownOpen(false);
+    setIsStatusDropdownOpen(false);
+  };
 
   // Загружаем список папок при монтировании
   useEffect(() => {
@@ -40,6 +62,37 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isDropdownOpen]);
+
+  useEffect(() => {
+    if (applications.length) {
+      setFilteredApplications(applications);
+    } else {
+      setFilteredApplications([]);
+    }
+  }, [applications]);
+
+  useEffect(() => {
+    const handleClickOutsideFilters = (event) => {
+      if (!isFilterPanelOpen) return;
+      const isInsidePanel = filterPanelRef.current && filterPanelRef.current.contains(event.target);
+      const isFilterButton = event.target?.closest?.('.FilterButton');
+      if (!isInsidePanel && !isFilterButton) {
+        setIsFilterPanelOpen(false);
+        closeAllDropdowns();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutsideFilters);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutsideFilters);
+    };
+  }, [isFilterPanelOpen]);
+
+  useEffect(() => {
+    if (isSearchPanelOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchPanelOpen]);
 
   // Загружаем папки из API с кэшированием
   const loadFolders = async (forceRefresh = false) => {
@@ -215,10 +268,65 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
         // Оптимизация: загружаем все метаданные одним батчем
         // Преобразуем формат данных из API в формат, который ожидает компонент
         const transformedApps = data.statements.map(statement => {
+          // В Statement/List id равен taskId!
+          const statementTaskId = statement.id;
+          const statementTaskStatusName = statement.taskStatusName || statement.task_status_name || null;
+          const statementTaskStatusCode = statement.taskStatusCode || statement.task_status_code || null;
+          
           // Загружаем метаданные заявки для получения актуального ИИН
           const metadata = loadApplicationMetadata(statement.id);
-          // Используем ИИН из метаданных, если он есть, иначе из API
-          const policyholderIin = metadata?.policyholderIin || statement.insurerIIN || '';
+          
+          // ПРИОРИТЕТ: Проверяем данные по номеру заявки (номер постоянный, ID могут меняться)
+          let policyholderIin = '';
+          const applicationNumber = statement.number || metadata?.number;
+          if (applicationNumber) {
+            const dataByNumber = loadApplicationDataByNumber(applicationNumber);
+            if (dataByNumber?.policyholder?.iin) {
+              policyholderIin = dataByNumber.policyholder.iin;
+            }
+          }
+          
+          // Если не нашли по номеру, используем ИИН из метаданных или API
+          if (!policyholderIin) {
+            policyholderIin = metadata?.policyholderIin || statement.insurerIIN || '';
+          }
+          
+          // Обновляем метаданные с найденным ИИН, если он есть
+          if (policyholderIin && metadata?.policyholderIin !== policyholderIin) {
+            metadata.policyholderIin = policyholderIin;
+          }
+          
+          // Обновляем метаданные свежими данными по задаче и статусу
+          const folderType = selectedFolder?.code || 'Statement';
+          const metadataToPersist = {
+            ...(metadata || {}),
+            applicationId: statement.id,
+            product: metadata?.product || statement.processName || '',
+            processId: metadata?.processId || statement.processInstanceId || statement.id,
+            processName: statement.processName || metadata?.processName,
+            processCode: statement.processCode || metadata?.processCode,
+            status: statement.statusName || metadata?.status || 'Черновик',
+            statusName: statement.statusName || metadata?.statusName,
+            statusCode: statement.statusCode || metadata?.statusCode,
+            taskId: statementTaskId, // id = taskId!
+            taskStatusName: statementTaskStatusName || metadata?.taskStatusName,
+            taskStatusCode: statementTaskStatusCode || metadata?.taskStatusCode,
+            folderType: folderType, // Сохраняем тип папки
+            number: statement.number || metadata?.number || null, // Сохраняем номер заявки!
+            policyholderIin: policyholderIin // Сохраняем найденный ИИН
+          };
+          saveApplicationMetadata(statement.id, metadataToPersist);
+          
+          // Также сохраняем метаданные по processId, если он отличается от taskId
+          const processId = statement.processInstanceId || statement.id;
+          if (processId !== statement.id) {
+            const processMetadata = {
+              ...metadataToPersist,
+              applicationId: processId,
+              processId: processId
+            };
+            saveApplicationMetadata(processId, processMetadata);
+          }
           
           return {
             applicationId: statement.id,
@@ -229,6 +337,10 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
             status: statement.statusName || 'Черновик',
             processCode: statement.processCode,
             processName: statement.processName,
+            processInstanceId: statement.processInstanceId || statement.id, // Важно: processId для загрузки данных
+            taskId: statementTaskId, // id = taskId!
+            taskStatusName: statementTaskStatusName,
+            taskStatusCode: statementTaskStatusCode,
             userFullName: statement.userFullName,
             // Сохраняем оригинальные данные для возможного использования
             originalData: statement
@@ -283,8 +395,9 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
     // Находим полные данные заявки
     const application = applications.find(app => app.applicationId === applicationId);
     if (onOpenApplication) {
-      // Передаем ID и полные данные заявки
-      onOpenApplication(applicationId, application);
+      // Передаем ID, полные данные заявки и тип папки (Statement или Task)
+      const folderType = selectedFolder?.code || 'Statement';
+      onOpenApplication(applicationId, { ...application, folderType });
     }
   };
 
@@ -301,6 +414,123 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
       onLogout();
     }
   };
+
+  const toggleFilterPanel = () => {
+    setIsFilterPanelOpen((prev) => !prev);
+    closeAllDropdowns();
+  };
+
+  const toggleSearchPanel = () => {
+    setIsSearchPanelOpen((prev) => {
+      if (prev) {
+        setSearchQuery('');
+        return false;
+      }
+      return true;
+    });
+  };
+
+  const handleSearchInputChange = (event) => {
+    setSearchQuery(event.target.value);
+  };
+
+  const handleSearchClear = () => {
+    setSearchQuery('');
+    if (!isSearchPanelOpen) {
+      setIsSearchPanelOpen(true);
+    }
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  };
+
+  const handleSearchClose = () => {
+    setSearchQuery('');
+    setIsSearchPanelOpen(false);
+  };
+
+  const handleProcessTypeSelect = (value) => {
+    setSelectedProcessType(value);
+    setIsProcessTypeDropdownOpen(false);
+  };
+
+  const handleProductSelect = (value) => {
+    setSelectedProduct(value);
+    setIsProductDropdownOpen(false);
+  };
+
+  const handleStatusSelect = (value) => {
+    setSelectedStatus(value);
+    setIsStatusDropdownOpen(false);
+  };
+
+  const applyFilters = () => {
+    if (!applications.length) {
+      return [];
+    }
+
+    return applications.filter((app) => {
+      const processMatch =
+        selectedProcessType === 'Все' ||
+        (app.processName || '').toLowerCase() === selectedProcessType.toLowerCase();
+      const productMatch =
+        selectedProduct === 'Все' ||
+        (app.product || '').toLowerCase() === selectedProduct.toLowerCase();
+      const statusMatch =
+        selectedStatus === 'Все' ||
+        (app.status || '').toLowerCase() === selectedStatus.toLowerCase();
+
+      return processMatch && productMatch && statusMatch;
+    });
+  };
+
+  const handleApplyFilters = () => {
+    setFilteredApplications(applyFilters());
+    setIsFilterPanelOpen(false);
+    closeAllDropdowns();
+  };
+
+  const handleResetFilters = () => {
+    setSelectedProcessType('Все');
+    setSelectedProduct('Все');
+    setSelectedStatus('Все');
+    closeAllDropdowns();
+    setFilteredApplications(applications);
+  };
+
+  const handleCloseFilters = () => {
+    setIsFilterPanelOpen(false);
+    closeAllDropdowns();
+  };
+
+  const isAnyFilterSelected =
+    selectedProcessType !== 'Все' ||
+    selectedProduct !== 'Все' ||
+    selectedStatus !== 'Все';
+
+  const applySearch = (apps) => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return apps;
+
+    return apps.filter((app) => {
+      const fields = [
+        app.number,
+        app.policyholderIin,
+        app.processName,
+        app.status,
+      ];
+
+      return fields.some((value) => {
+        if (!value) return false;
+        return String(value).toLowerCase().includes(query);
+      });
+    });
+  };
+
+  const baseApplications =
+    filteredApplications.length || isAnyFilterSelected ? filteredApplications : applications;
+
+  const displayedApplications = applySearch(baseApplications);
 
   return (
     <>
@@ -323,6 +553,7 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
           <div data-layer="Menu button" className="MenuButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
             <div data-layer="360" style={{left: 27, top: 33, position: 'absolute', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>360</div>
           </div>
+          {/* Filter panel renders inside ApplicationSection */}
           <button
             data-layer="Increase button" 
             className="IncreaseButton" 
@@ -352,14 +583,40 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
               </svg>
             </div>
           </button>
-          <div data-layer="Filter button" className="FilterButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
+          <div
+            data-layer="Filter button"
+            className="FilterButton"
+            style={{
+              width: 85,
+              height: 85,
+              position: 'relative',
+              background: isFilterPanelOpen || isAnyFilterSelected ? '#EDEDED' : '#FBF9F9',
+              overflow: 'hidden',
+              borderBottom: '1px #F8E8E8 solid',
+              cursor: 'pointer'
+            }}
+            onClick={toggleFilterPanel}
+          >
             <div data-svg-wrapper data-layer="filter" className="Filter" style={{left: 31.50, top: 31.50, position: 'absolute'}}>
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M3.5768 2.80361C3.56788 2.80919 3.53999 2.817 3.51544 2.82146C3.43957 2.83485 3.30903 2.9018 3.23762 2.96539C3.09927 3.08701 3.01782 3.25102 3.0022 3.44181C2.9877 3.61475 3.0446 3.78434 3.18183 3.97513C3.21642 4.022 3.27556 4.10456 3.31461 4.16035C3.35366 4.21502 3.40387 4.28531 3.42618 4.31655C3.4485 4.34667 3.52102 4.45044 3.58796 4.54528C3.65491 4.64011 3.72743 4.74276 3.74974 4.774C3.82338 4.87442 3.98963 5.10761 4.01752 5.14889C4.04207 5.18571 4.20385 5.41555 4.29645 5.54386C4.34332 5.60857 4.38014 5.6599 4.5832 5.94553C4.66576 6.06156 4.75391 6.18764 4.77957 6.22446C4.80523 6.26128 4.84763 6.32153 4.87441 6.35835C4.90118 6.39517 4.9804 6.50563 5.04958 6.60381C5.11987 6.70199 5.18904 6.80018 5.20466 6.82249C5.22028 6.84481 5.26268 6.90394 5.29839 6.95415C5.33297 7.00324 5.39099 7.08469 5.4267 7.1349C5.46128 7.18511 5.51819 7.26433 5.55166 7.3123C5.71009 7.53768 5.7603 7.60797 5.79266 7.65037C5.81163 7.67603 5.86406 7.74967 5.90869 7.81438C5.95332 7.8791 6.00911 7.95608 6.03143 7.98732C6.05486 8.01745 6.09391 8.07324 6.11957 8.11005C6.16531 8.17588 6.20771 8.23502 6.4554 8.58424C6.60491 8.794 6.6819 8.90334 6.79347 9.06066C6.87269 9.17335 7.05456 9.42885 7.21076 9.64754C7.25539 9.71002 7.30448 9.7792 7.31898 9.80151C7.33461 9.82383 7.41159 9.93205 7.48969 10.0414C7.56779 10.1519 7.64143 10.2534 7.65147 10.269C7.74631 10.404 7.81549 10.5011 7.98396 10.7376C8.09107 10.8871 8.18703 11.021 8.19595 11.0355C8.20488 11.0489 8.27517 11.1482 8.35216 11.2564C8.42914 11.3647 8.52175 11.5019 8.55968 11.561C8.66345 11.7262 8.74266 11.9437 8.77948 12.1591C8.78729 12.2037 8.79287 13.3429 8.79734 15.4516L8.80515 18.6761L8.82858 18.7386C8.87432 18.8613 8.91226 18.9204 8.99817 19.0041C9.13875 19.1436 9.28714 19.2049 9.47682 19.2061C9.57612 19.2061 9.60625 19.2016 9.69439 19.1715C9.7948 19.1391 9.99787 19.0632 10.1318 19.0108C10.1686 18.9963 10.3069 18.9427 10.4386 18.8925C10.8983 18.7185 11.1973 18.6047 11.4427 18.5098C11.532 18.4764 11.7574 18.3893 11.9448 18.319C12.1323 18.2476 12.3577 18.1617 12.4469 18.1271C12.5362 18.0925 12.6489 18.0502 12.698 18.0323C12.8441 17.9799 12.9244 17.9363 13.0003 17.8649C13.0762 17.7935 13.1431 17.6864 13.1788 17.5771C13.1989 17.5191 13.2 17.3952 13.2067 14.8714C13.2112 13.1766 13.2179 12.2015 13.2246 12.1546C13.248 12.0073 13.2848 11.8812 13.3417 11.7552C13.3585 11.7172 13.373 11.6815 13.373 11.6771C13.373 11.6603 13.5269 11.4305 13.7188 11.1605C13.7523 11.1136 13.8204 11.0177 13.8695 10.9485C13.9186 10.8793 13.9788 10.7934 14.0034 10.7588C14.0737 10.6595 14.2254 10.4475 14.2432 10.4219C14.2522 10.4085 14.3314 10.2969 14.4184 10.1742C14.5054 10.0514 14.5869 9.9354 14.6003 9.91755C14.6137 9.89858 14.6427 9.85841 14.665 9.82717C14.6873 9.79593 14.7252 9.74349 14.7487 9.71002C14.7721 9.67655 14.8469 9.57279 14.9149 9.47795C14.9819 9.38311 15.0611 9.27154 15.0901 9.23137C15.1448 9.15104 15.2987 8.93458 15.3534 8.85871C15.3969 8.79735 15.5487 8.58313 15.6268 8.47267C15.6602 8.42469 15.7428 8.30866 15.8097 8.21382C15.8767 8.1201 15.9548 8.01075 15.9827 7.97059C16.0117 7.93042 16.0507 7.87575 16.0708 7.84786C16.0909 7.81996 16.1188 7.7798 16.1344 7.7586C16.169 7.70839 16.2081 7.6526 16.3565 7.44396C16.4234 7.35024 16.5093 7.23085 16.5461 7.17841C16.5829 7.12597 16.6276 7.06349 16.6454 7.03895C16.6633 7.0144 16.7525 6.88832 16.8429 6.76001C17.1252 6.3617 17.1486 6.32934 17.1888 6.27355C17.21 6.24454 17.3004 6.11623 17.3896 5.99016C17.4789 5.86408 17.5815 5.71903 17.6183 5.66771C17.6552 5.61638 17.7043 5.54721 17.7277 5.51485C17.7511 5.48138 17.8381 5.35865 17.9207 5.24261C18.0044 5.12546 18.0892 5.00496 18.1115 4.97484C18.1327 4.94359 18.1818 4.8733 18.222 4.81863C18.261 4.76285 18.3023 4.70594 18.3135 4.69032C18.3413 4.64904 18.6359 4.23399 18.6738 4.18266C18.6917 4.15812 18.7319 4.1001 18.7642 4.05435C18.7955 4.00861 18.8323 3.95728 18.8457 3.94166C18.8948 3.88253 18.974 3.70401 18.9907 3.6181C19.0108 3.50764 18.9974 3.34251 18.9595 3.23763C18.926 3.14837 18.839 3.02564 18.7642 2.96539C18.7352 2.94196 18.7028 2.91407 18.6928 2.90514C18.6738 2.88841 18.5611 2.84489 18.4529 2.81142C18.4005 2.79469 17.7199 2.79357 10.9942 2.79357C6.92401 2.79357 3.58573 2.79803 3.5768 2.80361Z" fill="black"/>
               </svg>
             </div>
           </div>
-          <div data-layer="Search button" className="SearchButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
+          <div
+            data-layer="Search button"
+            className="SearchButton"
+            style={{
+              width: 85,
+              height: 85,
+              position: 'relative',
+              background: isSearchPanelOpen || searchQuery ? '#EDEDED' : '#FBF9F9',
+              overflow: 'hidden',
+              borderBottom: '1px #F8E8E8 solid',
+              cursor: 'pointer'
+            }}
+            onClick={toggleSearchPanel}
+          >
             <div data-svg-wrapper data-layer="Search" className="Search" style={{left: 31, top: 32, position: 'absolute'}}>
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M19.25 19.25L13.7501 13.75M15.5833 9.16667C15.5833 12.7105 12.7105 15.5833 9.16667 15.5833C5.62284 15.5833 2.75 12.7105 2.75 9.16667C2.75 5.62284 5.62284 2.75 9.16667 2.75C12.7105 2.75 15.5833 5.62284 15.5833 9.16667Z" stroke="black" strokeWidth="1.83333" strokeLinejoin="round"/>
@@ -515,11 +772,247 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
               </div>
             )}
           </div>
+          {isSearchPanelOpen && (
+            <div
+              data-layer="Search panel"
+              data-state="pressed"
+              className="SearchPanel"
+              style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}
+            >
+              <div
+                data-layer="Text container"
+                className="TextContainer"
+                style={{
+                  flex: '1 1 0',
+                  paddingTop: 20,
+                  paddingBottom: 20,
+                  paddingRight: 16,
+                  overflow: 'hidden',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-start',
+                  alignItems: 'flex-start',
+                  gap: 10,
+                  display: 'flex'
+                }}
+              >
+                <div
+                  data-layer="Label"
+                  className="Label"
+                  style={{
+                    justifyContent: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    color: '#6B6D80',
+                    fontSize: 14,
+                    fontFamily: 'Inter',
+                    fontWeight: '500',
+                    wordWrap: 'break-word'
+                  }}
+                >
+                  Поиск
+                </div>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={handleSearchInputChange}
+                  placeholder="Введите номер, ИИН или статус"
+                  style={{
+                    width: '100%',
+                    border: 'none',
+                    outline: 'none',
+                    background: 'transparent',
+                    color: '#071222',
+                    fontSize: 16,
+                    fontFamily: 'Inter',
+                    fontWeight: '500',
+                    padding: 0,
+                    margin: 0
+                  }}
+                />
+              </div>
+              <div data-layer="Button container" className="ButtonContainer" style={{justifyContent: 'flex-start', alignItems: 'center', display: 'flex'}}>
+                <div
+                  data-layer="Clean button"
+                  className="CleanButton"
+                  style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderRight: '1px #F8E8E8 solid', cursor: 'pointer'}}
+                  onClick={handleSearchClear}
+                >
+                  <div data-svg-wrapper data-layer="keyboard" className="Keyboard" style={{left: 31, top: 32, position: 'absolute'}}>
+                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.8753 6.08464V9.7513H5.80283L9.08449 6.46047L7.79199 5.16797L2.29199 10.668L7.79199 16.168L9.08449 14.8755L5.80283 11.5846H19.7087V6.08464H17.8753Z" fill="black"/>
+                    </svg>
+                  </div>
+                </div>
+                <div
+                  data-layer="Close button"
+                  className="CloseButton"
+                  style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}}
+                  onClick={handleSearchClose}
+                >
+                  <div data-svg-wrapper data-layer="Close" className="Close" style={{left: 31, top: 32, position: 'absolute'}}>
+                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clipPath="url(#clip0_search_panel)">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M5.34338 5.34315C5.7339 4.95262 6.05048 4.63604 6.05048 4.63604L11.0002 9.58579L15.95 4.63604C15.95 4.63604 16.2666 4.95262 16.6571 5.34315C17.0476 5.73367 17.3642 6.05025 17.3642 6.05025L12.4144 11L17.3642 15.9497C17.3642 15.9497 17.0476 16.2663 16.6571 16.6569C16.2666 17.0474 15.95 17.364 15.95 17.364L11.0002 12.4142L6.05051 17.3639C6.05051 17.3639 5.7339 17.0474 5.34338 16.6569C4.95285 16.2663 4.6363 15.9497 4.6363 15.9497L9.58602 11L4.63627 6.05025C4.63627 6.05025 4.95285 5.73367 5.34338 5.34315Z" fill="black"/>
+                    </g>
+                    <defs>
+                    <clipPath id="clip0_search_panel">
+                    <rect width="22" height="22" fill="white"/>
+                    </clipPath>
+                    </defs>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {isFilterPanelOpen && (
+            <div
+              ref={filterPanelRef}
+              data-layer="FilterSearchPanel"
+              className="Filtersearchpanel"
+              style={{alignSelf: 'stretch', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}
+            >
+              <div data-layer="Process type" data-state="dropdown_selected" className="ProcessType" style={{flex: '1 1 0', height: 85, paddingLeft: 20, background: 'white', overflow: 'visible', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex', position: 'relative'}}>
+                <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex', cursor: 'pointer'}} onClick={() => setIsProcessTypeDropdownOpen((prev) => !prev)}>
+                  <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Тип процесса</div>
+                  <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{selectedProcessType}</div>
+                </div>
+                <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderRight: '1px #F8E8E8 solid', cursor: 'pointer'}} onClick={() => setIsProcessTypeDropdownOpen((prev) => !prev)}>
+                  <div data-svg-wrapper data-layer="Chewron down" className="ChewronDown" style={{left: 31, top: 32, position: 'absolute'}}>
+                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18.5 7.5L11 15.5L3.5 7.5" stroke="black" strokeWidth="2"/>
+                    </svg>
+                  </div>
+                </div>
+                {isProcessTypeDropdownOpen && (
+                  <div style={{position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px #F8E8E8 solid', borderTop: 'none', zIndex: 20}}>
+                    {PROCESS_TYPES.map((type) => (
+                      <div
+                        key={type}
+                        onClick={() => handleProcessTypeSelect(type)}
+                        style={{
+                          padding: '20px',
+                          cursor: 'pointer',
+                          background: selectedProcessType === type ? '#FBF9F9' : 'white',
+                          borderBottom: '1px #F8E8E8 solid',
+                          color: 'black',
+                          fontSize: 16,
+                          fontFamily: 'Inter',
+                          fontWeight: selectedProcessType === type ? '600' : '500'
+                        }}
+                      >
+                        {type}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div data-layer="Products" data-state="dropdown_selected" className="Products" style={{flex: '1 1 0', height: 85, paddingLeft: 20, background: 'white', overflow: 'visible', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex', position: 'relative'}}>
+                <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex', cursor: 'pointer'}} onClick={() => setIsProductDropdownOpen((prev) => !prev)}>
+                  <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Продукты</div>
+                  <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{selectedProduct}</div>
+                </div>
+                <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', cursor: 'pointer'}} onClick={() => setIsProductDropdownOpen((prev) => !prev)}>
+                  <div data-svg-wrapper data-layer="Chewron down" className="ChewronDown" style={{left: 31, top: 32, position: 'absolute'}}>
+                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18.5 7.5L11 15.5L3.5 7.5" stroke="black" strokeWidth="2"/>
+                    </svg>
+                  </div>
+                </div>
+                {isProductDropdownOpen && (
+                  <div style={{position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px #F8E8E8 solid', borderTop: 'none', zIndex: 20}}>
+                    {PRODUCTS.map((product) => (
+                      <div
+                        key={product}
+                        onClick={() => handleProductSelect(product)}
+                        style={{
+                          padding: '20px',
+                          cursor: 'pointer',
+                          background: selectedProduct === product ? '#FBF9F9' : 'white',
+                          borderBottom: '1px #F8E8E8 solid',
+                          color: 'black',
+                          fontSize: 16,
+                          fontFamily: 'Inter',
+                          fontWeight: selectedProduct === product ? '600' : '500'
+                        }}
+                      >
+                        {product}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div data-layer="Status" data-state="dropdown_selected" className="Status" style={{flex: '1 1 0', height: 85, paddingLeft: 20, background: 'white', overflow: 'visible', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex', position: 'relative'}}>
+                <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex', cursor: 'pointer'}} onClick={() => setIsStatusDropdownOpen((prev) => !prev)}>
+                  <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Статус</div>
+                  <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{selectedStatus}</div>
+                </div>
+                <div data-layer="Open button" className="OpenButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderRight: '1px #F8E8E8 solid', cursor: 'pointer'}} onClick={() => setIsStatusDropdownOpen((prev) => !prev)}>
+                  <div data-svg-wrapper data-layer="Chewron down" className="ChewronDown" style={{left: 31, top: 32, position: 'absolute'}}>
+                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18.5 7.5L11 15.5L3.5 7.5" stroke="black" strokeWidth="2"/>
+                    </svg>
+                  </div>
+                </div>
+                {isStatusDropdownOpen && (
+                  <div style={{position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px #F8E8E8 solid', borderTop: 'none', zIndex: 20}}>
+                    {STATUSES.map((status) => (
+                      <div
+                        key={status}
+                        onClick={() => handleStatusSelect(status)}
+                        style={{
+                          padding: '20px',
+                          cursor: 'pointer',
+                          background: selectedStatus === status ? '#FBF9F9' : 'white',
+                          borderBottom: '1px #F8E8E8 solid',
+                          color: 'black',
+                          fontSize: 16,
+                          fontFamily: 'Inter',
+                          fontWeight: selectedStatus === status ? '600' : '500'
+                        }}
+                      >
+                        {status}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div data-layer="Сheck button" className="HeckButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderRight: '1px #F8E8E8 solid', borderBottom: '1px #F8E8E8 solid', cursor: 'pointer'}} onClick={handleApplyFilters}>
+                <div data-svg-wrapper data-layer="done" className="Done" style={{left: 32, top: 32, position: 'absolute'}}>
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8.06644 14.5741L4.21644 10.7241L2.93311 12.0074L8.06644 17.1408L19.0664 6.14076L17.7831 4.85742L8.06644 14.5741Z" fill="black"/>
+                  </svg>
+                </div>
+              </div>
+              <div data-layer="Reset button" className="ResetButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderRight: '1px #F8E8E8 solid', borderBottom: '1px #F8E8E8 solid', cursor: 'pointer'}} onClick={handleResetFilters}>
+                <div data-svg-wrapper data-layer="Cancel" className="Cancel" style={{left: 32, top: 32, position: 'absolute'}}>
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path fillRule="evenodd" clipRule="evenodd" d="M4.66441 4.37567C6.31042 2.80117 8.54218 1.83398 10.9998 1.83398C16.0624 1.83398 20.1665 5.93804 20.1665 11.0007C20.1665 12.9457 19.5607 14.7492 18.5275 16.2329C18.354 16.4821 18.1685 16.7222 17.9717 16.9525C17.9698 16.9546 17.968 16.9568 17.9661 16.959C17.767 17.1916 17.5564 17.4141 17.3353 17.6256C15.6893 19.2001 13.4575 20.1673 10.9998 20.1673C5.93723 20.1673 1.83317 16.0633 1.83317 11.0007C1.83317 9.05561 2.43896 7.25206 3.47216 5.76838C3.64566 5.51923 3.83121 5.2791 4.02797 5.04884C4.02983 5.04666 4.03169 5.04449 4.03355 5.04232C4.23268 4.80972 4.44326 4.58721 4.66441 4.37567ZM6.06634 5.57475C7.37034 4.38796 9.10022 3.66732 10.9998 3.66732C15.0499 3.66732 18.3332 6.95056 18.3332 11.0007C18.3332 12.4921 17.8895 13.8768 17.1257 15.0339L6.06634 5.57475ZM15.9333 16.4266L4.87399 6.96738C4.11017 8.12445 3.6665 9.50918 3.6665 11.0007C3.6665 15.0507 6.94975 18.334 10.9998 18.334C12.8995 18.334 14.6293 17.6133 15.9333 16.4266Z" fill="black"/>
+                  </svg>
+                </div>
+              </div>
+              <div data-layer="Close button" className="CloseButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderRight: '1px #F8E8E8 solid', borderBottom: '1px #F8E8E8 solid', cursor: 'pointer'}} onClick={handleCloseFilters}>
+                <div data-svg-wrapper data-layer="Close" className="Close" style={{left: 32, top: 32, position: 'absolute'}}>
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g clipPath="url(#clip0_845_6526)">
+                  <path fillRule="evenodd" clipRule="evenodd" d="M5.34338 5.34315C5.7339 4.95262 6.05048 4.63604 6.05048 4.63604L11.0002 9.58579L15.95 4.63604C15.95 4.63604 16.2666 4.95262 16.6571 5.34315C17.0476 5.73367 17.3642 6.05025 17.3642 6.05025L12.4144 11L17.3642 15.9497C17.3642 15.9497 17.0476 16.2663 16.6571 16.6569C16.2666 17.0474 15.95 17.364 15.95 17.364L11.0002 12.4142L6.05051 17.3639C6.05051 17.3639 5.7339 17.0474 5.34338 16.6569C4.95285 16.2663 4.6363 15.9497 4.6363 15.9497L9.58602 11L4.63627 6.05025C4.63627 6.05025 4.95285 5.73367 5.34338 5.34315Z" fill="black"/>
+                  </g>
+                  <defs>
+                  <clipPath id="clip0_845_6526">
+                  <rect width="22" height="22" fill="white"/>
+                  </clipPath>
+                  </defs>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          )}
           <div data-layer="Table of applications" className="TableOfApplications" style={{alignSelf: 'stretch', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
-            <div data-layer="Header" data-state="not_pressed" className="Header" style={{alignSelf: 'stretch', position: 'relative', background: '#F6F6F6', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 16, display: 'inline-flex'}}>
+            <div data-layer="Header" data-state="not_pressed" className="Header" style={{alignSelf: 'stretch', position: 'relative', paddingLeft: 20, background: '#F6F6F6', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 16, display: 'inline-flex'}}>
               <div data-layer="Container" className="Container" style={{flex: '1 1 0', justifyContent: 'flex-start', alignItems: 'center', gap: 20, display: 'flex'}}>
-                <div data-layer="Select button" className="SelectButton" style={{width: 85, height: 85, position: 'relative', overflow: 'hidden'}}>
-                  <div data-svg-wrapper data-layer="CheckButton" data-state="not_pressed" className="Checkbutton" style={{left: 32, top: 32, position: 'absolute'}}>
+                <div data-layer="Select button" className="SelectButton" style={{width: 85, minWidth: 85, height: 85, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                  <div data-svg-wrapper data-layer="CheckButton" data-state="not_pressed" className="Checkbutton" style={{position: 'relative'}}>
                     <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect x="1.75064" y="1.75" width="18.5" height="18.5" stroke="black" strokeWidth="1.5"/>
                     </svg>
@@ -584,12 +1077,12 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
               <div style={{alignSelf: 'stretch', padding: 40, textAlign: 'center', color: '#6B6D80', fontSize: 16, fontFamily: 'Inter'}}>
                 Загрузка заявлений...
               </div>
-            ) : applications.length === 0 ? (
+            ) : displayedApplications.length === 0 ? (
               <div style={{alignSelf: 'stretch', padding: 40, textAlign: 'center', color: '#6B6D80', fontSize: 16, fontFamily: 'Inter'}}>
                 Заявлений пока нет. Создайте новое заявление, нажав кнопку "+"
               </div>
             ) : (
-              applications.map((app, index) => (
+              displayedApplications.map((app) => (
                 <div 
                   key={app.applicationId} 
                   onClick={() => handleApplicationClick(app.applicationId)}
@@ -611,8 +1104,8 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
                 >
                   <div data-layer="Container" className="Container" style={{flex: '1 1 0', justifyContent: 'flex-start', alignItems: 'center', gap: 20, display: 'flex'}}>
-                    <div data-layer="Select button" className="SelectButton" style={{width: 85, height: 85, position: 'relative', overflow: 'hidden'}}>
-                      <div data-svg-wrapper data-layer="CheckButton" data-state="not_pressed" className="Checkbutton" style={{left: 32, top: 32, position: 'absolute'}}>
+                    <div data-layer="Select button" className="SelectButton" style={{width: 85, minWidth: 85, height: 85, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                      <div data-svg-wrapper data-layer="CheckButton" data-state="not_pressed" className="Checkbutton" style={{position: 'relative'}}>
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect x="1.75064" y="1.75" width="18.5" height="18.5" stroke="black" strokeWidth="1.5"/>
                         </svg>
@@ -655,7 +1148,7 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
             </div>
           </div>
           <div data-layer="Page" className="Page" style={{flex: '1 1 0', height: 85, paddingLeft: 20, paddingRight: 20, paddingTop: 33, paddingBottom: 33, background: '#FBF9F9', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
-            <div data-layer="Label" className="Label" style={{flex: '1 1 0', textAlign: 'center', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{applications.length} из {applications.length}</div>
+            <div data-layer="Label" className="Label" style={{flex: '1 1 0', textAlign: 'center', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{displayedApplications.length} из {displayedApplications.length}</div>
           </div>
           <div data-layer="Next page button" className="NextPageButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
             <div data-svg-wrapper data-layer="Chewron right" className="ChewronRight" style={{left: 31, top: 32, position: 'absolute'}}>
@@ -672,4 +1165,6 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
 };
 
 export default Statements;
+
+
 

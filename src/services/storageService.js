@@ -17,6 +17,7 @@ const STORAGE_KEYS = {
   INSURED_CURRENT_VIEW_HISTORY: 'insuredCurrentViewHistory',
   GLOBAL_APPLICATION_DATA: 'globalApplicationData',
   APPLICATION_METADATA: 'applicationMetadata',
+  APPLICATION_DATA_BY_NUMBER: 'applicationDataByNumber', // Данные заявки по номеру
   ACCESS_TOKEN: 'accessToken',
   REFRESH_TOKEN: 'refreshToken'
 };
@@ -39,7 +40,7 @@ export const generateApplicationId = () => {
  * @param {string} key - Базовый ключ
  * @returns {string} Ключ с префиксом
  */
-const getApplicationKey = (applicationId, key) => {
+export const getApplicationKey = (applicationId, key) => {
   if (!applicationId) {
     return key;
   }
@@ -827,5 +828,57 @@ export const clearTokens = () => {
   } catch (error) {
     console.error('Error clearing tokens:', error);
   }
+};
+
+/**
+ * Сохранить все данные заявки по номеру заявки
+ * @param {string} applicationNumber - Номер заявки
+ * @param {string} applicationId - ID заявки (processId)
+ * @param {Object} allData - Все данные заявки
+ */
+export const saveApplicationDataByNumber = (applicationNumber, applicationId, allData) => {
+  if (!applicationNumber || !applicationId) return;
+  
+  try {
+    const key = `${STORAGE_KEYS.APPLICATION_DATA_BY_NUMBER}_${applicationNumber}`;
+    const dataToSave = {
+      applicationNumber,
+      applicationId,
+      savedAt: new Date().toISOString(),
+      ...allData
+    };
+    localStorage.setItem(key, JSON.stringify(dataToSave));
+    console.log('💾 [APPLICATION DATA BY NUMBER] Сохранено для номера:', applicationNumber);
+  } catch (error) {
+    console.error('Error saving application data by number:', error);
+  }
+};
+
+/**
+ * Загрузить все данные заявки по номеру заявки
+ * @param {string} applicationNumber - Номер заявки
+ * @returns {Object|null} Все данные заявки или null
+ */
+export const loadApplicationDataByNumber = (applicationNumber) => {
+  if (!applicationNumber) return null;
+  
+  try {
+    const key = `${STORAGE_KEYS.APPLICATION_DATA_BY_NUMBER}_${applicationNumber}`;
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.error('Error loading application data by number:', error);
+    return null;
+  }
+};
+
+/**
+ * Получить applicationId по номеру заявки
+ * @param {string} applicationNumber - Номер заявки
+ * @returns {string|null} ID заявки или null
+ */
+export const getApplicationIdByNumber = (applicationNumber) => {
+  const data = loadApplicationDataByNumber(applicationNumber);
+  return data?.applicationId || null;
 };
 
