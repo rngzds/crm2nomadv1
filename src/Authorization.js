@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { saveAccessToken, saveRefreshToken, getAccessToken, getRefreshToken } from './services/storageService';
 
 const Authorization = ({ onLogin }) => {
@@ -6,6 +6,10 @@ const Authorization = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isLoginFocused, setIsLoginFocused] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const loginInputRef = useRef(null);
+  const passwordInputRef = useRef(null);
 
   // Функция для загрузки папок и списка заявлений после входа
   const loadStatementsAfterLogin = async (accessToken) => {
@@ -182,8 +186,11 @@ const Authorization = ({ onLogin }) => {
     }
   };
 
+  const isLoginActive = isLoginFocused || login.length > 0;
+  const isPasswordActive = isPasswordFocused || password.length > 0;
+
   return (
-    <div data-layer="Authorization" className="Authorization" style={{width: 1512, height: 1436, position: 'relative', background: 'white', display: 'flex', justifyContent: 'center', alignItems: 'center'}}>
+    <div data-layer="Authorization" className="Authorization" style={{width: '100%', height: '100vh', position: 'relative', background: 'white', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'}}>
       <div data-layer="Container" className="Container" style={{width: 460, flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', gap: 60, display: 'inline-flex'}}>
         <div data-layer="Name CRM" className="NameCrm" style={{width: 315, flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', gap: 24, display: 'flex'}}>
           <div data-layer="Title" className="Title" style={{alignSelf: 'stretch', textAlign: 'center', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '600', wordWrap: 'break-word'}}>Client360</div>
@@ -195,10 +202,45 @@ const Authorization = ({ onLogin }) => {
           style={{alignSelf: 'stretch', background: '#FFFCFC', outline: '1px #F8E8E8 solid', outlineOffset: '-1px', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', display: 'flex'}}
           onSubmit={handleSubmit}
         >
-          <div data-layer="InputPhoneNumber" data-state="pressed" className="Inputphonenumber" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
-            <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-              <div data-layer="LabelDefault" className="Labeldefault" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Логин</div>
+          <div data-layer="InputPhoneNumber" data-state={isLoginActive ? 'pressed' : 'not_pressed'} className="Inputphonenumber" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
+            <div
+              data-layer="Text field container"
+              className="TextFieldContainer"
+              style={{
+                flex: '1 1 0',
+                height: 85,
+                paddingTop: 20,
+                paddingBottom: 20,
+                paddingRight: 16,
+                overflow: 'hidden',
+                flexDirection: 'column',
+                justifyContent: isLoginActive ? 'flex-start' : 'center',
+                alignItems: 'flex-start',
+                gap: isLoginActive ? 10 : 0,
+                display: 'inline-flex',
+                cursor: 'text'
+              }}
+              onClick={() => loginInputRef.current?.focus()}
+            >
+              <div
+                data-layer="LabelDefault"
+                className="Labeldefault"
+                style={{
+                  justifyContent: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  color: isLoginActive ? '#6B6D80' : 'black',
+                  fontSize: isLoginActive ? 14 : 16,
+                  fontFamily: 'Inter',
+                  fontWeight: '500',
+                  wordWrap: 'break-word',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Логин
+              </div>
               <input
+                ref={loginInputRef}
                 type="text"
                 value={login}
                 onChange={(e) => {
@@ -206,6 +248,12 @@ const Authorization = ({ onLogin }) => {
                   setError('');
                 }}
                 onKeyPress={handleKeyPress}
+                onFocus={() => {
+                  setIsLoginFocused(true);
+                }}
+                onBlur={() => {
+                  setIsLoginFocused(false);
+                }}
                 placeholder=""
                 disabled={loading}
                 autoComplete="username"
@@ -219,15 +267,54 @@ const Authorization = ({ onLogin }) => {
                   fontFamily: 'Inter',
                   fontWeight: '500',
                   padding: 0,
-                  margin: 0
+                  margin: 0,
+                  opacity: isLoginActive ? 1 : 0,
+                  maxHeight: isLoginActive ? 40 : 0,
+                  pointerEvents: isLoginActive ? 'auto' : 'none',
+                  transition: 'all 0.2s ease'
                 }}
               />
             </div>
           </div>
-          <div data-layer="InputPassword" data-state="pressed" className="Inputpassword" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
-            <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-              <div data-layer="LabelDefault" className="Labeldefault" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Пароль</div>
+          <div data-layer="InputPassword" data-state={isPasswordActive ? 'pressed' : 'not_pressed'} className="Inputpassword" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
+            <div
+              data-layer="Text field container"
+              className="TextFieldContainer"
+              style={{
+                flex: '1 1 0',
+                height: 85,
+                paddingTop: 20,
+                paddingBottom: 20,
+                paddingRight: 16,
+                overflow: 'hidden',
+                flexDirection: 'column',
+                justifyContent: isPasswordActive ? 'flex-start' : 'center',
+                alignItems: 'flex-start',
+                gap: isPasswordActive ? 10 : 0,
+                display: 'inline-flex',
+                cursor: 'text'
+              }}
+              onClick={() => passwordInputRef.current?.focus()}
+            >
+              <div
+                data-layer="LabelDefault"
+                className="Labeldefault"
+                style={{
+                  justifyContent: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  color: isPasswordActive ? '#6B6D80' : 'black',
+                  fontSize: isPasswordActive ? 14 : 16,
+                  fontFamily: 'Inter',
+                  fontWeight: '500',
+                  wordWrap: 'break-word',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Пароль
+              </div>
               <input
+                ref={passwordInputRef}
                 type="password"
                 value={password}
                 onChange={(e) => {
@@ -235,6 +322,8 @@ const Authorization = ({ onLogin }) => {
                   setError('');
                 }}
                 onKeyPress={handleKeyPress}
+                onFocus={() => setIsPasswordFocused(true)}
+                onBlur={() => setIsPasswordFocused(false)}
                 placeholder=""
                 disabled={loading}
                 autoComplete="current-password"
@@ -248,7 +337,11 @@ const Authorization = ({ onLogin }) => {
                   fontFamily: 'Inter',
                   fontWeight: '500',
                   padding: 0,
-                  margin: 0
+                  margin: 0,
+                  opacity: isPasswordActive ? 1 : 0,
+                  maxHeight: isPasswordActive ? 40 : 0,
+                  pointerEvents: isPasswordActive ? 'auto' : 'none',
+                  transition: 'all 0.2s ease'
                 }}
               />
             </div>
@@ -269,7 +362,7 @@ const Authorization = ({ onLogin }) => {
           <button
             type="submit"
             data-layer="LoginButton" 
-            data-state="pressed" 
+            data-state="not_pressed" 
             className="Loginbutton" 
             disabled={loading}
             style={{

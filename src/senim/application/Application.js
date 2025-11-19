@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Policyholder from './Policyholder';
 import Insured from './Insured/Insured';
 import Beneficiary from './Beneficiary';
 import Terms from './Terms';
 import Questionary from './Questionary';
 import History from './History';
-import { loadApplicationHistory, loadApplicationBeneficiary, loadApplicationMetadata, saveApplicationMetadata, loadGlobalApplicationData, loadPolicyholderData, loadInsuredData, updateGlobalApplicationSection, getAccessToken, saveGlobalApplicationData } from '../../services/storageService';
+import { loadApplicationHistory, loadApplicationBeneficiary, loadApplicationMetadata, saveApplicationMetadata, loadGlobalApplicationData, loadPolicyholderData, loadInsuredData, updateGlobalApplicationSection, getAccessToken, saveApplicationDataByNumber, loadApplicationDataByNumber, getApplicationKey } from '../../services/storageService';
+import { claimTask, sendTaskDecision, getRejectReasons } from '../../services/processService';
 
-const Application = ({ selectedProduct, applicationId, onBack }) => {
+const Application = ({ selectedProduct, applicationId, onBack, processState, onProcessStateRefresh }) => {
   const [currentView, setCurrentView] = useState('main');
   const [policyholderData, setPolicyholderData] = useState(null);
   const [insuredData, setInsuredData] = useState(null);
@@ -16,89 +17,15 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
   const [historyData, setHistoryData] = useState(null);
   const [beneficiaryData, setBeneficiaryData] = useState(null);
   const [applicationNumber, setApplicationNumber] = useState(null);
-
-  // Функция для загрузки данных заявки из API
-  const loadApplicationFromAPI = async () => {
-    if (!applicationId) return;
-    
-    try {
-      const token = getAccessToken();
-      if (!token) {
-        console.log('Токен не найден, пропускаем загрузку из API');
-        return;
-      }
-
-      console.log('Загружаем данные заявки из API:', applicationId);
-      
-      // Пытаемся загрузить данные заявки из API
-      // Обычно используется endpoint типа /api/Statement/{id} или /api/Statement/Get/{id}
-      const response = await fetch(`https://crm-arm.onrender.com/api/Statement/${applicationId}`, {
-        method: 'GET',
-        mode: 'cors',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const apiData = await response.json();
-        console.log('Данные заявки получены из API:', apiData);
-        
-        // Обновляем номер заявления, если он есть в данных API
-        if (apiData.number) {
-          setApplicationNumber(apiData.number);
-          // Обновляем метаданные с номером
-          const existingMetadata = loadApplicationMetadata(applicationId) || {};
-          saveApplicationMetadata(applicationId, {
-            ...existingMetadata,
-            number: apiData.number
-          });
-        }
-        
-        // Преобразуем данные из API в формат приложения
-        // Предполагаем, что API возвращает структуру с данными заявки
-        if (apiData) {
-          // Сохраняем данные в глобальное хранилище
-          const globalData = {
-            Policyholder: apiData.policyholder || apiData.policyholderData || null,
-            Insured: apiData.insured || apiData.insuredData || null,
-            Terms: apiData.terms || apiData.termsData || null,
-            Questionary: apiData.questionary || apiData.questionaryData || null,
-            Beneficiary: apiData.beneficiary || apiData.beneficiaryData || null,
-            History: apiData.history || apiData.historyData || null,
-          };
-          
-          saveGlobalApplicationData(globalData, applicationId);
-          
-          // Обновляем локальные состояния
-          if (globalData.Policyholder) {
-            setPolicyholderData(globalData.Policyholder);
-          }
-          if (globalData.Insured) {
-            setInsuredData(globalData.Insured);
-          }
-          if (globalData.Terms) {
-            setTermsData(globalData.Terms);
-          }
-          if (globalData.Questionary) {
-            setQuestionaryData(globalData.Questionary);
-          }
-          if (globalData.Beneficiary) {
-            setBeneficiaryData(globalData.Beneficiary);
-          }
-          if (globalData.History) {
-            setHistoryData(globalData.History);
-          }
-        }
-      } else {
-        console.log('Заявка не найдена в API или нет доступа, используем локальные данные');
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки данных заявки из API:', error);
-      // Продолжаем с локальными данными
-    }
-  };
+  const [isClaimingTask, setIsClaimingTask] = useState(false);
+  const [isSendingTask, setIsSendingTask] = useState(false);
+  const [isRejectingTask, setIsRejectingTask] = useState(false);
+  const [reasons, setReasons] = useState([]);
+  const [selectedReasonId, setSelectedReasonId] = useState(null);
+  const [isReasonsModalOpen, setIsReasonsModalOpen] = useState(false);
+  const [reasonsLoading, setReasonsLoading] = useState(false);
+  const [processError, setProcessError] = useState(null);
+  const processStateRequestedRef = useRef(false);
 
   // Загружаем данные истории и выгодоприобретателя при монтировании
   useEffect(() => {
@@ -118,6 +45,33 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
           // Загружаем номер заявления из метаданных
           if (existingMetadata.number) {
             setApplicationNumber(existingMetadata.number);
+            
+            // ПРИОРИТЕТ: Загружаем данные по номеру заявки (номер постоянный, ID могут меняться)
+            const dataByNumber = loadApplicationDataByNumber(existingMetadata.number);
+            if (dataByNumber) {
+              // Если данные найдены по номеру, используем их (независимо от applicationId)
+              if (dataByNumber.policyholder) {
+                updateGlobalApplicationSection('Policyholder', dataByNumber.policyholder, applicationId);
+              }
+              if (dataByNumber.insured) {
+                updateGlobalApplicationSection('Insured', dataByNumber.insured, applicationId);
+              }
+              if (dataByNumber.beneficiary) {
+                // Сохраняем данные выгодоприобретателя
+                const beneficiaryKey = getApplicationKey(applicationId, 'applicationBeneficiary');
+                localStorage.setItem(beneficiaryKey, JSON.stringify(dataByNumber.beneficiary));
+              }
+              if (dataByNumber.history) {
+                const historyKey = getApplicationKey(applicationId, 'applicationHistory');
+                localStorage.setItem(historyKey, JSON.stringify(dataByNumber.history));
+              }
+              if (dataByNumber.terms) {
+                updateGlobalApplicationSection('Terms', dataByNumber.terms, applicationId);
+              }
+              if (dataByNumber.questionary) {
+                updateGlobalApplicationSection('Questionary', dataByNumber.questionary, applicationId);
+              }
+            }
           }
           
           if (selectedProduct && existingMetadata.product !== selectedProduct) {
@@ -130,11 +84,32 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
         }
 
         // Загружаем локальные данные синхронно (быстро, без await)
-        const globalData = loadGlobalApplicationData(applicationId);
-        const loadedHistory = loadApplicationHistory(applicationId);
-        const loadedBeneficiary = loadApplicationBeneficiary(applicationId);
-        const loadedPolicyholder = globalData?.Policyholder || loadPolicyholderData(applicationId);
-        const loadedInsured = globalData?.Insured || loadInsuredData(applicationId);
+        // ПРИОРИТЕТ: Если данные уже загружены по номеру заявки выше, используем их
+        // Иначе пытаемся загрузить по applicationId, затем по processId
+        const processId = existingMetadata?.processId;
+        let globalData = loadGlobalApplicationData(applicationId);
+        let loadedHistory = loadApplicationHistory(applicationId);
+        let loadedBeneficiary = loadApplicationBeneficiary(applicationId);
+        let loadedPolicyholder = globalData?.Policyholder || loadPolicyholderData(applicationId);
+        let loadedInsured = globalData?.Insured || loadInsuredData(applicationId);
+        
+        // Если данных нет и processId отличается от applicationId, пытаемся загрузить по processId
+        if (processId && processId !== applicationId) {
+          if (!globalData || !globalData.Policyholder) {
+            const processGlobalData = loadGlobalApplicationData(processId);
+            if (processGlobalData) {
+              globalData = processGlobalData;
+              loadedPolicyholder = processGlobalData.Policyholder || loadPolicyholderData(processId);
+              loadedInsured = processGlobalData.Insured || loadInsuredData(processId);
+            }
+          }
+          if (!loadedHistory) {
+            loadedHistory = loadApplicationHistory(processId);
+          }
+          if (!loadedBeneficiary) {
+            loadedBeneficiary = loadApplicationBeneficiary(processId);
+          }
+        }
 
         // Устанавливаем данные из localStorage сразу
         if (loadedHistory) {
@@ -146,7 +121,11 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
         if (loadedBeneficiary) {
           setBeneficiaryData(loadedBeneficiary);
         } else {
-          setBeneficiaryData({ name: '', residencyType: '' });
+          // Устанавливаем значения по умолчанию для выгодоприобретателя
+          setBeneficiaryData({ 
+            name: 'Madanes Advanced Healthcare Services Ltd.', 
+            residencyType: 'не резидент' 
+          });
         }
         
         if (loadedPolicyholder && (loadedPolicyholder.iin || loadedPolicyholder.name || loadedPolicyholder.surname)) {
@@ -158,14 +137,72 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
           setInsuredData(loadedInsured);
         }
 
-        // Загружаем данные из API асинхронно (может быть медленнее)
-        loadApplicationFromAPI();
       };
 
       loadData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId, selectedProduct]);
+
+  useEffect(() => {
+    if (!processState && applicationId && onProcessStateRefresh && !processStateRequestedRef.current) {
+      processStateRequestedRef.current = true;
+      onProcessStateRefresh(applicationId);
+    }
+  }, [applicationId, onProcessStateRefresh, processState]);
+
+  useEffect(() => {
+    processStateRequestedRef.current = false;
+  }, [applicationId]);
+
+  // Функция для сбора всех данных заявки
+  const collectAllApplicationData = useCallback(() => {
+    const globalData = loadGlobalApplicationData(applicationId);
+    const metadata = loadApplicationMetadata(applicationId);
+    
+    return {
+      metadata: metadata || {},
+      policyholder: globalData?.Policyholder || policyholderData || null,
+      insured: globalData?.Insured || insuredData || null,
+      beneficiary: beneficiaryData || null,
+      history: historyData || null,
+      terms: termsData || null,
+      questionary: questionaryData || null,
+      processState: processState || null,
+      applicationId: applicationId // Сохраняем applicationId для связи
+    };
+  }, [applicationId, policyholderData, insuredData, beneficiaryData, historyData, termsData, questionaryData, processState]);
+  
+  // Функция для сохранения данных по номеру заявки
+  const saveDataByNumber = useCallback(() => {
+    if (!applicationNumber) {
+      // Пытаемся получить номер из метаданных
+      const metadata = loadApplicationMetadata(applicationId);
+      if (metadata?.number) {
+        const allData = collectAllApplicationData();
+        saveApplicationDataByNumber(metadata.number, applicationId, allData);
+      }
+    } else {
+      const allData = collectAllApplicationData();
+      saveApplicationDataByNumber(applicationNumber, applicationId, allData);
+    }
+  }, [applicationNumber, applicationId, collectAllApplicationData]);
+
+  // Автоматическое сохранение всех данных по номеру заявки при любых изменениях
+  useEffect(() => {
+    if (applicationId) {
+      // Небольшая задержка, чтобы избежать сохранения во время начальной загрузки
+      const timer = setTimeout(() => {
+        saveDataByNumber();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [applicationId, saveDataByNumber]);
+
+  // Прокрутка наверх при изменении view
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentView]);
 
   const handleBackToMain = () => {
     setCurrentView('main');
@@ -208,6 +245,25 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
   const handleOpenTerms = () => setCurrentView('terms');
   const handleOpenQuestionary = () => setCurrentView('questionary');
   const handleViewFullHistory = () => setCurrentView('history');
+
+  // Порядок разделов для навигации
+  const sections = ['history', 'policyholder', 'insured', 'beneficiary', 'terms', 'questionary'];
+  
+  // Навигация к следующему разделу
+  const handleNextSection = (currentSection) => {
+    const currentIndex = sections.indexOf(currentSection);
+    if (currentIndex < sections.length - 1) {
+      setCurrentView(sections[currentIndex + 1]);
+    }
+  };
+  
+  // Навигация к предыдущему разделу
+  const handlePreviousSection = (currentSection) => {
+    const currentIndex = sections.indexOf(currentSection);
+    if (currentIndex > 0) {
+      setCurrentView(sections[currentIndex - 1]);
+    }
+  };
 
   // Функция для сохранения данных заявки в API
   const saveApplicationToAPI = async (section, data) => {
@@ -259,6 +315,9 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
       updateGlobalApplicationSection('Insured', data, applicationId);
       // Сохраняем в API
       saveApplicationToAPI('Insured', data);
+      
+      // Сохраняем все данные по номеру заявки
+      saveDataByNumber();
     }
   };
 
@@ -280,6 +339,9 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
       
       // Сохраняем в API
       saveApplicationToAPI('Policyholder', data);
+      
+      // Сохраняем все данные по номеру заявки
+      saveDataByNumber();
     }
   };
 
@@ -290,6 +352,9 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
       updateGlobalApplicationSection('Terms', data, applicationId);
       // Сохраняем в API
       saveApplicationToAPI('Terms', data);
+      
+      // Сохраняем все данные по номеру заявки
+      saveDataByNumber();
     }
   };
 
@@ -300,6 +365,9 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
       updateGlobalApplicationSection('Questionary', data, applicationId);
       // Сохраняем в API
       saveApplicationToAPI('Questionary', data);
+      
+      // Сохраняем все данные по номеру заявки
+      saveDataByNumber();
     }
   };
 
@@ -316,33 +384,132 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
     return null;
   };
 
+  const currentTaskId = processState?.taskId || null;
+  const canClaimTaskNow = Boolean(processState?.canClaim && currentTaskId);
+  // Кнопки должны быть активны, если taskId есть и canClaim = false (задача уже наша)
+  // isDecisionDisabled = true только если нет taskId, идет отправка/отклонение, ИЛИ задача еще не взята (canClaim = true)
+  const isDecisionDisabled = !currentTaskId || isSendingTask || isRejectingTask || canClaimTaskNow;
+  
+
+  const refreshProcessState = async () => {
+    if (onProcessStateRefresh && applicationId) {
+      await onProcessStateRefresh(applicationId);
+    }
+  };
+
+  const handleClaimTask = async () => {
+    if (!currentTaskId) return;
+    try {
+      setProcessError(null);
+      setIsClaimingTask(true);
+      await claimTask(currentTaskId);
+      await refreshProcessState();
+    } catch (error) {
+      console.error('Ошибка при взятии задачи:', error);
+      setProcessError(error.message || 'Не удалось взять задачу');
+      alert(error.message || 'Не удалось взять задачу');
+    } finally {
+      setIsClaimingTask(false);
+    }
+  };
+
+  const handleSendForApproval = async () => {
+    if (isDecisionDisabled) return;
+    try {
+      setProcessError(null);
+      setIsSendingTask(true);
+      
+      // Сохраняем все данные по номеру заявки перед отправкой
+      saveDataByNumber();
+      
+      await sendTaskDecision({ taskId: currentTaskId, decision: true, reasonId: null });
+      await refreshProcessState();
+      alert('Задача отправлена на согласование');
+    } catch (error) {
+      console.error('Ошибка отправки задачи:', error);
+      setProcessError(error.message || 'Не удалось отправить задачу');
+      alert(error.message || 'Не удалось отправить задачу');
+    } finally {
+      setIsSendingTask(false);
+    }
+  };
+
+  const handleRejectClick = async () => {
+    if (isDecisionDisabled) return;
+    try {
+      setProcessError(null);
+      setReasonsLoading(true);
+      const reasonsResponse = await getRejectReasons(currentTaskId);
+      setReasons(Array.isArray(reasonsResponse) ? reasonsResponse : []);
+      setSelectedReasonId(reasonsResponse?.[0]?.id || null);
+      setIsReasonsModalOpen(true);
+    } catch (error) {
+      console.error('Ошибка загрузки причин отказа:', error);
+      setProcessError(error.message || 'Не удалось загрузить причины отказа');
+      alert(error.message || 'Не удалось загрузить причины отказа');
+    } finally {
+      setReasonsLoading(false);
+    }
+  };
+
+  const handleCloseReasonsModal = () => {
+    setIsReasonsModalOpen(false);
+    setSelectedReasonId(null);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!selectedReasonId || !currentTaskId) {
+      alert('Выберите причину отказа');
+      return;
+    }
+
+    try {
+      setProcessError(null);
+      setIsRejectingTask(true);
+      
+      // Сохраняем все данные по номеру заявки перед отклонением
+      saveDataByNumber();
+      
+      await sendTaskDecision({ taskId: currentTaskId, decision: false, reasonId: selectedReasonId });
+      handleCloseReasonsModal();
+      await refreshProcessState();
+      alert('Задача отклонена');
+    } catch (error) {
+      console.error('Ошибка при отклонении задачи:', error);
+      setProcessError(error.message || 'Не удалось отклонить задачу');
+      alert(error.message || 'Не удалось отклонить задачу');
+    } finally {
+      setIsRejectingTask(false);
+    }
+  };
+
   if (currentView === 'history') {
-    return <History onBack={handleBackToMain} applicationId={applicationId} />;
+    return <History onBack={handleBackToMain} onNext={() => handleNextSection('history')} onPrevious={() => handlePreviousSection('history')} applicationId={applicationId} />;
   }
 
   if (currentView === 'policyholder') {
-    return <Policyholder onBack={handleBackToMain} onSave={handlePolicyholderSave} applicationId={applicationId} />;
+    return <Policyholder onBack={handleBackToMain} onSave={handlePolicyholderSave} onNext={() => handleNextSection('policyholder')} onPrevious={() => handlePreviousSection('policyholder')} applicationId={applicationId} />;
   }
 
   if (currentView === 'insured') {
-    return <Insured onBack={handleBackToMain} policyholderData={policyholderData} onSave={handleInsuredSave} applicationId={applicationId} savedInsuredData={insuredData} />;
+    return <Insured onBack={handleBackToMain} policyholderData={policyholderData} onSave={handleInsuredSave} onNext={() => handleNextSection('insured')} onPrevious={() => handlePreviousSection('insured')} applicationId={applicationId} savedInsuredData={insuredData} />;
   }
 
   if (currentView === 'beneficiary') {
-    return <Beneficiary onBack={handleBackToMain} applicationId={applicationId} />;
+    return <Beneficiary onBack={handleBackToMain} onNext={() => handleNextSection('beneficiary')} onPrevious={() => handlePreviousSection('beneficiary')} applicationId={applicationId} />;
   }
 
   if (currentView === 'terms') {
-    return <Terms onBack={handleBackToMain} onSave={handleTermsSave} applicationId={applicationId} />;
+    return <Terms onBack={handleBackToMain} onSave={handleTermsSave} onNext={() => handleNextSection('terms')} onPrevious={() => handlePreviousSection('terms')} applicationId={applicationId} />;
   }
 
   if (currentView === 'questionary') {
-    return <Questionary onBack={handleBackToMain} onSave={handleQuestionarySave} applicationId={applicationId} />;
+    return <Questionary onBack={handleBackToMain} onSave={handleQuestionarySave} onNext={() => handleNextSection('questionary')} onPrevious={() => handlePreviousSection('questionary')} applicationId={applicationId} />;
   }
 
   return (
     <div data-layer="Statements details" className="StatementsDetails" style={{width: 1512, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
-  <div data-layer="Menu" data-property-1="Menu one" className="Menu" style={{width: 85, alignSelf: 'stretch', background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
+  <div data-layer="Menu" data-property-1="Menu one" className="Menu" style={{width: 85, height: 982, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
     <div data-layer="Back button" className="BackButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}} onClick={handleBackToProduct}>
       <div data-svg-wrapper data-layer="Chewron left" className="ChewronLeft" style={{left: 32, top: 32, position: 'absolute'}}>
         <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -365,15 +532,91 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
   <div data-layer="Statements details" className="StatementsDetails" style={{flex: '1 1 0', alignSelf: 'stretch', overflow: 'hidden', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
     <div data-layer="SubHeader" data-type="OrderHeader" className="Subheader" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex', flexWrap: 'wrap', alignContent: 'flex-start'}}>
       <div data-layer="Frame 1321316873" className="Frame1321316873" style={{flex: '1 1 0', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
-        <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 0', height: 12, textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Заявление № {applicationNumber || (applicationId ? applicationId.substring(0, 8) : '')}</div>
+        <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 auto', height: 12, textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Заявление № {applicationNumber || (applicationId ? applicationId.substring(0, 8) : '')}</div>
       </div>
-      <div data-layer="Button Container" className="ButtonContainer" style={{width: 777, height: 85, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', justifyContent: 'flex-end', alignItems: 'center', display: 'flex'}}>
-        <div data-layer="Reject button" data-state="pressed" className="RejectButton" style={{width: 388.50, height: 85, overflow: 'hidden', justifyContent: 'space-between', alignItems: 'center', display: 'flex'}}>
-          <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Отклонить</div>
-        </div>
-        <div data-layer="Send button for approval" data-state="pressed" className="SendButtonForApproval" style={{width: 388.50, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'space-between', alignItems: 'center', display: 'flex'}}>
-          <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Отправить на согласование</div>
-        </div>
+      <div data-layer="Button Container" className="ButtonContainer" style={{flex: '0 0 777px', height: 85, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', justifyContent: 'flex-end', alignItems: 'center', display: 'flex', gap: 16, paddingRight: 16}}>
+        {processError && (
+          <div style={{color: '#d32f2f', fontSize: 14, fontFamily: 'Inter', fontWeight: 500, marginRight: 12}}>
+            {processError}
+          </div>
+        )}
+        {canClaimTaskNow ? (
+          <div
+            data-layer="Claim button"
+            className="ClaimButton"
+            style={{
+              width: 388.5,
+              height: 85,
+              background: isClaimingTask ? '#666' : '#000',
+              opacity: isClaimingTask ? 0.7 : 1,
+              overflow: 'hidden',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              display: 'flex',
+              cursor: isClaimingTask ? 'wait' : 'pointer',
+              color: 'white',
+              textAlign: 'center',
+              fontFamily: 'Inter',
+              fontSize: 16,
+              fontWeight: 500
+            }}
+            onClick={isClaimingTask ? undefined : handleClaimTask}
+          >
+            <div style={{flex: 1, textAlign: 'center'}}>
+              {isClaimingTask ? 'Берем задачу...' : 'Взять задачу'}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div
+              data-layer="Reject button"
+              className="RejectButton"
+              style={{
+                width: 388.5,
+                height: 85,
+                overflow: 'hidden',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                display: 'flex',
+                cursor: isDecisionDisabled ? 'not-allowed' : 'pointer',
+                opacity: isDecisionDisabled ? 0.5 : 1,
+                color: 'black',
+                fontFamily: 'Inter',
+                fontSize: 16,
+                fontWeight: 500
+              }}
+              onClick={isDecisionDisabled ? undefined : handleRejectClick}
+            >
+              <div style={{flex: 1, textAlign: 'center'}}>
+                {isRejectingTask ? 'Отклоняем...' : 'Отклонить'}
+              </div>
+            </div>
+            <div
+              data-layer="Send button for approval"
+              className="SendButtonForApproval"
+              style={{
+                width: 388.5,
+                height: 85,
+                background: isDecisionDisabled ? '#666' : 'black',
+                overflow: 'hidden',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                display: 'flex',
+                cursor: isDecisionDisabled ? 'not-allowed' : 'pointer',
+                opacity: isDecisionDisabled ? 0.7 : 1,
+                color: 'white',
+                fontFamily: 'Inter',
+                fontSize: 16,
+                fontWeight: 500
+              }}
+              onClick={isDecisionDisabled ? undefined : handleSendForApproval}
+            >
+              <div style={{flex: 1, textAlign: 'center'}}>
+                {isSendingTask ? 'Отправляем...' : 'Отправить на согласование'}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
     <div data-layer="Application data section" className="ApplicationDataSection" style={{alignSelf: 'stretch', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
@@ -390,6 +633,119 @@ const Application = ({ selectedProduct, applicationId, onBack }) => {
             </div>
           </div>
         </div>
+  {isReasonsModalOpen && (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.4)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999
+      }}
+      onClick={handleCloseReasonsModal}
+    >
+      <div
+        style={{
+          width: 420,
+          maxWidth: '90%',
+          background: 'white',
+          borderRadius: 12,
+          padding: 24,
+          boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{fontFamily: 'Inter', fontSize: 18, fontWeight: 600}}>
+          Выберите причину отказа
+        </div>
+        <div style={{fontFamily: 'Inter', fontSize: 14, color: '#6B6D80'}}>
+          Причина будет отправлена вместе с решением по задаче
+        </div>
+        <div style={{maxHeight: 240, overflowY: 'auto', border: '1px solid #F0F0F0', borderRadius: 8, padding: 8}}>
+          {reasonsLoading ? (
+            <div style={{padding: 16, textAlign: 'center'}}>Загрузка...</div>
+          ) : reasons.length ? (
+            reasons.map((reason) => (
+              <label
+                key={reason.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '10px 12px',
+                  borderBottom: '1px solid #F5F5F5',
+                  cursor: 'pointer'
+                }}
+              >
+                <input
+                  type="radio"
+                  name="reject-reason"
+                  checked={selectedReasonId === reason.id}
+                  onChange={() => setSelectedReasonId(reason.id)}
+                />
+                <div style={{display: 'flex', flexDirection: 'column'}}>
+                  <span style={{fontFamily: 'Inter', fontSize: 14, fontWeight: 500}}>
+                    {reason.nameRu || `Причина ${reason.code}`}
+                  </span>
+                  {reason.isReject === false && (
+                    <span style={{fontFamily: 'Inter', fontSize: 12, color: '#6B6D80'}}>
+                      Возврат на доработку
+                    </span>
+                  )}
+                </div>
+              </label>
+            ))
+          ) : (
+            <div style={{padding: 16, textAlign: 'center'}}>Причины недоступны</div>
+          )}
+        </div>
+        <div style={{display: 'flex', gap: 12, justifyContent: 'flex-end'}}>
+          <button
+            onClick={handleCloseReasonsModal}
+            style={{
+              minWidth: 120,
+              height: 40,
+              borderRadius: 8,
+              border: '1px solid #E0E0E0',
+              background: 'white',
+              cursor: 'pointer',
+              fontFamily: 'Inter',
+              fontSize: 14
+            }}
+          >
+            Отмена
+          </button>
+          <button
+            onClick={handleConfirmReject}
+            disabled={isRejectingTask || !selectedReasonId}
+            style={{
+              minWidth: 160,
+              height: 40,
+              borderRadius: 8,
+              border: 'none',
+              background: isRejectingTask || !selectedReasonId ? '#999' : 'black',
+              color: 'white',
+              cursor: isRejectingTask || !selectedReasonId ? 'not-allowed' : 'pointer',
+              fontFamily: 'Inter',
+              fontSize: 14,
+              fontWeight: 500,
+              opacity: isRejectingTask || !selectedReasonId ? 0.7 : 1
+            }}
+          >
+            {isRejectingTask ? 'Отклоняем...' : 'Подтвердить'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
         <div data-layer="Info container" data-state="pressed" className="InfoContainer" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
           <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
             <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Дата и время</div>

@@ -9,7 +9,7 @@ import ClientType from '../dictionary/ClientType';
 import { getPerson, mapApiDataToForm } from '../../services/personService';
 import { savePolicyholderData, loadPolicyholderData, loadGlobalApplicationData, updateGlobalApplicationSection, saveApplicationMetadata, loadApplicationMetadata } from '../../services/storageService';
 
-const Policyholder = ({ onBack, onSave, applicationId }) => {
+const Policyholder = ({ onBack, onSave, onNext, onPrevious, applicationId }) => {
   const [currentView, setCurrentView] = useState('main');
 
   // Единый объект состояния с правильными названиями полей
@@ -116,8 +116,12 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
       if (savedData.toggleStates) {
         setToggleStates(savedData.toggleStates);
       }
+      // Устанавливаем autoModeState: если сохранен - используем его, иначе если есть данные - data_loaded
       if (savedData.autoModeState) {
         setAutoModeState(savedData.autoModeState);
+      } else if (savedData.iin && savedData.telephone) {
+        // Если данных нет в сохраненном autoModeState, но есть данные, устанавливаем data_loaded
+        setAutoModeState('data_loaded');
       }
     }
     
@@ -186,6 +190,17 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
   // Активация поля при клике
   const handleFieldClick = (fieldName) => {
     setActiveField(fieldName);
+    
+    // Для поля телефона, если оно пустое, устанавливаем +7
+    if (fieldName === 'phone') {
+      const newFieldName = getFieldName(fieldName);
+      if (!policyholderData[newFieldName] || policyholderData[newFieldName].trim() === '') {
+        setPolicyholderData(prev => ({
+          ...prev,
+          [newFieldName]: '+7'
+        }));
+      }
+    }
   };
 
   // Маппинг старых названий полей на новые
@@ -200,19 +215,71 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
     return mapping[oldName] || oldName;
   };
 
+  // Функция форматирования телефона с +7
+  const formatPhoneNumber = (value) => {
+    // Убираем все нецифровые символы, кроме +
+    let cleaned = value.replace(/[^\d+]/g, '');
+    
+    // Если начинается с +7, оставляем как есть, иначе добавляем +7
+    if (cleaned.startsWith('+7')) {
+      cleaned = cleaned.substring(2); // Убираем +7
+    } else if (cleaned.startsWith('7')) {
+      cleaned = cleaned.substring(1); // Убираем 7
+    } else if (cleaned.startsWith('8')) {
+      cleaned = cleaned.substring(1); // Убираем 8
+    }
+    
+    // Ограничиваем до 10 цифр (без +7)
+    cleaned = cleaned.substring(0, 10);
+    
+    // Форматируем: +7 (XXX) XXX-XX-XX
+    if (cleaned.length === 0) {
+      return '+7';
+    } else if (cleaned.length <= 3) {
+      return `+7 (${cleaned}`;
+    } else if (cleaned.length <= 6) {
+      return `+7 (${cleaned.substring(0, 3)}) ${cleaned.substring(3)}`;
+    } else if (cleaned.length <= 8) {
+      return `+7 (${cleaned.substring(0, 3)}) ${cleaned.substring(3, 6)}-${cleaned.substring(6)}`;
+    } else {
+      return `+7 (${cleaned.substring(0, 3)}) ${cleaned.substring(3, 6)}-${cleaned.substring(6, 8)}-${cleaned.substring(8, 10)}`;
+    }
+  };
+
   // Обновление значения поля
   const handleFieldChange = (fieldName, value) => {
     const newFieldName = getFieldName(fieldName);
+    let processedValue = value;
+    
+    // Для поля телефона применяем форматирование
+    if (fieldName === 'phone' || newFieldName === 'telephone') {
+      processedValue = formatPhoneNumber(value);
+    }
+    
     setPolicyholderData(prev => ({
       ...prev,
-      [newFieldName]: value
+      [newFieldName]: processedValue
     }));
   };
 
   // Возврат к обычному состоянию при потере фокуса
   const handleFieldBlur = (fieldName) => {
     const newFieldName = getFieldName(fieldName);
-    if (!policyholderData[newFieldName]) {
+    const value = policyholderData[newFieldName];
+    
+    // Для поля телефона, если оно пустое или содержит только +7, оставляем +7
+    if (fieldName === 'phone' || newFieldName === 'telephone') {
+      if (!value || value.trim() === '' || value === '+7') {
+        setPolicyholderData(prev => ({
+          ...prev,
+          [newFieldName]: '+7'
+        }));
+        // Не убираем активное состояние для телефона, чтобы пользователь мог продолжить ввод
+        return;
+      }
+    }
+    
+    if (!value) {
       setActiveField(null);
     }
   };
@@ -649,14 +716,14 @@ const Policyholder = ({ onBack, onSave, applicationId }) => {
         <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страхователь</div>
         <div data-layer="Button container" className="ButtonContainer" style={{justifyContent: 'flex-start', alignItems: 'center', display: 'flex'}}>
           <div data-layer="Application section transition buttons" className="ApplicationSectionTransitionButtons" style={{justifyContent: 'flex-start', alignItems: 'center', display: 'flex'}}>
-            <div data-layer="Next Button" className="NextButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderRight: '1px #F8E8E8 solid'}}>
+            <div data-layer="Next Button" className="NextButton" onClick={onNext} style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderRight: '1px #F8E8E8 solid', cursor: 'pointer'}}>
               <div data-svg-wrapper data-layer="Chewron down" className="ChewronDown" style={{left: 31, top: 32, position: 'absolute'}}>
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M18.5 7.5L11 15.5L3.5 7.5" stroke="black" strokeWidth="2"/>
                 </svg>
               </div>
             </div>
-            <div data-layer="Previous Button" className="PreviousButton" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid'}}>
+            <div data-layer="Previous Button" className="PreviousButton" onClick={onPrevious} style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', cursor: 'pointer'}}>
               <div data-svg-wrapper data-layer="Chewron up" className="ChewronUp" style={{left: 31, top: 32, position: 'absolute'}}>
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M3.5 15.5L11 7.5L18.5 15.5" stroke="black" strokeWidth="2"/>
