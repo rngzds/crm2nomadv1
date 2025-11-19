@@ -265,86 +265,115 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
       if (data && data.statements && Array.isArray(data.statements)) {
         console.log('Найдено заявлений:', data.statements.length);
         
-        // Оптимизация: загружаем все метаданные одним батчем
         // Преобразуем формат данных из API в формат, который ожидает компонент
+        // ВАЖНО: Список заявок всегда берется из API, данные из localStorage - только дополнение
         const transformedApps = data.statements.map(statement => {
-          // В Statement/List id равен taskId!
-          const statementTaskId = statement.id;
-          const statementTaskStatusName = statement.taskStatusName || statement.task_status_name || null;
-          const statementTaskStatusCode = statement.taskStatusCode || statement.task_status_code || null;
-          
-          // Загружаем метаданные заявки для получения актуального ИИН
-          const metadata = loadApplicationMetadata(statement.id);
-          
-          // ПРИОРИТЕТ: Проверяем данные по номеру заявки (номер постоянный, ID могут меняться)
-          let policyholderIin = '';
-          const applicationNumber = statement.number || metadata?.number;
-          if (applicationNumber) {
-            const dataByNumber = loadApplicationDataByNumber(applicationNumber);
-            if (dataByNumber?.policyholder?.iin) {
-              policyholderIin = dataByNumber.policyholder.iin;
+          try {
+            // В Statement/List id равен taskId!
+            const statementTaskId = statement.id;
+            const statementTaskStatusName = statement.taskStatusName || statement.task_status_name || null;
+            const statementTaskStatusCode = statement.taskStatusCode || statement.task_status_code || null;
+            
+            // Основной источник ИИН - данные из API
+            let policyholderIin = statement.insurerIIN || '';
+            
+            // Пытаемся загрузить дополнительные данные из localStorage (опционально, только для дополнения)
+            try {
+              const metadata = loadApplicationMetadata(statement.id);
+              
+              // Если в метаданных есть ИИН, используем его (может быть более актуальным)
+              if (metadata?.policyholderIin) {
+                policyholderIin = metadata.policyholderIin;
+              }
+              
+              // Дополнительно: проверяем данные по номеру заявки (если есть)
+              const applicationNumber = statement.number || metadata?.number;
+              if (applicationNumber) {
+                try {
+                  const dataByNumber = loadApplicationDataByNumber(applicationNumber);
+                  if (dataByNumber?.policyholder?.iin) {
+                    policyholderIin = dataByNumber.policyholder.iin;
+                  }
+                } catch (error) {
+                  // Игнорируем ошибки загрузки данных по номеру - не критично
+                  console.warn('Не удалось загрузить данные по номеру заявки:', applicationNumber, error);
+                }
+              }
+              
+              // Обновляем метаданные свежими данными по задаче и статусу
+              const folderType = selectedFolder?.code || 'Statement';
+              const metadataToPersist = {
+                ...(metadata || {}),
+                applicationId: statement.id,
+                product: metadata?.product || statement.processName || '',
+                processId: metadata?.processId || statement.processInstanceId || statement.id,
+                processName: statement.processName || metadata?.processName,
+                processCode: statement.processCode || metadata?.processCode,
+                status: statement.statusName || metadata?.status || 'Черновик',
+                statusName: statement.statusName || metadata?.statusName,
+                statusCode: statement.statusCode || metadata?.statusCode,
+                taskId: statementTaskId, // id = taskId!
+                taskStatusName: statementTaskStatusName || metadata?.taskStatusName,
+                taskStatusCode: statementTaskStatusCode || metadata?.taskStatusCode,
+                folderType: folderType, // Сохраняем тип папки
+                number: statement.number || metadata?.number || null, // Сохраняем номер заявки!
+                policyholderIin: policyholderIin // Сохраняем найденный ИИН
+              };
+              saveApplicationMetadata(statement.id, metadataToPersist);
+              
+              // Также сохраняем метаданные по processId, если он отличается от taskId
+              const processId = statement.processInstanceId || statement.id;
+              if (processId !== statement.id) {
+                const processMetadata = {
+                  ...metadataToPersist,
+                  applicationId: processId,
+                  processId: processId
+                };
+                saveApplicationMetadata(processId, processMetadata);
+              }
+            } catch (error) {
+              // Игнорируем ошибки загрузки метаданных - не критично для отображения заявки
+              console.warn('Не удалось загрузить метаданные для заявки:', statement.id, error);
             }
-          }
-          
-          // Если не нашли по номеру, используем ИИН из метаданных или API
-          if (!policyholderIin) {
-            policyholderIin = metadata?.policyholderIin || statement.insurerIIN || '';
-          }
-          
-          // Обновляем метаданные с найденным ИИН, если он есть
-          if (policyholderIin && metadata?.policyholderIin !== policyholderIin) {
-            metadata.policyholderIin = policyholderIin;
-          }
-          
-          // Обновляем метаданные свежими данными по задаче и статусу
-          const folderType = selectedFolder?.code || 'Statement';
-          const metadataToPersist = {
-            ...(metadata || {}),
-            applicationId: statement.id,
-            product: metadata?.product || statement.processName || '',
-            processId: metadata?.processId || statement.processInstanceId || statement.id,
-            processName: statement.processName || metadata?.processName,
-            processCode: statement.processCode || metadata?.processCode,
-            status: statement.statusName || metadata?.status || 'Черновик',
-            statusName: statement.statusName || metadata?.statusName,
-            statusCode: statement.statusCode || metadata?.statusCode,
-            taskId: statementTaskId, // id = taskId!
-            taskStatusName: statementTaskStatusName || metadata?.taskStatusName,
-            taskStatusCode: statementTaskStatusCode || metadata?.taskStatusCode,
-            folderType: folderType, // Сохраняем тип папки
-            number: statement.number || metadata?.number || null, // Сохраняем номер заявки!
-            policyholderIin: policyholderIin // Сохраняем найденный ИИН
-          };
-          saveApplicationMetadata(statement.id, metadataToPersist);
-          
-          // Также сохраняем метаданные по processId, если он отличается от taskId
-          const processId = statement.processInstanceId || statement.id;
-          if (processId !== statement.id) {
-            const processMetadata = {
-              ...metadataToPersist,
-              applicationId: processId,
-              processId: processId
+            
+            // ВСЕГДА возвращаем заявку из API, даже если не удалось загрузить дополнительные данные
+            return {
+              applicationId: statement.id,
+              number: statement.number,
+              policyholderIin: policyholderIin, // ИИН из API или из localStorage (если удалось загрузить)
+              createdAt: statement.date,
+              product: statement.processName || '',
+              status: statement.statusName || 'Черновик',
+              processCode: statement.processCode,
+              processName: statement.processName,
+              processInstanceId: statement.processInstanceId || statement.id, // Важно: processId для загрузки данных
+              taskId: statementTaskId, // id = taskId!
+              taskStatusName: statementTaskStatusName,
+              taskStatusCode: statementTaskStatusCode,
+              userFullName: statement.userFullName,
+              // Сохраняем оригинальные данные для возможного использования
+              originalData: statement
             };
-            saveApplicationMetadata(processId, processMetadata);
+          } catch (error) {
+            // В случае любой ошибки все равно возвращаем заявку из API с базовыми данными
+            console.error('Ошибка при обработке заявки:', statement.id, error);
+            return {
+              applicationId: statement.id,
+              number: statement.number,
+              policyholderIin: statement.insurerIIN || '', // Используем данные из API
+              createdAt: statement.date,
+              product: statement.processName || '',
+              status: statement.statusName || 'Черновик',
+              processCode: statement.processCode,
+              processName: statement.processName,
+              processInstanceId: statement.processInstanceId || statement.id,
+              taskId: statement.id,
+              taskStatusName: statement.taskStatusName || statement.task_status_name || null,
+              taskStatusCode: statement.taskStatusCode || statement.task_status_code || null,
+              userFullName: statement.userFullName,
+              originalData: statement
+            };
           }
-          
-          return {
-            applicationId: statement.id,
-            number: statement.number,
-            policyholderIin: policyholderIin,
-            createdAt: statement.date,
-            product: statement.processName || '',
-            status: statement.statusName || 'Черновик',
-            processCode: statement.processCode,
-            processName: statement.processName,
-            processInstanceId: statement.processInstanceId || statement.id, // Важно: processId для загрузки данных
-            taskId: statementTaskId, // id = taskId!
-            taskStatusName: statementTaskStatusName,
-            taskStatusCode: statementTaskStatusCode,
-            userFullName: statement.userFullName,
-            // Сохраняем оригинальные данные для возможного использования
-            originalData: statement
-          };
         });
         
         console.log('Преобразованные заявления:', transformedApps);
