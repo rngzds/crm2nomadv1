@@ -42,7 +42,8 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
     console.log('useEffect selectedFolder изменился:', selectedFolder);
     if (selectedFolder) {
       console.log('Загружаем заявления для папки:', selectedFolder.code);
-      loadApplications();
+      // Принудительно обновляем данные при переключении папок
+      loadApplications(true);
     } else {
       console.log('selectedFolder еще не установлен');
     }
@@ -191,8 +192,8 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
   const handleFolderSelect = (folder) => {
     setSelectedFolder(folder);
     setIsDropdownOpen(false);
-    // Загружаем данные для выбранной папки
-    loadApplications();
+    // Загружаем данные для выбранной папки с принудительным обновлением
+    loadApplications(true);
   };
 
   // Обработчик кнопки обновления - принудительно обновляет данные из API
@@ -276,6 +277,18 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
             
             // Основной источник ИИН - данные из API
             let policyholderIin = statement.insurerIIN || '';
+            let insuranceAmount = null; // Страховая сумма из Terms данных
+            const extractInsuranceAmount = (insuranceProductName) => {
+              if (!insuranceProductName) return null;
+              const match = insuranceProductName.match(/(\d+)/);
+              if (match) {
+                const amount = parseInt(match[1], 10);
+                if (!Number.isNaN(amount)) {
+                  return `${amount} 000 USD`;
+                }
+              }
+              return null;
+            };
             
             // Пытаемся загрузить дополнительные данные из localStorage (опционально, только для дополнения)
             try {
@@ -286,14 +299,26 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
                 policyholderIin = metadata.policyholderIin;
               }
               
-              // Дополнительно: проверяем данные по номеру заявки (если есть)
-              const applicationNumber = statement.number || metadata?.number;
+            // Дополнительно: проверяем данные по номеру заявки (если есть)
+            // Загружаем один раз для извлечения ИИН и страховой суммы
+            let dataByNumber = null;
+            const applicationNumber = statement.number || metadata?.number;
               if (applicationNumber) {
                 try {
-                  const dataByNumber = loadApplicationDataByNumber(applicationNumber);
-                  if (dataByNumber?.policyholder?.iin) {
-                    policyholderIin = dataByNumber.policyholder.iin;
+                  dataByNumber = loadApplicationDataByNumber(applicationNumber);
+                  // Извлекаем ИИН страхователя из глобальных данных (приоритет: глобальные данные > метаданные > API)
+                const policyholderFromData = dataByNumber?.policyholder || dataByNumber?.Policyholder;
+                if (policyholderFromData?.iin) {
+                  policyholderIin = policyholderFromData.iin;
                   }
+                  // Извлекаем страховую сумму из Terms данных
+                const termsData = dataByNumber?.terms || dataByNumber?.Terms;
+                const insuranceProductName =
+                  termsData?.dictionaryValues?.insuranceProduct ||
+                  termsData?.dictionary_values?.insuranceProduct ||
+                  termsData?.dictionaryValues?.insuranceProgramName ||
+                  termsData?.dictionary_values?.insuranceProgramName;
+                insuranceAmount = extractInsuranceAmount(insuranceProductName);
                 } catch (error) {
                   // Игнорируем ошибки загрузки данных по номеру - не критично
                   console.warn('Не удалось загрузить данные по номеру заявки:', applicationNumber, error);
@@ -317,7 +342,8 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
                 taskStatusCode: statementTaskStatusCode || metadata?.taskStatusCode,
                 folderType: folderType, // Сохраняем тип папки
                 number: statement.number || metadata?.number || null, // Сохраняем номер заявки!
-                policyholderIin: policyholderIin // Сохраняем найденный ИИН
+                policyholderIin: policyholderIin, // Сохраняем найденный ИИН
+                operationTypeName: statement.operationTypeName || metadata?.operationTypeName || null // Сохраняем тип операции
               };
               saveApplicationMetadata(statement.id, metadataToPersist);
               
@@ -336,6 +362,22 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
               console.warn('Не удалось загрузить метаданные для заявки:', statement.id, error);
             }
             
+            // Если не удалось извлечь страховую сумму выше (когда metadata не загрузился), пытаемся еще раз
+            if (!insuranceAmount && statement.number) {
+              try {
+                const dataByNumber = loadApplicationDataByNumber(statement.number);
+                const termsData = dataByNumber?.terms || dataByNumber?.Terms;
+                const insuranceProductName =
+                  termsData?.dictionaryValues?.insuranceProduct ||
+                  termsData?.dictionary_values?.insuranceProduct ||
+                  termsData?.dictionaryValues?.insuranceProgramName ||
+                  termsData?.dictionary_values?.insuranceProgramName;
+                insuranceAmount = extractInsuranceAmount(insuranceProductName);
+              } catch (error) {
+                // Игнорируем ошибки
+              }
+            }
+            
             // ВСЕГДА возвращаем заявку из API, даже если не удалось загрузить дополнительные данные
             return {
               applicationId: statement.id,
@@ -346,6 +388,8 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
               status: statement.statusName || 'Черновик',
               processCode: statement.processCode,
               processName: statement.processName,
+              operationTypeName: statement.operationTypeName || null, // Тип операции из API
+              insuranceAmount: insuranceAmount, // Страховая сумма из Terms данных
               processInstanceId: statement.processInstanceId || statement.id, // Важно: processId для загрузки данных
               taskId: statementTaskId, // id = taskId!
               taskStatusName: statementTaskStatusName,
@@ -366,6 +410,8 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
               status: statement.statusName || 'Черновик',
               processCode: statement.processCode,
               processName: statement.processName,
+              operationTypeName: statement.operationTypeName || null, // Тип операции из API
+              insuranceAmount: null, // Не удалось загрузить
               processInstanceId: statement.processInstanceId || statement.id,
               taskId: statement.id,
               taskStatusName: statement.taskStatusName || statement.task_status_name || null,
@@ -501,7 +547,7 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
     return applications.filter((app) => {
       const processMatch =
         selectedProcessType === 'Все' ||
-        (app.processName || '').toLowerCase() === selectedProcessType.toLowerCase();
+        (app.operationTypeName || app.processName || '').toLowerCase() === selectedProcessType.toLowerCase();
       const productMatch =
         selectedProduct === 'Все' ||
         (app.product || '').toLowerCase() === selectedProduct.toLowerCase();
@@ -545,6 +591,7 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
       const fields = [
         app.number,
         app.policyholderIin,
+        app.operationTypeName,
         app.processName,
         app.status,
       ];
@@ -1153,10 +1200,10 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
                       <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.product || DASH}</div>
                     </div>
                     <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{DASH}</div>
+                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.insuranceAmount || DASH}</div>
                     </div>
                     <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{DASH}</div>
+                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.operationTypeName || DASH}</div>
                     </div>
                     <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
                       <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.status || 'Черновик'}</div>

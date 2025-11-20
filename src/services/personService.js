@@ -116,7 +116,7 @@ export const mapApiDataToForm = (apiData) => {
     issueDate: formatDate(apiData.begin_date),
     expiryDate: formatDate(apiData.enddate),
     issuedBy: apiData.issueorganization_nameru || '',
-    economSecId: '9', // Код сектора по умолчанию
+    economSecId: '9 - Домашние хозяйства/физическое лицо', // Код сектора по умолчанию
     vidDocId: vidDocId // Тип документа
   };
 };

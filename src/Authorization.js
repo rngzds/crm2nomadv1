@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { saveAccessToken, saveRefreshToken, getAccessToken, getRefreshToken } from './services/storageService';
+import { saveAccessToken, saveRefreshToken, getAccessToken, getRefreshToken, saveUserLogin } from './services/storageService';
 
 const Authorization = ({ onLogin }) => {
   const [login, setLogin] = useState('');
@@ -145,6 +145,8 @@ const Authorization = ({ onLogin }) => {
 
       saveAccessToken(responseData.accessToken);
       saveRefreshToken(responseData.refreshToken);
+      // Сохраняем логин для определения роли
+      saveUserLogin(login.trim());
 
       const savedAccessToken = getAccessToken();
       const savedRefreshToken = getRefreshToken();

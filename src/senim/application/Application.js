@@ -5,7 +5,8 @@ import Beneficiary from './Beneficiary';
 import Terms from './Terms';
 import Questionary from './Questionary';
 import History from './History';
-import { loadApplicationHistory, loadApplicationBeneficiary, loadApplicationMetadata, saveApplicationMetadata, loadGlobalApplicationData, loadPolicyholderData, loadInsuredData, updateGlobalApplicationSection, getAccessToken, saveApplicationDataByNumber, loadApplicationDataByNumber, getApplicationKey } from '../../services/storageService';
+import RejectReason from './RejectReason';
+import { loadApplicationHistory, loadApplicationBeneficiary, loadApplicationMetadata, saveApplicationMetadata, loadGlobalApplicationData, loadPolicyholderData, loadInsuredData, updateGlobalApplicationSection, getAccessToken, saveApplicationDataByNumber, loadApplicationDataByNumber, getApplicationKey, getUserRole } from '../../services/storageService';
 import { claimTask, sendTaskDecision, getRejectReasons } from '../../services/processService';
 
 const Application = ({ selectedProduct, applicationId, onBack, processState, onProcessStateRefresh }) => {
@@ -22,9 +23,9 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
   const [isRejectingTask, setIsRejectingTask] = useState(false);
   const [reasons, setReasons] = useState([]);
   const [selectedReasonId, setSelectedReasonId] = useState(null);
-  const [isReasonsModalOpen, setIsReasonsModalOpen] = useState(false);
   const [reasonsLoading, setReasonsLoading] = useState(false);
   const [processError, setProcessError] = useState(null);
+  const [userRole, setUserRole] = useState(null);
   const processStateRequestedRef = useRef(false);
 
   // Загружаем данные истории и выгодоприобретателя при монтировании
@@ -66,10 +67,13 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
                 localStorage.setItem(historyKey, JSON.stringify(dataByNumber.history));
               }
               if (dataByNumber.terms) {
-                updateGlobalApplicationSection('Terms', dataByNumber.terms, applicationId);
+                const normalizedTerms = normalizeTermsData(dataByNumber.terms);
+                updateGlobalApplicationSection('Terms', normalizedTerms, applicationId);
+                setTermsData(normalizedTerms);
               }
               if (dataByNumber.questionary) {
                 updateGlobalApplicationSection('Questionary', dataByNumber.questionary, applicationId);
+                setQuestionaryData(dataByNumber.questionary);
               }
             }
           }
@@ -119,12 +123,20 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
         }
         
         if (loadedBeneficiary) {
-          setBeneficiaryData(loadedBeneficiary);
+          // Нормализуем значение типа резидентства (исправляем старые варианты)
+          const normalizedBeneficiary = {
+            ...loadedBeneficiary,
+            residencyType: loadedBeneficiary.residencyType === 'не резидент' || 
+                          loadedBeneficiary.residencyType === 'Не резидент' 
+                          ? 'Нерезидент' 
+                          : loadedBeneficiary.residencyType
+          };
+          setBeneficiaryData(normalizedBeneficiary);
         } else {
           // Устанавливаем значения по умолчанию для выгодоприобретателя
           setBeneficiaryData({ 
             name: 'Madanes Advanced Healthcare Services Ltd.', 
-            residencyType: 'не резидент' 
+            residencyType: 'Нерезидент' 
           });
         }
         
@@ -137,12 +149,27 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
           setInsuredData(loadedInsured);
         }
 
+        if (globalData?.Terms) {
+          setTermsData(normalizeTermsData(globalData.Terms));
+        }
+
+        if (globalData?.Questionary) {
+          setQuestionaryData(globalData.Questionary);
+        }
+
       };
 
       loadData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId, selectedProduct]);
+
+  // Получаем роль пользователя при монтировании компонента
+  useEffect(() => {
+    const role = getUserRole();
+    console.log('Определена роль пользователя:', role);
+    setUserRole(role);
+  }, []);
 
   useEffect(() => {
     if (!processState && applicationId && onProcessStateRefresh && !processStateRequestedRef.current) {
@@ -346,12 +373,13 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
   };
 
   const handleTermsSave = (data) => {
-    setTermsData(data);
+    const normalizedTerms = normalizeTermsData(data);
+    setTermsData(normalizedTerms);
     // Сохраняем в глобальное хранилище
     if (applicationId) {
-      updateGlobalApplicationSection('Terms', data, applicationId);
+      updateGlobalApplicationSection('Terms', normalizedTerms, applicationId);
       // Сохраняем в API
-      saveApplicationToAPI('Terms', data);
+      saveApplicationToAPI('Terms', normalizedTerms);
       
       // Сохраняем все данные по номеру заявки
       saveDataByNumber();
@@ -382,6 +410,58 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
       return `${amount} 000 USD`;
     }
     return null;
+  };
+
+  const normalizeTermsData = useCallback((data) => {
+    if (!data) return null;
+
+    if (data.dictionaryValues) {
+      return {
+        dictionaryValues: {
+          insuranceProduct: data.dictionaryValues.insuranceProduct || '',
+          frequencyPayment: data.dictionaryValues.frequencyPayment || '',
+          ...data.dictionaryValues
+        },
+        toggleStates: {
+          flightAndAccommodation: data.toggleStates?.flightAndAccommodation ?? false,
+          ...data.toggleStates
+        },
+        dateValues: {
+          startDate: data.dateValues?.startDate || data.startDate || '',
+          endDate: data.dateValues?.endDate || data.endDate || ''
+        }
+      };
+    }
+
+    // Legacy формат (плоский объект)
+    const {
+      insuranceProduct = '',
+      frequencyPayment = '',
+      flightAndAccommodation = false,
+      startDate = '',
+      endDate = '',
+      ...rest
+    } = data;
+
+    return {
+      dictionaryValues: {
+        insuranceProduct,
+        frequencyPayment,
+        ...rest
+      },
+      toggleStates: {
+        flightAndAccommodation
+      },
+      dateValues: {
+        startDate,
+        endDate
+      }
+    };
+  }, []);
+
+  const getTermsInsuranceProductName = (terms) => {
+    if (!terms) return '';
+    return terms.dictionaryValues?.insuranceProduct || terms.insuranceProduct || '';
   };
 
   const currentTaskId = processState?.taskId || null;
@@ -447,7 +527,7 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
       const reasonsResponse = await getRejectReasons(currentTaskId);
       setReasons(Array.isArray(reasonsResponse) ? reasonsResponse : []);
       setSelectedReasonId(reasonsResponse?.[0]?.id || null);
-      setIsReasonsModalOpen(true);
+      setCurrentView('reject');
     } catch (error) {
       console.error('Ошибка загрузки причин отказа:', error);
       setProcessError(error.message || 'Не удалось загрузить причины отказа');
@@ -457,8 +537,8 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
     }
   };
 
-  const handleCloseReasonsModal = () => {
-    setIsReasonsModalOpen(false);
+  const handleBackFromReject = () => {
+    setCurrentView('main');
     setSelectedReasonId(null);
   };
 
@@ -476,7 +556,6 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
       saveDataByNumber();
       
       await sendTaskDecision({ taskId: currentTaskId, decision: false, reasonId: selectedReasonId });
-      handleCloseReasonsModal();
       await refreshProcessState();
       alert('Задача отклонена');
       
@@ -517,6 +596,20 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
     return <Questionary onBack={handleBackToMain} onSave={handleQuestionarySave} onNext={() => handleNextSection('questionary')} onPrevious={() => handlePreviousSection('questionary')} applicationId={applicationId} />;
   }
 
+  if (currentView === 'reject') {
+    return (
+      <RejectReason
+        reasons={reasons}
+        selectedReasonId={selectedReasonId}
+        onReasonSelect={setSelectedReasonId}
+        onConfirm={handleConfirmReject}
+        onBack={handleBackFromReject}
+        isLoading={reasonsLoading}
+        isRejectingTask={isRejectingTask}
+      />
+    );
+  }
+
   return (
     <div data-layer="Statements details" className="StatementsDetails" style={{width: 1512, background: 'white', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
   <div data-layer="Menu" data-property-1="Menu one" className="Menu" style={{width: 85, height: 982, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', borderRight: '1px #F8E8E8 solid', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
@@ -544,7 +637,7 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
       <div data-layer="Frame 1321316873" className="Frame1321316873" style={{flex: '1 1 0', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
         <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 auto', height: 12, textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Заявление № {applicationNumber || (applicationId ? applicationId.substring(0, 8) : '')}</div>
       </div>
-      <div data-layer="Button Container" className="ButtonContainer" style={{flex: '0 0 777px', height: 85, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', justifyContent: 'flex-end', alignItems: 'center', display: 'flex', gap: 16, paddingRight: 16}}>
+      <div data-layer="Button Container" className="ButtonContainer" style={{flex: '0 0 777px', height: 85, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', justifyContent: 'flex-end', alignItems: 'center', display: 'flex', gap: 16}}>
         {processError && (
           <div style={{color: '#d32f2f', fontSize: 14, fontFamily: 'Inter', fontWeight: 500, marginRight: 12}}>
             {processError}
@@ -622,7 +715,25 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
               onClick={isDecisionDisabled ? undefined : handleSendForApproval}
             >
               <div style={{flex: 1, textAlign: 'center'}}>
-                {isSendingTask ? 'Отправляем...' : 'Отправить на согласование'}
+                {isSendingTask 
+                  ? 'Отправляем...' 
+                  : (() => {
+                      // Если роль не определена, показываем "Отправить на согласование"
+                      if (!userRole) {
+                        return 'Отправить на согласование';
+                      }
+                      
+                      const roleLower = userRole.toLowerCase().trim();
+                      
+                      // Только для underwriter и compliance показываем "Согласовать"
+                      // Для manager и всех остальных ролей - "Отправить на согласование"
+                      if (roleLower === 'underwriter' || roleLower === 'compliance') {
+                        return 'Согласовать';
+                      }
+                      
+                      // Для manager и всех остальных ролей
+                      return 'Отправить на согласование';
+                    })()}
               </div>
             </div>
           </>
@@ -643,119 +754,6 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
             </div>
           </div>
         </div>
-  {isReasonsModalOpen && (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.4)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 9999
-      }}
-      onClick={handleCloseReasonsModal}
-    >
-      <div
-        style={{
-          width: 420,
-          maxWidth: '90%',
-          background: 'white',
-          borderRadius: 12,
-          padding: 24,
-          boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{fontFamily: 'Inter', fontSize: 18, fontWeight: 600}}>
-          Выберите причину отказа
-        </div>
-        <div style={{fontFamily: 'Inter', fontSize: 14, color: '#6B6D80'}}>
-          Причина будет отправлена вместе с решением по задаче
-        </div>
-        <div style={{maxHeight: 240, overflowY: 'auto', border: '1px solid #F0F0F0', borderRadius: 8, padding: 8}}>
-          {reasonsLoading ? (
-            <div style={{padding: 16, textAlign: 'center'}}>Загрузка...</div>
-          ) : reasons.length ? (
-            reasons.map((reason) => (
-              <label
-                key={reason.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '10px 12px',
-                  borderBottom: '1px solid #F5F5F5',
-                  cursor: 'pointer'
-                }}
-              >
-                <input
-                  type="radio"
-                  name="reject-reason"
-                  checked={selectedReasonId === reason.id}
-                  onChange={() => setSelectedReasonId(reason.id)}
-                />
-                <div style={{display: 'flex', flexDirection: 'column'}}>
-                  <span style={{fontFamily: 'Inter', fontSize: 14, fontWeight: 500}}>
-                    {reason.nameRu || `Причина ${reason.code}`}
-                  </span>
-                  {reason.isReject === false && (
-                    <span style={{fontFamily: 'Inter', fontSize: 12, color: '#6B6D80'}}>
-                      Возврат на доработку
-                    </span>
-                  )}
-                </div>
-              </label>
-            ))
-          ) : (
-            <div style={{padding: 16, textAlign: 'center'}}>Причины недоступны</div>
-          )}
-        </div>
-        <div style={{display: 'flex', gap: 12, justifyContent: 'flex-end'}}>
-          <button
-            onClick={handleCloseReasonsModal}
-            style={{
-              minWidth: 120,
-              height: 40,
-              borderRadius: 8,
-              border: '1px solid #E0E0E0',
-              background: 'white',
-              cursor: 'pointer',
-              fontFamily: 'Inter',
-              fontSize: 14
-            }}
-          >
-            Отмена
-          </button>
-          <button
-            onClick={handleConfirmReject}
-            disabled={isRejectingTask || !selectedReasonId}
-            style={{
-              minWidth: 160,
-              height: 40,
-              borderRadius: 8,
-              border: 'none',
-              background: isRejectingTask || !selectedReasonId ? '#999' : 'black',
-              color: 'white',
-              cursor: isRejectingTask || !selectedReasonId ? 'not-allowed' : 'pointer',
-              fontFamily: 'Inter',
-              fontSize: 14,
-              fontWeight: 500,
-              opacity: isRejectingTask || !selectedReasonId ? 0.7 : 1
-            }}
-          >
-            {isRejectingTask ? 'Отклоняем...' : 'Подтвердить'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )}
         <div data-layer="Info container" data-state="pressed" className="InfoContainer" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
           <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
             <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Дата и время</div>
@@ -888,7 +886,11 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
         <div data-layer="Input Field" data-state="pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
           <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
             <div data-layer="LabelDefault" className="Labeldefault" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Тип резидентства</div>
-            <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{beneficiaryData?.residencyType || ''}</div>
+            <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
+              {beneficiaryData?.residencyType === 'не резидент' || beneficiaryData?.residencyType === 'Не резидент' 
+                ? 'Нерезидент' 
+                : (beneficiaryData?.residencyType || '')}
+            </div>
           </div>
         </div>
       </div>
@@ -907,19 +909,19 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
         </div>
         {termsData ? (
           <>
-            {getInsuranceAmount(termsData.insuranceProduct) && (
+            {getInsuranceAmount(getTermsInsuranceProductName(termsData)) && (
               <div data-layer="Info container" data-state="pressed" className="InfoContainer" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
                 <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
                   <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страховая сумма</div>
-                  <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{getInsuranceAmount(termsData.insuranceProduct)}</div>
+                    <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{getInsuranceAmount(getTermsInsuranceProductName(termsData))}</div>
                 </div>
               </div>
             )}
-            {termsData.insuranceProduct && (
+            {getTermsInsuranceProductName(termsData) && (
               <div data-layer="Input Field" data-state="pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
                 <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
                   <div data-layer="LabelDefault" className="Labeldefault" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Программа страхования</div>
-                  <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{termsData.insuranceProduct}</div>
+                    <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{getTermsInsuranceProductName(termsData)}</div>
                 </div>
               </div>
             )}

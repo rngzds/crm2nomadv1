@@ -3,7 +3,7 @@ import { loadApplicationBeneficiary, saveApplicationBeneficiary } from '../../se
 
 const Beneficiary = ({ onBack, onNext, onPrevious, applicationId }) => {
   const [beneficiaryData, setBeneficiaryData] = useState({
-    residencyType: 'Не резидент',
+    residencyType: 'Нерезидент',
     name: 'Madanes Advanced Healthcare Services Ltd.',
     country: '',
     region: '',
@@ -21,7 +21,7 @@ const Beneficiary = ({ onBack, onNext, onPrevious, applicationId }) => {
       } else {
         // Устанавливаем значения по умолчанию
         setBeneficiaryData({
-          residencyType: 'Не резидент',
+          residencyType: 'Нерезидент',
           name: 'Madanes Advanced Healthcare Services Ltd.',
           country: '',
           region: '',
@@ -33,7 +33,7 @@ const Beneficiary = ({ onBack, onNext, onPrevious, applicationId }) => {
     } else {
       // Устанавливаем значения по умолчанию, если нет applicationId
       setBeneficiaryData({
-        residencyType: 'не резидент',
+        residencyType: 'Нерезидент',
         name: 'Madanes Advanced Healthcare Services Ltd.',
         country: '',
         region: '',
