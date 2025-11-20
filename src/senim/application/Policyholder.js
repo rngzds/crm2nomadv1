@@ -58,6 +58,12 @@ const Policyholder = ({ onBack, onSave, onNext, onPrevious, applicationId }) => 
   
   // Флаг для предотвращения сохранения при начальной загрузке
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  // Состояние загрузки при запросе данных
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Состояние ошибки
+  const [errorMessage, setErrorMessage] = useState(null);
 
   // Загрузка данных из глобального хранилища или localStorage при монтировании компонента
   useEffect(() => {
@@ -300,12 +306,16 @@ const Policyholder = ({ onBack, onSave, onNext, onPrevious, applicationId }) => 
   const handleSendRequest = async () => {
     // Проверяем наличие ИИН и телефона
     if (!policyholderData.iin || !policyholderData.telephone) {
-      alert('Пожалуйста, заполните ИИН и номер телефона');
+      setErrorMessage('Пожалуйста, заполните ИИН и номер телефона');
       return;
     }
 
-    // Переход в состояние request_sent
+    // Очищаем предыдущую ошибку
+    setErrorMessage(null);
+    
+    // Переход в состояние request_sent и загрузки
     setAutoModeState('request_sent');
+    setIsLoading(true);
     
     try {
       // Отправляем запрос на сервер
@@ -321,17 +331,22 @@ const Policyholder = ({ onBack, onSave, onNext, onPrevious, applicationId }) => 
       setAutoModeState('response_received');
     } catch (error) {
       console.error('Error fetching person data:', error);
-      alert('Ошибка при получении данных. Попробуйте еще раз.');
+      setErrorMessage('Ошибка при получении данных. Попробуйте еще раз.');
       setAutoModeState('initial');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // Обработчик для обновления данных
   const handleUpdate = () => {
     if (!apiResponseData) {
-      alert('Нет данных для обновления');
+      setErrorMessage('Нет данных для обновления');
       return;
     }
+    
+    // Очищаем предыдущую ошибку
+    setErrorMessage(null);
 
     // Маппинг данных из API ответа в формат формы
     const mappedData = mapApiDataToForm(apiResponseData);
@@ -388,6 +403,11 @@ const Policyholder = ({ onBack, onSave, onNext, onPrevious, applicationId }) => 
 
   // Определение текста кнопки в заголовке
   const getHeaderButtonText = () => {
+    // Если идет загрузка, показываем "Загрузка..."
+    if (isLoading) {
+      return 'Загрузка...';
+    }
+    
     // Если ручной ввод включен - кнопка всегда "Сохранить"
     if (toggleStates.manualInput) {
       return 'Сохранить';
@@ -675,7 +695,7 @@ const Policyholder = ({ onBack, onSave, onNext, onPrevious, applicationId }) => 
   }
 
   if (currentView === 'sectorCode') {
-    return <SectorCode onBack={handleBackToMain} onSelect={(value) => handleDictionaryValueSelect('sectorCode', value)} />;
+    return <SectorCode onBack={handleBackToMain} onSelect={(value) => handleDictionaryValueSelect('sectorCode', value)} initialValue={policyholderData.economSecId} />;
   }
 
   if (currentView === 'country') {
@@ -731,36 +751,47 @@ const Policyholder = ({ onBack, onSave, onNext, onPrevious, applicationId }) => 
               </div>
             </div>
           </div>
-          <div data-layer="Save button" data-state="pressed" className="SaveButton" onClick={handleHeaderButtonClick} style={{width: 390, height: 85, background: 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: 'pointer'}}>
+          <div data-layer="Save button" data-state="pressed" className="SaveButton" onClick={isLoading ? undefined : handleHeaderButtonClick} style={{width: 390, height: 85, background: isLoading ? '#666' : 'black', overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 8.98, display: 'flex', cursor: isLoading ? 'not-allowed' : 'pointer', opacity: isLoading ? 0.7 : 1}}>
             <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{getHeaderButtonText()}</div>
           </div>
         </div>
       </div>
     </div>
-    {/* Alert для уведомлений */}
-    {!toggleStates.manualInput && (autoModeState === 'request_sent' || autoModeState === 'response_received') && (
-      <div data-layer="Alert" className="Alert" style={{alignSelf: 'stretch', height: 85, paddingRight: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 8, display: 'inline-flex'}}>
-        <div data-layer="Info container" className="InfoContainer" style={{width: 85, height: 85, position: 'relative', background: 'white', overflow: 'hidden'}}>
-          <div data-svg-wrapper data-layer="Info" className="Info" style={{left: 31, top: 32, position: 'absolute'}}>
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <g clipPath="url(#clip0_491_9703)">
-            <path fillRule="evenodd" clipRule="evenodd" d="M0.916748 10.9998C0.916748 5.43083 5.43107 0.916504 11.0001 0.916504C16.5691 0.916504 21.0834 5.43083 21.0834 10.9998C21.0834 16.5688 16.5691 21.0832 11.0001 21.0832C5.43107 21.0832 0.916748 16.5688 0.916748 10.9998ZM11.0001 2.74984C6.44359 2.74984 2.75008 6.44335 2.75008 10.9998C2.75008 15.5563 6.44359 19.2498 11.0001 19.2498C15.5566 19.2498 19.2501 15.5563 19.2501 10.9998C19.2501 6.44335 15.5566 2.74984 11.0001 2.74984ZM10.0742 7.33317C10.0742 6.82691 10.4847 6.4165 10.9909 6.4165H11.0001C11.5063 6.4165 11.9167 6.82691 11.9167 7.33317C11.9167 7.83943 11.5063 8.24984 11.0001 8.24984H10.9909C10.4847 8.24984 10.0742 7.83943 10.0742 7.33317ZM11.0001 10.0832C11.5063 10.0832 11.9167 10.4936 11.9167 10.9998V14.6665C11.9167 15.1728 11.5063 15.5832 11.0001 15.5832C10.4938 15.5832 10.0834 15.1728 10.0834 14.6665V10.9998C10.0834 10.4936 10.4938 10.0832 11.0001 10.0832Z" fill="black"/>
-            </g>
-            <defs>
-            <clipPath id="clip0_491_9703">
-            <rect width="22" height="22" fill="white"/>
-            </clipPath>
-            </defs>
-            </svg>
+        {/* Alert для уведомлений */}
+        {(!toggleStates.manualInput && (autoModeState === 'request_sent' || autoModeState === 'response_received')) || errorMessage ? (
+          <div data-layer="Alert" className="Alert" style={{alignSelf: 'stretch', height: 85, paddingRight: 20, background: errorMessage ? '#fff5f5' : 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 8, display: 'inline-flex'}}>
+            <div data-layer="Info container" className="InfoContainer" style={{width: 85, height: 85, position: 'relative', background: 'white', overflow: 'hidden'}}>
+              {errorMessage ? (
+                <div data-svg-wrapper data-layer="Error" className="Error" style={{left: 31, top: 32, position: 'absolute'}}>
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="11" cy="11" r="10" stroke="#d32f2f" strokeWidth="2"/>
+                    <path d="M11 7V11M11 15H11.01" stroke="#d32f2f" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </div>
+              ) : (
+                <div data-svg-wrapper data-layer="Info" className="Info" style={{left: 31, top: 32, position: 'absolute'}}>
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clipPath="url(#clip0_491_9703)">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M0.916748 10.9998C0.916748 5.43083 5.43107 0.916504 11.0001 0.916504C16.5691 0.916504 21.0834 5.43083 21.0834 10.9998C21.0834 16.5688 16.5691 21.0832 11.0001 21.0832C5.43107 21.0832 0.916748 16.5688 0.916748 10.9998ZM11.0001 2.74984C6.44359 2.74984 2.75008 6.44335 2.75008 10.9998C2.75008 15.5563 6.44359 19.2498 11.0001 19.2498C15.5566 19.2498 19.2501 15.5563 19.2501 10.9998C19.2501 6.44335 15.5566 2.74984 11.0001 2.74984ZM10.0742 7.33317C10.0742 6.82691 10.4847 6.4165 10.9909 6.4165H11.0001C11.5063 6.4165 11.9167 6.82691 11.9167 7.33317C11.9167 7.83943 11.5063 8.24984 11.0001 8.24984H10.9909C10.4847 8.24984 10.0742 7.83943 10.0742 7.33317ZM11.0001 10.0832C11.5063 10.0832 11.9167 10.4936 11.9167 10.9998V14.6665C11.9167 15.1728 11.5063 15.5832 11.0001 15.5832C10.4938 15.5832 10.0834 15.1728 10.0834 14.6665V10.9998C10.0834 10.4936 10.4938 10.0832 11.0001 10.0832Z" fill="black"/>
+                    </g>
+                    <defs>
+                    <clipPath id="clip0_491_9703">
+                    <rect width="22" height="22" fill="white"/>
+                    </clipPath>
+                    </defs>
+                  </svg>
+                </div>
+              )}
+            </div>
+            <div data-layer="Label" className="Label" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: errorMessage ? '#d32f2f' : 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
+              {errorMessage 
+                ? errorMessage
+                : autoModeState === 'request_sent' 
+                  ? 'На номер будет отправлено СМС для получения согласия, клиенту необходимо ответить 511'
+                  : 'Нажмите на обновить, чтобы получить данные детей клиента'}
+            </div>
           </div>
-        </div>
-        <div data-layer="Label" className="Label" style={{flex: '1 1 0', justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
-          {autoModeState === 'request_sent' 
-            ? 'На номер будет отправлено СМС для получения согласия, клиенту необходимо ответить 511'
-            : 'Нажмите на обновить, чтобы получить данные детей клиента'}
-        </div>
-      </div>
-    )}
+        ) : null}
     <div data-layer="Filds list" className="FildsList" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
       <div data-layer="ManualToggleButton" data-state={toggleStates.manualInput ? "pressed" : "not_pressed"} className="Manualtogglebutton" onClick={() => handleToggleClick('manualInput')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
         <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>

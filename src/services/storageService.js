@@ -19,7 +19,8 @@ const STORAGE_KEYS = {
   APPLICATION_METADATA: 'applicationMetadata',
   APPLICATION_DATA_BY_NUMBER: 'applicationDataByNumber', // Данные заявки по номеру
   ACCESS_TOKEN: 'accessToken',
-  REFRESH_TOKEN: 'refreshToken'
+  REFRESH_TOKEN: 'refreshToken',
+  USER_LOGIN: 'userLogin'
 };
 
 /**
@@ -818,15 +819,112 @@ export const getRefreshToken = () => {
 };
 
 /**
+ * Сохранить логин пользователя в localStorage
+ * @param {string} login - Логин пользователя
+ */
+export const saveUserLogin = (login) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.USER_LOGIN, login);
+    console.log('💾 [AUTH] Логин пользователя сохранен:', login);
+  } catch (error) {
+    console.error('Error saving user login:', error);
+  }
+};
+
+/**
+ * Получить логин пользователя из localStorage
+ * @returns {string|null} Логин пользователя или null
+ */
+export const getUserLogin = () => {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.USER_LOGIN);
+  } catch (error) {
+    console.error('Error getting user login:', error);
+    return null;
+  }
+};
+
+/**
  * Очистить токены из localStorage
  */
 export const clearTokens = () => {
   try {
     localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-    console.log('🗑️ [AUTH] Токены очищены');
+    localStorage.removeItem(STORAGE_KEYS.USER_LOGIN);
+    // Также очищаем кэшированную роль и хэш токена
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userRoleTokenHash');
+    console.log('🗑️ [AUTH] Токены, логин и кэш роли очищены');
   } catch (error) {
     console.error('Error clearing tokens:', error);
+  }
+};
+
+/**
+ * Декодировать JWT токен и извлечь payload
+ * @param {string} token - JWT токен
+ * @returns {Object|null} Payload токена или null
+ */
+export const decodeJWT = (token) => {
+  if (!token) return null;
+  
+  try {
+    // JWT формат: header.payload.signature
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      console.error('Invalid JWT format');
+      return null;
+    }
+    
+    // Декодируем payload (вторая часть)
+    const payload = parts[1];
+    
+    // Base64 декодирование (JWT использует base64url, но стандартный base64 тоже работает)
+    // Добавляем padding если нужно
+    let base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padding = base64.length % 4;
+    if (padding) {
+      base64 += '='.repeat(4 - padding);
+    }
+    
+    const decoded = atob(base64);
+    return JSON.parse(decoded);
+  } catch (error) {
+    console.error('Error decoding JWT token:', error);
+    return null;
+  }
+};
+
+/**
+ * Получить роль пользователя по логину
+ * @returns {string|null} Роль пользователя или null
+ */
+export const getUserRole = () => {
+  try {
+    // Получаем логин пользователя
+    const login = getUserLogin();
+    if (!login) {
+      return null;
+    }
+    
+    // Определяем роль по логину (регистронезависимо)
+    const loginLower = login.toLowerCase().trim();
+    
+    if (loginLower === 'manager') {
+      return 'manager';
+    } else if (loginLower === 'underwriter') {
+      return 'underwriter';
+    } else if (loginLower === 'compliance') {
+      return 'compliance';
+    }
+    
+    // Если логин не соответствует известным ролям, возвращаем null
+    console.warn('⚠️ [AUTH] Неизвестный логин для определения роли:', login);
+    return null;
+  } catch (error) {
+    console.error('Error getting user role:', error);
+    return null;
   }
 };
 

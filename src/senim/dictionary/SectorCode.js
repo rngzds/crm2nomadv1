@@ -1,16 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-const SectorCode = ({ onBack, onSelect }) => {
+const SectorCode = ({ onBack, onSelect, initialValue }) => {
   const [selectedValue, setSelectedValue] = useState(null);
+
+  // Установка начального значения при монтировании или изменении initialValue
+  useEffect(() => {
+    if (initialValue !== undefined && initialValue !== null && initialValue !== '') {
+      // Если initialValue - это число или строка с числом, используем его
+      const value = String(initialValue).trim();
+      // Проверяем, является ли значение числом от 1 до 9
+      if (/^[1-9]$/.test(value)) {
+        setSelectedValue(value);
+      } else {
+        // Если это полный текст, пытаемся найти соответствующий код
+        const sectorCodes = {
+          '1 - Правительство Республики Казахстан или Правительство иностранного государства': '1',
+          '2 - Региональные и местные органы управления': '2',
+          '3 - Центральный (национальный) банк': '3',
+          '4 - Другие депозитные организации': '4',
+          '5 - Другие финансовые организации': '5',
+          '6 - Государственные нефинансовые организации': '6',
+          '7 - Негосударственные нефинансовые организации': '7',
+          '8 - Некоммерческие организации, обслуживающие домашние хозяйства': '8',
+          '9 - Домашние хозяйства/физическое лицо': '9'
+        };
+        // Ищем по полному тексту или по части текста после " - "
+        const foundCode = Object.keys(sectorCodes).find(key => {
+          const textAfterDash = key.split(' - ')[1];
+          return String(initialValue).includes(textAfterDash) || key.includes(String(initialValue));
+        });
+        if (foundCode) {
+          setSelectedValue(sectorCodes[foundCode]);
+        }
+      }
+    } else {
+      // Если initialValue пустое, сбрасываем выбранное значение
+      setSelectedValue(null);
+    }
+  }, [initialValue]);
 
   // Маппинг значений на читаемые имена
   const getDisplayName = (value) => {
     const nameMap = {
-      'option1': 'Текст',
-      'option2': 'Текст'
+      '1': '1 - Правительство Республики Казахстан или Правительство иностранного государства',
+      '2': '2 - Региональные и местные органы управления',
+      '3': '3 - Центральный (национальный) банк',
+      '4': '4 - Другие депозитные организации',
+      '5': '5 - Другие финансовые организации',
+      '6': '6 - Государственные нефинансовые организации',
+      '7': '7 - Негосударственные нефинансовые организации',
+      '8': '8 - Некоммерческие организации, обслуживающие домашние хозяйства',
+      '9': '9 - Домашние хозяйства/физическое лицо'
     };
     return nameMap[value] || value;
   };
+
+  // Массив секторов для рендеринга
+  const sectors = [
+    { value: '1', label: '1 - Правительство Республики Казахстан или Правительство иностранного государства' },
+    { value: '2', label: '2 - Региональные и местные органы управления' },
+    { value: '3', label: '3 - Центральный (национальный) банк' },
+    { value: '4', label: '4 - Другие депозитные организации' },
+    { value: '5', label: '5 - Другие финансовые организации' },
+    { value: '6', label: '6 - Государственные нефинансовые организации' },
+    { value: '7', label: '7 - Негосударственные нефинансовые организации' },
+    { value: '8', label: '8 - Некоммерческие организации, обслуживающие домашние хозяйства' },
+    { value: '9', label: '9 - Домашние хозяйства/физическое лицо' }
+  ];
 
   return (
     <div data-layer="List variants" className="ListVariants" style={{width: 1512, height: 982, justifyContent: 'flex-start', alignItems: 'flex-start', display: 'inline-flex'}}>
@@ -44,46 +100,35 @@ const SectorCode = ({ onBack, onSelect }) => {
       </div>
     </div>
     <div data-layer="Fields List" className="FieldsList" style={{alignSelf: 'stretch', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
-      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'option1' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('option1')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
-        <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-          <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Текст</div>
+      {sectors.map((sector) => (
+        <div 
+          key={sector.value}
+          data-layer="InputContainerRadioButton" 
+          data-state={selectedValue === sector.value ? 'pressed' : 'not_pressed'} 
+          className="Inputcontainerradiobutton" 
+          onClick={() => setSelectedValue(sector.value)} 
+          style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}
+        >
+          <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
+            <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{sector.label}</div>
+          </div>
+          <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
+            {selectedValue === sector.value ? (
+              <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
+                </svg>
+              </div>
+            ) : (
+              <div data-svg-wrapper data-layer="Ellipse-off" className="EllipseOff" style={{left: 35, top: 36, position: 'absolute'}}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="7" cy="7" r="6.5" stroke="black"/>
+                </svg>
+              </div>
+            )}
+          </div>
         </div>
-        <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          {selectedValue === 'option1' ? (
-            <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
-              </svg>
-            </div>
-          ) : (
-            <div data-svg-wrapper data-layer="Ellipse-off" className="EllipseOff" style={{left: 35, top: 36, position: 'absolute'}}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="7" cy="7" r="6.5" stroke="black"/>
-              </svg>
-            </div>
-          )}
-        </div>
-      </div>
-      <div data-layer="InputContainerRadioButton" data-state={selectedValue === 'option2' ? 'pressed' : 'not_pressed'} className="Inputcontainerradiobutton" onClick={() => setSelectedValue('option2')} style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex', cursor: 'pointer'}}>
-        <div data-layer="Text container" className="TextContainer" style={{flex: '1 1 0', paddingTop: 20, paddingBottom: 20, overflow: 'hidden', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'flex'}}>
-          <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Текст</div>
-        </div>
-        <div data-layer="Radiobutton container" className="RadiobuttonContainer" style={{width: 85, height: 85, position: 'relative', background: '#FBF9F9', overflow: 'hidden'}}>
-          {selectedValue === 'option2' ? (
-            <div data-svg-wrapper data-layer="Ellipse-on" className="EllipseOn" style={{left: 35, top: 36, position: 'absolute'}}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="7" cy="7" r="6.5" fill="black" stroke="black"/>
-              </svg>
-            </div>
-          ) : (
-            <div data-svg-wrapper data-layer="Ellipse-off" className="EllipseOff" style={{left: 35, top: 36, position: 'absolute'}}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="7" cy="7" r="6.5" stroke="black"/>
-              </svg>
-            </div>
-          )}
-        </div>
-      </div>
+      ))}
     </div>
   </div>
     </div>

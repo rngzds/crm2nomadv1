@@ -143,7 +143,7 @@ const PolicyholderInsured = ({ onBack, onNext, onPrevious, policyholderData, onS
     return <Gender onBack={() => setDictionaryView(previousDictionaryView)} onSelect={(value) => handleDictionaryValueSelect('gender', value)} />;
   }
   if (dictionaryView === 'sectorCode') {
-    return <SectorCode onBack={() => setDictionaryView(previousDictionaryView)} onSelect={(value) => handleDictionaryValueSelect('sectorCode', value)} />;
+    return <SectorCode onBack={() => setDictionaryView(previousDictionaryView)} onSelect={(value) => handleDictionaryValueSelect('sectorCode', value)} initialValue={policyholderData.economSecId} />;
   }
   if (dictionaryView === 'country') {
     return <Country onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('country', value)} />;

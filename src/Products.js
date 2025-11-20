@@ -1,30 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { getAccessToken } from './services/storageService';
 
-const Products = ({ onSelectProduct, onBack }) => {
+const Products = ({ onSelectProduct, onBack, isCreating }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
 
-  // Загружаем доступные продукты из API с кэшированием
+  // Загружаем доступные продукты из API при каждом открытии экрана
   useEffect(() => {
     const loadProducts = async () => {
-      // Проверяем кэш (продукты редко меняются, кэшируем на 10 минут)
-      const cachedProducts = localStorage.getItem('cached_products');
-      const cacheTimestamp = localStorage.getItem('cached_products_timestamp');
-      if (cachedProducts && cacheTimestamp) {
-        const cacheAge = Date.now() - parseInt(cacheTimestamp, 10);
-        const CACHE_DURATION = 10 * 60 * 1000; // 10 минут
-        if (cacheAge < CACHE_DURATION) {
-          console.log('Используем кэшированные продукты');
-          const productsData = JSON.parse(cachedProducts);
-          setProducts(productsData);
-          return;
-        }
-      }
-
       setLoading(true);
       setError(null);
       
@@ -57,9 +42,6 @@ const Products = ({ onSelectProduct, onBack }) => {
         console.log('Получены продукты:', productsData);
         
         if (Array.isArray(productsData)) {
-          // Кэшируем продукты
-          localStorage.setItem('cached_products', JSON.stringify(productsData));
-          localStorage.setItem('cached_products_timestamp', Date.now().toString());
           setProducts(productsData);
         } else {
           throw new Error('Неверный формат данных продуктов');
@@ -80,15 +62,12 @@ const Products = ({ onSelectProduct, onBack }) => {
   };
 
   const handleCreate = async () => {
-    if (selectedProduct && onSelectProduct && !creating) {
-      setCreating(true);
+    if (selectedProduct && onSelectProduct && !isCreating) {
       try {
         // Передаем объект продукта, а не только название
         await onSelectProduct(selectedProduct);
       } catch (error) {
         console.error('Ошибка при создании заявки:', error);
-      } finally {
-        setCreating(false);
       }
     }
   };
@@ -121,20 +100,20 @@ const Products = ({ onSelectProduct, onBack }) => {
               style={{
                 width: 388, 
                 height: 85, 
-                background: (creating || !selectedProduct) ? '#666' : 'black', 
+                background: (isCreating || !selectedProduct) ? '#666' : 'black', 
                 overflow: 'hidden', 
                 justifyContent: 'flex-start', 
                 alignItems: 'center', 
                 gap: 8.98, 
                 display: 'flex', 
-                cursor: (creating || !selectedProduct) ? 'not-allowed' : 'pointer',
-                opacity: (creating || !selectedProduct) ? 0.7 : 1,
+                cursor: (isCreating || !selectedProduct) ? 'not-allowed' : 'pointer',
+                opacity: (isCreating || !selectedProduct) ? 0.7 : 1,
                 transition: 'all 0.2s'
               }} 
               onClick={handleCreate}
             >
               <div data-layer="Button Text" className="ButtonText" style={{flex: '1 1 0', textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', textAlign: 'center', color: 'white', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>
-                {creating ? 'Создание...' : 'Создать'}
+                {isCreating ? 'Создание...' : 'Создать'}
               </div>
             </div>
           </div>

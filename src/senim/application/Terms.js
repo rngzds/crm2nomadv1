@@ -91,11 +91,7 @@ const Terms = ({ onBack, onNext, onPrevious, onSave, applicationId }) => {
     }
     
     if (onSave) {
-      onSave({
-        ...dictionaryValues,
-        ...toggleStates,
-        ...dateValues
-      });
+      onSave(termsData);
     }
     if (onBack) {
       onBack();

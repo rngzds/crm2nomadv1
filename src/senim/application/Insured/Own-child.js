@@ -389,7 +389,7 @@ const OwnChild = ({ onBack, onNext, onPrevious, onSave, applicationId, onOpenTyp
       return <Gender onBack={() => setDictionaryView(previousDictionaryView)} onSelect={(value) => handleParentDictionaryValueSelect('gender', value)} />;
     }
     if (dictionaryView === 'parent-sectorCode') {
-      return <SectorCode onBack={() => setDictionaryView(previousDictionaryView)} onSelect={(value) => handleParentDictionaryValueSelect('economSecId', value)} />;
+      return <SectorCode onBack={() => setDictionaryView(previousDictionaryView)} onSelect={(value) => handleParentDictionaryValueSelect('economSecId', value)} initialValue={policyholderData.economSecId} />;
     }
     if (dictionaryView === 'parent-country') {
       return <Country onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleParentDictionaryValueSelect('countryId', value)} />;
@@ -411,7 +411,7 @@ const OwnChild = ({ onBack, onNext, onPrevious, onSave, applicationId, onOpenTyp
       return <Gender onBack={() => setDictionaryView(previousDictionaryView)} onSelect={(value) => handleDictionaryValueSelect('gender', value)} />;
     }
     if (dictionaryView === 'sectorCode') {
-      return <SectorCode onBack={() => setDictionaryView(previousDictionaryView)} onSelect={(value) => handleDictionaryValueSelect('economSecId', value)} />;
+      return <SectorCode onBack={() => setDictionaryView(previousDictionaryView)} onSelect={(value) => handleDictionaryValueSelect('economSecId', value)} initialValue={childData.economSecId} />;
     }
     if (dictionaryView === 'country') {
       return <Country onBack={() => setDictionaryView(previousDictionaryView)} onSave={(value) => handleDictionaryValueSelect('countryId', value)} />;
