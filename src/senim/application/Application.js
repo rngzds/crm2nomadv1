@@ -6,8 +6,64 @@ import Terms from './Terms';
 import Questionary from './Questionary';
 import History from './History';
 import RejectReason from './RejectReason';
-import { loadApplicationHistory, loadApplicationBeneficiary, loadApplicationMetadata, saveApplicationMetadata, loadGlobalApplicationData, loadPolicyholderData, loadInsuredData, updateGlobalApplicationSection, getAccessToken, saveApplicationDataByNumber, loadApplicationDataByNumber, getApplicationKey, getUserRole } from '../../services/storageService';
-import { claimTask, sendTaskDecision, getRejectReasons } from '../../services/processService';
+import { loadApplicationHistory, loadApplicationBeneficiary, loadApplicationMetadata, saveApplicationMetadata, loadGlobalApplicationData, loadPolicyholderData, loadInsuredData, updateGlobalApplicationSection, getAccessToken, saveApplicationDataByNumber, loadApplicationDataByNumber, getApplicationKey, getUserRole, saveApplicationHistory } from '../../services/storageService';
+import { claimTask, sendTaskDecision, getRejectReasons, getProcessInstanceDetails, getProcessHistory } from '../../services/processService';
+
+const sanitizeHistoryValue = (value) => {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === '-') {
+      return undefined;
+    }
+    return trimmed;
+  }
+  return value;
+};
+
+const mapHistoryItem = (item = {}) => ({
+  stage: sanitizeHistoryValue(item.stage) ||
+    sanitizeHistoryValue(item.role) ||
+    sanitizeHistoryValue(item.statusTitle) ||
+    sanitizeHistoryValue(item.statusCode) ||
+    '',
+  performer: sanitizeHistoryValue(item.performer) ||
+    sanitizeHistoryValue(item.executorName) ||
+    sanitizeHistoryValue(item.userFullName) ||
+    '',
+  eventDate: sanitizeHistoryValue(item.eventDate) ||
+    sanitizeHistoryValue(item.executionDate) ||
+    sanitizeHistoryValue(item.factEndDate) ||
+    sanitizeHistoryValue(item.dateCreated) ||
+    '',
+  decision: sanitizeHistoryValue(item.decision) ||
+    sanitizeHistoryValue(item.status) ||
+    sanitizeHistoryValue(item.decisionNameRu) ||
+    '',
+  comment: sanitizeHistoryValue(item.comment) || sanitizeHistoryValue(item.reason) || ''
+});
+
+const normalizeHistoryData = (data = {}) => {
+  const items = Array.isArray(data?.items) ? data.items.map(mapHistoryItem) : [];
+  const lastItem = items.length > 0 ? items[items.length - 1] : {};
+
+  return {
+    items,
+    lastEventDate: sanitizeHistoryValue(data?.lastEventDate) ||
+      sanitizeHistoryValue(data?.dateTime) ||
+      lastItem.eventDate ||
+      '',
+    lastStage: sanitizeHistoryValue(data?.lastStage) ||
+      sanitizeHistoryValue(data?.status) ||
+      lastItem.stage ||
+      '',
+    lastDecision: sanitizeHistoryValue(data?.lastDecision) ||
+      lastItem.decision ||
+      ''
+  };
+};
 
 const Application = ({ selectedProduct, applicationId, onBack, processState, onProcessStateRefresh }) => {
   const [currentView, setCurrentView] = useState('main');
@@ -18,6 +74,7 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
   const [historyData, setHistoryData] = useState(null);
   const [beneficiaryData, setBeneficiaryData] = useState(null);
   const [applicationNumber, setApplicationNumber] = useState(null);
+  const [processDetails, setProcessDetails] = useState(null);
   const [isClaimingTask, setIsClaimingTask] = useState(false);
   const [isSendingTask, setIsSendingTask] = useState(false);
   const [isRejectingTask, setIsRejectingTask] = useState(false);
@@ -27,6 +84,24 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
   const [processError, setProcessError] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const processStateRequestedRef = useRef(false);
+  const formatDateTime = (value) => {
+    if (!value) {
+      return '';
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+    // Добавляем 5 часов к дате
+    parsed.setHours(parsed.getHours() + 5);
+    return parsed.toLocaleString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   // Загружаем данные истории и выгодоприобретателя при монтировании
   useEffect(() => {
@@ -63,8 +138,9 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
                 localStorage.setItem(beneficiaryKey, JSON.stringify(dataByNumber.beneficiary));
               }
               if (dataByNumber.history) {
-                const historyKey = getApplicationKey(applicationId, 'applicationHistory');
-                localStorage.setItem(historyKey, JSON.stringify(dataByNumber.history));
+                const normalizedHistory = normalizeHistoryData(dataByNumber.history);
+                saveApplicationHistory(normalizedHistory, applicationId);
+                setHistoryData(normalizedHistory);
               }
               if (dataByNumber.terms) {
                 const normalizedTerms = normalizeTermsData(dataByNumber.terms);
@@ -74,6 +150,10 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
               if (dataByNumber.questionary) {
                 updateGlobalApplicationSection('Questionary', dataByNumber.questionary, applicationId);
                 setQuestionaryData(dataByNumber.questionary);
+              }
+              if (dataByNumber.processDetails) {
+                updateGlobalApplicationSection('ProcessDetails', dataByNumber.processDetails, applicationId);
+                setProcessDetails(dataByNumber.processDetails);
               }
             }
           }
@@ -96,6 +176,9 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
         let loadedBeneficiary = loadApplicationBeneficiary(applicationId);
         let loadedPolicyholder = globalData?.Policyholder || loadPolicyholderData(applicationId);
         let loadedInsured = globalData?.Insured || loadInsuredData(applicationId);
+        if (globalData?.ProcessDetails) {
+          setProcessDetails(globalData.ProcessDetails);
+        }
         
         // Если данных нет и processId отличается от applicationId, пытаемся загрузить по processId
         if (processId && processId !== applicationId) {
@@ -117,9 +200,9 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
 
         // Устанавливаем данные из localStorage сразу
         if (loadedHistory) {
-          setHistoryData(loadedHistory);
+          setHistoryData(normalizeHistoryData(loadedHistory));
         } else {
-          setHistoryData({ dateTime: '', status: '' });
+          setHistoryData(normalizeHistoryData());
         }
         
         if (loadedBeneficiary) {
@@ -164,6 +247,95 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId, selectedProduct]);
 
+  useEffect(() => {
+    if (!applicationId) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const fetchProcessData = async () => {
+      const token = getAccessToken();
+      if (!token) {
+        console.warn('Токен недоступен, пропускаем загрузку данных процесса');
+        return;
+      }
+
+      try {
+        const details = await getProcessInstanceDetails(applicationId, token);
+        if (!isCancelled && details) {
+          setProcessDetails(details);
+          updateGlobalApplicationSection('ProcessDetails', details, applicationId);
+
+          if (details.regNumber) {
+            setApplicationNumber(details.regNumber);
+          }
+
+          const currentMetadata = loadApplicationMetadata(applicationId) || {};
+          const updatedMetadata = {
+            ...currentMetadata,
+            applicationId,
+            processId: currentMetadata.processId || applicationId
+          };
+          let shouldSaveMetadata = false;
+
+          if (details.regNumber && currentMetadata.number !== details.regNumber) {
+            updatedMetadata.number = details.regNumber;
+            shouldSaveMetadata = true;
+          }
+
+          if (details.statusName && currentMetadata.statusName !== details.statusName) {
+            updatedMetadata.statusName = details.statusName;
+            shouldSaveMetadata = true;
+          }
+
+          if (details.statusCode && currentMetadata.statusCode !== details.statusCode) {
+            updatedMetadata.statusCode = details.statusCode;
+            shouldSaveMetadata = true;
+          }
+
+          if (details.processDefinitionName && currentMetadata.processName !== details.processDefinitionName) {
+            updatedMetadata.processName = details.processDefinitionName;
+            shouldSaveMetadata = true;
+          }
+
+          if (details.processDefinitionCode && currentMetadata.processCode !== details.processDefinitionCode) {
+            updatedMetadata.processCode = details.processDefinitionCode;
+            shouldSaveMetadata = true;
+          }
+
+          if (shouldSaveMetadata) {
+            saveApplicationMetadata(applicationId, updatedMetadata);
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка получения данных процесса:', error);
+      }
+
+      try {
+        const historyResponse = await getProcessHistory(applicationId, token);
+        if (isCancelled) {
+          return;
+        }
+
+        if (Array.isArray(historyResponse)) {
+          const mappedHistory = historyResponse.map((item) => mapHistoryItem(item));
+          const historyPayload = normalizeHistoryData({ items: mappedHistory });
+          setHistoryData(historyPayload);
+          saveApplicationHistory(historyPayload, applicationId);
+        }
+      } catch (error) {
+        console.error('Ошибка получения истории процесса:', error);
+      }
+    };
+
+    fetchProcessData();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [applicationId]);
+
   // Получаем роль пользователя при монтировании компонента
   useEffect(() => {
     const role = getUserRole();
@@ -195,10 +367,11 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
       history: historyData || null,
       terms: termsData || null,
       questionary: questionaryData || null,
+      processDetails: processDetails || globalData?.ProcessDetails || null,
       processState: processState || null,
       applicationId: applicationId // Сохраняем applicationId для связи
     };
-  }, [applicationId, policyholderData, insuredData, beneficiaryData, historyData, termsData, questionaryData, processState]);
+  }, [applicationId, policyholderData, insuredData, beneficiaryData, historyData, termsData, questionaryData, processState, processDetails]);
   
   // Функция для сохранения данных по номеру заявки
   const saveDataByNumber = useCallback(() => {
@@ -573,7 +746,14 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
   };
 
   if (currentView === 'history') {
-    return <History onBack={handleBackToMain} onNext={() => handleNextSection('history')} onPrevious={() => handlePreviousSection('history')} applicationId={applicationId} />;
+    return (
+      <History
+        onBack={handleBackToMain}
+        onNext={() => handleNextSection('history')}
+        onPrevious={() => handlePreviousSection('history')}
+        applicationId={applicationId}
+      />
+    );
   }
 
   if (currentView === 'policyholder') {
@@ -756,14 +936,14 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
         </div>
         <div data-layer="Info container" data-state="pressed" className="InfoContainer" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', display: 'inline-flex'}}>
           <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-            <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Дата и время</div>
-            <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{historyData?.dateTime || ''}</div>
+            <div data-layer="Label" className="Label" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Дата события</div>
+            <div data-layer="Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{formatDateTime(historyData?.lastEventDate) || '—'}</div>
           </div>
         </div>
         <div data-layer="Input Field" data-state="pressed" className="InputField" style={{alignSelf: 'stretch', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', borderBottom: '1px #F8E8E8 solid', justifyContent: 'flex-start', alignItems: 'center', gap: 10, display: 'inline-flex'}}>
           <div data-layer="Text field container" className="TextFieldContainer" style={{flex: '1 1 0', height: 85, paddingTop: 20, paddingBottom: 20, paddingRight: 16, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-            <div data-layer="LabelDefault" className="Labeldefault" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Статус</div>
-            <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{historyData?.status || ''}</div>
+            <div data-layer="LabelDefault" className="Labeldefault" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#6B6D80', fontSize: 14, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Статус процесса</div>
+            <div data-layer="%Input text" className="InputText" style={{justifyContent: 'center', display: 'flex', flexDirection: 'column', color: '#071222', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{historyData?.lastStage || '—'}</div>
           </div>
         </div>
       </div>

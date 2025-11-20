@@ -19,14 +19,51 @@ import {
 } from './services/processService';
 
 function App() {
-  const [currentView, setCurrentView] = useState('auth');
+  // Проверяем наличие токена при инициализации и восстанавливаем состояние из sessionStorage
+  const [currentView, setCurrentView] = useState(() => {
+    const token = getAccessToken();
+    if (!token) {
+      return 'auth';
+    }
+    // Восстанавливаем состояние из sessionStorage
+    const savedView = sessionStorage.getItem('currentView');
+    return savedView || 'main';
+  });
+
+  // Сохраняем текущий view в sessionStorage при изменении
+  useEffect(() => {
+    if (currentView !== 'auth') {
+      sessionStorage.setItem('currentView', currentView);
+    }
+  }, [currentView]);
 
   // Прокрутка наверх при изменении view
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [currentView]);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [currentApplicationId, setCurrentApplicationIdState] = useState(null);
+  
+  const [selectedProduct, setSelectedProduct] = useState(() => {
+    const saved = sessionStorage.getItem('selectedProduct');
+    return saved || null;
+  });
+  
+  const [currentApplicationId, setCurrentApplicationIdState] = useState(() => {
+    const saved = sessionStorage.getItem('currentApplicationId');
+    return saved || null;
+  });
+  
+  // Сохраняем selectedProduct и currentApplicationId в sessionStorage
+  useEffect(() => {
+    if (selectedProduct) {
+      sessionStorage.setItem('selectedProduct', selectedProduct);
+    }
+  }, [selectedProduct]);
+  
+  useEffect(() => {
+    if (currentApplicationId) {
+      sessionStorage.setItem('currentApplicationId', currentApplicationId);
+    }
+  }, [currentApplicationId]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isCreatingApplication, setIsCreatingApplication] = useState(false);
   const [processState, setProcessState] = useState(null);
@@ -175,8 +212,11 @@ function App() {
   };
 
   const handleLogout = () => {
-    // Очищаем все данные из localStorage при выходе (хард ресет)
+    // Очищаем все данные из localStorage и sessionStorage при выходе (хард ресет)
     clearAllData();
+    sessionStorage.removeItem('currentView');
+    sessionStorage.removeItem('selectedProduct');
+    sessionStorage.removeItem('currentApplicationId');
     setCurrentView('auth');
     setSelectedProduct(null);
     setCurrentApplicationIdState(null);
@@ -463,11 +503,43 @@ function App() {
     setCurrentView('application');
   };
 
+  // Восстанавливаем состояние application view при загрузке, если оно было сохранено
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      return;
+    }
+    
+    const savedView = sessionStorage.getItem('currentView');
+    const savedApplicationId = sessionStorage.getItem('currentApplicationId');
+    const savedProduct = sessionStorage.getItem('selectedProduct');
+    
+    // Если была открыта заявка, восстанавливаем состояние
+    if (savedView === 'application' && savedApplicationId && savedProduct) {
+      // Устанавливаем состояния, компонент Application сам загрузит данные
+      setCurrentApplicationIdState(savedApplicationId);
+      setSelectedProduct(savedProduct);
+      // Обновляем processState используя сохраненный ID напрямую
+      refreshProcessState(savedApplicationId).then(state => {
+        if (state) {
+          setProcessState(state);
+        }
+      }).catch(err => {
+        console.error('Ошибка восстановления processState:', err);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Выполняется только при монтировании
+
   const handleBackToMain = () => {
     setCurrentView('main');
     setSelectedProduct(null);
     setCurrentApplicationIdState(null);
     setProcessState(null);
+    // Очищаем sessionStorage при возврате на main
+    sessionStorage.removeItem('currentView');
+    sessionStorage.removeItem('selectedProduct');
+    sessionStorage.removeItem('currentApplicationId');
     // Принудительно обновляем список заявлений при возврате
     setRefreshKey(prev => prev + 1);
   };

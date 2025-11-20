@@ -3,6 +3,7 @@ import { getAccessToken } from './storageService';
 const PROCESS_BASE_URL = 'https://crm-process.onrender.com/api/Statement';
 const ARM_BASE_URL = 'https://crm-arm.onrender.com/api/Statement';
 const DICTIONARY_BASE_URL = 'https://crm-arm.onrender.com/api/Dictionary';
+const STATEMENT_BASE_URL = 'https://crm-statement.onrender.com/api';
 
 const getTokenOrThrow = (token) => {
   const resolved = token || getAccessToken();
@@ -138,5 +139,41 @@ export const getRejectReasons = async (taskId, token) => {
   });
 
   return handleResponse(response, 'Ошибка загрузки причин отказа');
+};
+
+export const getProcessInstanceDetails = async (processInstanceId, token) => {
+  if (!processInstanceId) {
+    throw new Error('processInstanceId не указан');
+  }
+  const authToken = getTokenOrThrow(token);
+
+  const response = await fetch(`${STATEMENT_BASE_URL}/ProcessInstance/${processInstanceId}`, {
+    method: 'GET',
+    mode: 'cors',
+    headers: {
+      accept: '*/*',
+      Authorization: `Bearer ${authToken}`,
+    },
+  });
+
+  return handleResponse(response, 'Ошибка получения данных процесса');
+};
+
+export const getProcessHistory = async (processInstanceId, token) => {
+  if (!processInstanceId) {
+    throw new Error('processInstanceId не указан');
+  }
+  const authToken = getTokenOrThrow(token);
+
+  const response = await fetch(`${PROCESS_BASE_URL}/process-history/${processInstanceId}`, {
+    method: 'GET',
+    mode: 'cors',
+    headers: {
+      accept: '*/*',
+      Authorization: `Bearer ${authToken}`,
+    },
+  });
+
+  return handleResponse(response, 'Ошибка получения истории процесса');
 };
 
