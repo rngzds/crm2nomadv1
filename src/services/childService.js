@@ -2,7 +2,7 @@
  * Сервис для получения данных о детях через API
  */
 
-const API_URL = 'https://child-7aex.onrender.com/api/get-child';
+const API_URL = 'https://person-child-dates.onrender.com/api/get-child';
 
 /**
  * Получить список детей по ИИН и телефону

@@ -2,7 +2,7 @@
  * Сервис для получения данных о человеке через API
  */
 
-const API_URL = 'https://getperson.onrender.com/api/get-person';
+const API_URL = 'https://person-child-dates.onrender.com/api/get-person';
 
 /**
  * Получить данные о человеке по телефону и ИИН
