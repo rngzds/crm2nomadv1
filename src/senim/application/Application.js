@@ -65,7 +65,7 @@ const normalizeHistoryData = (data = {}) => {
   };
 };
 
-const Application = ({ selectedProduct, applicationId, onBack, processState, onProcessStateRefresh }) => {
+const Application = ({ selectedProduct, applicationId, onBack, processState, onProcessStateRefresh, folderType = 'Statement' }) => {
   const [currentView, setCurrentView] = useState('main');
   const [policyholderData, setPolicyholderData] = useState(null);
   const [insuredData, setInsuredData] = useState(null);
@@ -92,8 +92,7 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
     if (Number.isNaN(parsed.getTime())) {
       return value;
     }
-    // Добавляем 5 часов к дате
-    parsed.setHours(parsed.getHours() + 5);
+    // Автоматически конвертируем UTC в локальное время браузера
     return parsed.toLocaleString('ru-RU', {
       day: '2-digit',
       month: '2-digit',
@@ -817,108 +816,111 @@ const Application = ({ selectedProduct, applicationId, onBack, processState, onP
       <div data-layer="Frame 1321316873" className="Frame1321316873" style={{flex: '1 1 0', height: 85, paddingLeft: 20, background: 'white', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', gap: 10, display: 'flex'}}>
         <div data-layer="Screen Title" className="ScreenTitle" style={{flex: '1 1 auto', height: 12, textBoxTrim: 'trim-both', textBoxEdge: 'cap alphabetic', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Заявление № {applicationNumber || (applicationId ? applicationId.substring(0, 8) : '')}</div>
       </div>
-      <div data-layer="Button Container" className="ButtonContainer" style={{flex: '0 0 777px', height: 85, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', justifyContent: 'flex-end', alignItems: 'center', display: 'flex', gap: 16}}>
-        {processError && (
-          <div style={{color: '#d32f2f', fontSize: 14, fontFamily: 'Inter', fontWeight: 500, marginRight: 12}}>
-            {processError}
-          </div>
-        )}
-        {canClaimTaskNow ? (
-          <div
-            data-layer="Claim button"
-            className="ClaimButton"
-            style={{
-              width: 388.5,
-              height: 85,
-              background: isClaimingTask ? '#666' : '#000',
-              opacity: isClaimingTask ? 0.7 : 1,
-              overflow: 'hidden',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              display: 'flex',
-              cursor: isClaimingTask ? 'wait' : 'pointer',
-              color: 'white',
-              textAlign: 'center',
-              fontFamily: 'Inter',
-              fontSize: 16,
-              fontWeight: 500
-            }}
-            onClick={isClaimingTask ? undefined : handleClaimTask}
-          >
-            <div style={{flex: 1, textAlign: 'center'}}>
-              {isClaimingTask ? 'Берем задачу...' : 'Взять задачу'}
+      {/* Показываем кнопки только для задач (folderType === 'Task' или 'Tasks') */}
+      {(folderType === 'Task' || folderType === 'Tasks') && (
+        <div data-layer="Button Container" className="ButtonContainer" style={{flex: '0 0 777px', height: 85, background: 'white', overflow: 'hidden', borderLeft: '1px #F8E8E8 solid', justifyContent: 'flex-end', alignItems: 'center', display: 'flex', gap: 16}}>
+          {processError && (
+            <div style={{color: '#d32f2f', fontSize: 14, fontFamily: 'Inter', fontWeight: 500, marginRight: 12}}>
+              {processError}
             </div>
-          </div>
-        ) : (
-          <>
+          )}
+          {canClaimTaskNow ? (
             <div
-              data-layer="Reject button"
-              className="RejectButton"
+              data-layer="Claim button"
+              className="ClaimButton"
               style={{
                 width: 388.5,
                 height: 85,
+                background: isClaimingTask ? '#666' : '#000',
+                opacity: isClaimingTask ? 0.7 : 1,
                 overflow: 'hidden',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 display: 'flex',
-                cursor: isDecisionDisabled ? 'not-allowed' : 'pointer',
-                opacity: isDecisionDisabled ? 0.5 : 1,
-                color: 'black',
-                fontFamily: 'Inter',
-                fontSize: 16,
-                fontWeight: 500
-              }}
-              onClick={isDecisionDisabled ? undefined : handleRejectClick}
-            >
-              <div style={{flex: 1, textAlign: 'center'}}>
-                {isRejectingTask ? 'Отклоняем...' : 'Отклонить'}
-              </div>
-            </div>
-            <div
-              data-layer="Send button for approval"
-              className="SendButtonForApproval"
-              style={{
-                width: 388.5,
-                height: 85,
-                background: isDecisionDisabled ? '#666' : 'black',
-                overflow: 'hidden',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                display: 'flex',
-                cursor: isDecisionDisabled ? 'not-allowed' : 'pointer',
-                opacity: isDecisionDisabled ? 0.7 : 1,
+                cursor: isClaimingTask ? 'wait' : 'pointer',
                 color: 'white',
+                textAlign: 'center',
                 fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: 500
               }}
-              onClick={isDecisionDisabled ? undefined : handleSendForApproval}
+              onClick={isClaimingTask ? undefined : handleClaimTask}
             >
               <div style={{flex: 1, textAlign: 'center'}}>
-                {isSendingTask 
-                  ? 'Отправляем...' 
-                  : (() => {
-                      // Если роль не определена, показываем "Отправить на согласование"
-                      if (!userRole) {
-                        return 'Отправить на согласование';
-                      }
-                      
-                      const roleLower = userRole.toLowerCase().trim();
-                      
-                      // Только для underwriter и compliance показываем "Согласовать"
-                      // Для manager и всех остальных ролей - "Отправить на согласование"
-                      if (roleLower === 'underwriter' || roleLower === 'compliance') {
-                        return 'Согласовать';
-                      }
-                      
-                      // Для manager и всех остальных ролей
-                      return 'Отправить на согласование';
-                    })()}
+                {isClaimingTask ? 'Берем задачу...' : 'Взять задачу'}
               </div>
             </div>
-          </>
-        )}
-      </div>
+          ) : (
+            <>
+              <div
+                data-layer="Reject button"
+                className="RejectButton"
+                style={{
+                  width: 388.5,
+                  height: 85,
+                  overflow: 'hidden',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  display: 'flex',
+                  cursor: isDecisionDisabled ? 'not-allowed' : 'pointer',
+                  opacity: isDecisionDisabled ? 0.5 : 1,
+                  color: 'black',
+                  fontFamily: 'Inter',
+                  fontSize: 16,
+                  fontWeight: 500
+                }}
+                onClick={isDecisionDisabled ? undefined : handleRejectClick}
+              >
+                <div style={{flex: 1, textAlign: 'center'}}>
+                  {isRejectingTask ? 'Отклоняем...' : 'Отклонить'}
+                </div>
+              </div>
+              <div
+                data-layer="Send button for approval"
+                className="SendButtonForApproval"
+                style={{
+                  width: 388.5,
+                  height: 85,
+                  background: isDecisionDisabled ? '#666' : 'black',
+                  overflow: 'hidden',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  display: 'flex',
+                  cursor: isDecisionDisabled ? 'not-allowed' : 'pointer',
+                  opacity: isDecisionDisabled ? 0.7 : 1,
+                  color: 'white',
+                  fontFamily: 'Inter',
+                  fontSize: 16,
+                  fontWeight: 500
+                }}
+                onClick={isDecisionDisabled ? undefined : handleSendForApproval}
+              >
+                <div style={{flex: 1, textAlign: 'center'}}>
+                  {isSendingTask 
+                    ? 'Отправляем...' 
+                    : (() => {
+                        // Если роль не определена, показываем "Отправить на согласование"
+                        if (!userRole) {
+                          return 'Отправить на согласование';
+                        }
+                        
+                        const roleLower = userRole.toLowerCase().trim();
+                        
+                        // Только для underwriter и compliance показываем "Согласовать"
+                        // Для manager и всех остальных ролей - "Отправить на согласование"
+                        if (roleLower === 'underwriter' || roleLower === 'compliance') {
+                          return 'Согласовать';
+                        }
+                        
+                        // Для manager и всех остальных ролей
+                        return 'Отправить на согласование';
+                      })()}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
     <div data-layer="Application data section" className="ApplicationDataSection" style={{alignSelf: 'stretch', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>
       <div data-layer="Сounterparty History" data-state="pressed" className="OunterpartyHistory" style={{alignSelf: 'stretch', background: 'white', overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', display: 'flex'}}>

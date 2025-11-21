@@ -23,8 +23,7 @@ const formatHistoryDate = (value) => {
   if (Number.isNaN(parsed.getTime())) {
     return value;
   }
-  // Добавляем 5 часов к дате
-  parsed.setHours(parsed.getHours() + 5);
+  // Автоматически конвертируем UTC в локальное время браузера
   return parsed.toLocaleString('ru-RU', {
     day: '2-digit',
     month: '2-digit',
