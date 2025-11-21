@@ -42,6 +42,9 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
     console.log('useEffect selectedFolder изменился:', selectedFolder);
     if (selectedFolder) {
       console.log('Загружаем заявления для папки:', selectedFolder.code);
+      // Очищаем старые данные перед загрузкой новых
+      setApplications([]);
+      setFilteredApplications([]);
       // Принудительно обновляем данные при переключении папок
       loadApplications(true);
     } else {
@@ -185,15 +188,23 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
       return 'Заявление';
     }
     
+    // Маппинг для папки "Задачи"
+    if (folder.code === 'Task' || folder.code === 'Tasks') {
+      return 'Задачи';
+    }
+    
     // Для остальных папок используем название от API
     return folder.name;
   };
 
   const handleFolderSelect = (folder) => {
+    // Очищаем старые данные перед переключением
+    setApplications([]);
+    setFilteredApplications([]);
     setSelectedFolder(folder);
     setIsDropdownOpen(false);
     // Загружаем данные для выбранной папки с принудительным обновлением
-    loadApplications(true);
+    // Не вызываем loadApplications здесь, так как useEffect для selectedFolder сделает это автоматически
   };
 
   // Обработчик кнопки обновления - принудительно обновляет данные из API
@@ -233,14 +244,19 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
       console.log('Заголовок Authorization для заявлений (первые 30 символов):', authHeader.substring(0, 30) + '...');
       console.log('Принудительное обновление:', forceRefresh ? 'Да' : 'Нет');
       
-      const response = await fetch('https://crm-arm.onrender.com/api/Statement/List', {
+      // Всегда используем no-cache и добавляем timestamp для предотвращения кэширования
+      const timestamp = Date.now();
+      const response = await fetch(`https://crm-arm.onrender.com/api/Statement/List?_t=${timestamp}`, {
         method: 'POST',
         mode: 'cors',
-        cache: forceRefresh ? 'no-cache' : 'default',
+        cache: 'no-cache',
         headers: {
           'accept': '*/*',
           'Authorization': authHeader,
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         },
         body: JSON.stringify({
           pageNumber: 1,
@@ -425,9 +441,8 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
         console.log('Преобразованные заявления:', transformedApps);
         setApplications(transformedApps);
         
-        // Сохраняем в localStorage для кэширования (с таймстампом для инвалидации)
-        localStorage.setItem('api_statements', JSON.stringify(data));
-        localStorage.setItem('api_statements_timestamp', Date.now().toString());
+        // НЕ сохраняем в localStorage, чтобы избежать показа старых данных при переключении папок
+        // Каждый раз загружаем свежие данные из API
       } else {
         console.warn('Данные от API в неожиданном формате:', data);
         // Если нет данных из API, используем данные из localStorage
@@ -1094,26 +1109,26 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
                     </svg>
                   </div>
                 </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Номер заявления</div>
+                <div data-layer="Text container" className="TextContainer" style={{width: 150, minWidth: 150, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                  <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>Номер заявления</div>
                 </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>ИИН Страхователя</div>
+                <div data-layer="Text container" className="TextContainer" style={{width: 180, minWidth: 180, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                  <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>ИИН Страхователя</div>
                 </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Дата создания</div>
+                <div data-layer="Text container" className="TextContainer" style={{width: 150, minWidth: 150, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                  <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>Дата создания</div>
                 </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Продукт</div>
+                <div data-layer="Text container" className="TextContainer" style={{width: 120, minWidth: 120, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                  <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>Продукт</div>
                 </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Страховая сумма</div>
+                <div data-layer="Text container" className="TextContainer" style={{width: 150, minWidth: 150, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                  <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>Страховая сумма</div>
                 </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Тип процесса</div>
+                <div data-layer="Text container" className="TextContainer" style={{width: 140, minWidth: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                  <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>Тип процесса</div>
                 </div>
-                <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                  <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>Статус</div>
+                <div data-layer="Text container" className="TextContainer" style={{width: 200, minWidth: 200, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                  <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>Статус</div>
                 </div>
               </div>
               <div 
@@ -1187,26 +1202,26 @@ const Statements = ({ onCreateApplication, onLogout, onOpenApplication }) => {
                         </svg>
                       </div>
                     </div>
-                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.number || formatApplicationId(app.applicationId)}</div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 150, minWidth: 150, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{app.number || formatApplicationId(app.applicationId)}</div>
                     </div>
-                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.policyholderIin || DASH}</div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 180, minWidth: 180, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{app.policyholderIin || DASH}</div>
                     </div>
-                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{formatDate(app.createdAt)}</div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 150, minWidth: 150, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{formatDate(app.createdAt)}</div>
                     </div>
-                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.product || DASH}</div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 120, minWidth: 120, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{app.product || DASH}</div>
                     </div>
-                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.insuranceAmount || DASH}</div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 150, minWidth: 150, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{app.insuranceAmount || DASH}</div>
                     </div>
-                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.operationTypeName || DASH}</div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 140, minWidth: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{app.operationTypeName || DASH}</div>
                     </div>
-                    <div data-layer="Text container" className="TextContainer" style={{width: 140, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
-                      <div data-layer="Label" className="Label" style={{width: 600, justifyContent: 'center', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word'}}>{app.status || 'Черновик'}</div>
+                    <div data-layer="Text container" className="TextContainer" style={{width: 200, minWidth: 200, height: 19, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: 10, display: 'inline-flex'}}>
+                      <div data-layer="Label" className="Label" style={{width: '100%', justifyContent: 'flex-start', display: 'flex', flexDirection: 'column', color: 'black', fontSize: 16, fontFamily: 'Inter', fontWeight: '500', wordWrap: 'break-word', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{app.status || 'Черновик'}</div>
                     </div>
                   </div>
                 </div>
