@@ -67,6 +67,7 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isCreatingApplication, setIsCreatingApplication] = useState(false);
   const [processState, setProcessState] = useState(null);
+  const [folderType, setFolderType] = useState('Statement'); // Тип папки: Statement или Task
 
   const extractProcessStateFromMetadata = (metadata) => {
     if (!metadata) return null;
@@ -161,7 +162,7 @@ function App() {
 
         // can-claim-task вызываем ТОЛЬКО для папки "Задачи" (Task), не для "Заявления" (Statement)
         let canClaimInfo = null;
-        if (folderType === 'Task') {
+        if (folderType === 'Task' || folderType === 'Tasks') {
           try {
             canClaimInfo = await getTaskClaimAvailability(taskId, token);
           } catch (error) {
@@ -171,6 +172,9 @@ function App() {
           // Для заявлений (Statement) не вызываем can-claim-task, считаем что canClaim = false (задача уже наша)
           canClaimInfo = { canClaim: false };
         }
+        
+        // Устанавливаем folderType в state при обновлении
+        setFolderType(folderType);
 
         metadataUpdate = {
           ...metadataUpdate,
@@ -421,14 +425,14 @@ function App() {
             if (statusData?.taskId) {
               resolvedTaskId = statusData.taskId;
             }
-            if (folderType === 'Task' && resolvedTaskId) {
+            if ((folderType === 'Task' || folderType === 'Tasks') && resolvedTaskId) {
               canClaimInfo = await getTaskClaimAvailability(resolvedTaskId, token);
             }
           }
         } catch (error) {
           console.error('Не удалось получить статус заявки при открытии:', error);
         }
-      } else if (folderType === 'Task' && resolvedTaskId) {
+      } else if ((folderType === 'Task' || folderType === 'Tasks') && resolvedTaskId) {
         try {
           const token = getAccessToken();
           if (token) {
@@ -482,6 +486,9 @@ function App() {
           processId: processInstanceId
         });
       }
+      
+      // Сохраняем folderType в state для передачи в компонент
+      setFolderType(folderType);
     } else {
       // Если данных нет, загружаем из localStorage
       const metadata = loadApplicationMetadata(applicationId);
@@ -491,6 +498,12 @@ function App() {
         if (metadata.processId) {
           processInstanceId = metadata.processId;
         }
+        // Загружаем folderType из метаданных
+        const savedFolderType = metadata.folderType || 'Statement';
+        setFolderType(savedFolderType);
+      } else {
+        // Если метаданных нет, используем значение по умолчанию
+        setFolderType('Statement');
       }
     }
     
@@ -553,13 +566,14 @@ function App() {
           onBack={handleBackToMain}
           processState={processState}
           onProcessStateRefresh={refreshProcessState}
+          folderType={folderType}
         />
       );
     } else if (selectedProduct === 'ГОНС' || selectedProduct === 'Пенсионный Аннуитет') {
-      return <SenimApplication selectedProduct={selectedProduct} applicationId={currentApplicationId} onBack={handleBackToMain} />;
+      return <SenimApplication selectedProduct={selectedProduct} applicationId={currentApplicationId} onBack={handleBackToMain} folderType={folderType} />;
     }
     // Fallback to GonsApplication if product is not recognized
-    return <GonsApplication selectedProduct={selectedProduct} applicationId={currentApplicationId} onBack={handleBackToMain} />;
+    return <GonsApplication selectedProduct={selectedProduct} applicationId={currentApplicationId} onBack={handleBackToMain} folderType={folderType} />;
   };
 
   const containerStyle = {
